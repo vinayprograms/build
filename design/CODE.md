@@ -10,6 +10,8 @@ github.com/vinay/build/
 │   └── lexer/          # Lexical analysis
 │       ├── indent.go       # Indentation tracking
 │       ├── indent_test.go
+│       ├── interp.go       # Interpolation boundary detection
+│       ├── interp_test.go
 │       ├── token.go        # Token types and source location
 │       └── token_test.go
 └── go.mod
@@ -141,3 +143,77 @@ Format: `indentation error at line X, column Y: message`
 4. **No lookahead required**: Each line's indentation can be validated independently once the unit is established. The tracker doesn't need to see future lines.
 
 5. **Reset capability**: The `Reset()` method allows reuse for different files or testing scenarios without allocating a new tracker.
+
+### Interpolation Boundary Detection (`interp.go`)
+
+Implements interpolation recognition rules as specified in `DESIGN.md` Section 2.3.2.
+
+#### Boundary Rules
+
+Per spec, `{` is recognized as interpolation start if and only if:
+1. Preceded by whitespace (space or tab), start-of-line, `:`, or `=`
+2. Followed by a valid identifier start character (letter or underscore)
+
+| Input | Result | Reason |
+|-------|--------|--------|
+| `{var}` | Valid interpolation | SOL + valid identifier |
+| `x {var}` | Valid interpolation | Space boundary |
+| `${var}` | Not interpolation | `$` is not a boundary |
+| `x{var}` | Not interpolation | No boundary before `{` |
+| `{"key"}` | Not interpolation | `"` is not identifier start |
+| `{{var}}` | Escaped brace | `{{` is escape sequence |
+| `{var:raw}` | Valid with modifier | `:raw` modifier parsed |
+
+#### InterpResultKind
+
+Result type for interpolation scanning:
+
+| Value | Description |
+|-------|-------------|
+| `InterpValid` | Valid interpolation found |
+| `InterpEscapedOpen` | Escaped `{{` found |
+| `InterpNotInterp` | Not an interpolation (boundary/identifier rules failed) |
+| `InterpError` | Malformed interpolation (unclosed, invalid modifier) |
+
+#### InterpResult
+
+Complete result from scanning:
+
+```go
+type InterpResult struct {
+    Kind  InterpResultKind
+    Name  string // Identifier name (for valid/error cases)
+    Raw   bool   // Whether :raw modifier present
+    Error string // Error message (for InterpError)
+}
+```
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `IsValidIdentifierStart(c byte) bool` | True for letters and underscore |
+| `IsValidIdentifierChar(c byte) bool` | True for letters, digits, underscore, and dot |
+| `IsInterpBoundary(prev byte, atSOL bool) bool` | True if valid interpolation boundary |
+| `ScanInterpolation(input, pos, prev, atSOL) (InterpResult, end)` | Scans interpolation at position |
+| `ScanEscapedCloseBrace(input, pos) (bool, end)` | Checks for `}}` escape |
+
+#### Identifier Characters
+
+Identifiers can contain:
+- Letters (`a-z`, `A-Z`)
+- Digits (`0-9`, except as first character)
+- Underscore (`_`)
+- Dot (`.`) — for automatic variables like `target.dir`, `target.file`
+
+#### Design Decisions
+
+1. **Dot in identifiers**: Dots are allowed in identifiers to support automatic variables like `{target.dir}` and `{target.file}`. This is a slight deviation from typical identifier rules but matches the spec.
+
+2. **Error preservation**: For malformed interpolations (`InterpError`), the parsed identifier name is preserved in the result. This enables better error messages like "unclosed interpolation for 'var'".
+
+3. **Position-based scanning**: `ScanInterpolation` takes a position and previous character rather than operating on a stream. This allows the lexer to decide when to call it and handle the context.
+
+4. **Escape sequence priority**: `{{` is checked before boundary rules. This ensures escape sequences are recognized even at valid interpolation positions.
+
+5. **Strict modifier validation**: Only `:raw` is accepted. Any other modifier (`:foo`) is an error, providing early feedback for typos.

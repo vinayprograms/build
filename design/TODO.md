@@ -28,12 +28,12 @@ The lexer must handle context-free tokenization with careful boundary detection 
   - [x] Detect and report mixed indentation errors
   - [x] Handle empty lines and comment-only lines correctly
 
-- [ ] **Implement interpolation boundary detection**
-  - [ ] Recognize `{` as INTERP_START only when preceded by whitespace/SOL/`:=/=`
-  - [ ] Verify following character is valid identifier start
-  - [ ] Handle `{{` and `}}` escape sequences
-  - [ ] Parse `:raw` modifier inside interpolations
-  - [ ] Ensure `${var}` and `x{var}` are NOT recognized as interpolations
+- [x] **Implement interpolation boundary detection**
+  - [x] Recognize `{` as INTERP_START only when preceded by whitespace/SOL/`:=/=`
+  - [x] Verify following character is valid identifier start
+  - [x] Handle `{{` and `}}` escape sequences
+  - [x] Parse `:raw` modifier inside interpolations
+  - [x] Ensure `${var}` and `x{var}` are NOT recognized as interpolations
 
 - [ ] **Implement directive keyword recognition**
   - [ ] Recognize all `.keyword` forms (.shell, .parallel, .default, .include, etc.)
