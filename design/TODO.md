@@ -35,44 +35,44 @@ The lexer must handle context-free tokenization with careful boundary detection 
   - [x] Parse `:raw` modifier inside interpolations
   - [x] Ensure `${var}` and `x{var}` are NOT recognized as interpolations
 
-- [ ] **Implement directive keyword recognition**
-  - [ ] Recognize all `.keyword` forms (.shell, .parallel, .default, .include, etc.)
-  - [ ] Distinguish global vs recipe-level directives by indentation
-  - [ ] Handle `.environment:` with optional name
+- [x] **Implement directive keyword recognition**
+  - [x] Recognize all `.keyword` forms (.shell, .parallel, .default, .include, etc.)
+  - [x] Distinguish global vs recipe-level directives by indentation
+  - [x] Handle `.environment:` with optional name
 
-- [ ] **Implement line classification**
-  - [ ] Classify by first non-whitespace token (directive, keyword, target, variable, etc.)
-  - [ ] Handle comment lines starting with `#`
-  - [ ] Handle inline comments after statements
-  - [ ] Handle blank lines
+- [x] **Implement line classification**
+  - [x] Classify by first non-whitespace token (directive, keyword, target, variable, etc.)
+  - [x] Handle comment lines starting with `#`
+  - [x] Handle inline comments after statements
+  - [x] Handle blank lines
 
-- [ ] **Implement lexer state machine**
-  - [ ] Define states: LINE_START, NORMAL, INTERPOLATION, STRING_VALUE
-  - [ ] Implement state transitions per spec
-  - [ ] Handle end-of-file gracefully
+- [x] **Implement lexer state machine**
+  - [x] Define states: LINE_START, NORMAL, INTERPOLATION, STRING_VALUE
+  - [x] Implement state transitions per spec
+  - [x] Handle end-of-file gracefully
 
-- [ ] **Write lexer unit tests**
-  - [ ] Test all token types individually
-  - [ ] Test interpolation boundary cases extensively
-  - [ ] Test indentation edge cases (mixed, inconsistent, tabs)
-  - [ ] Test escape sequences
-  - [ ] Test error cases and recovery
+- [x] **Write lexer unit tests**
+  - [x] Test all token types individually
+  - [x] Test interpolation boundary cases extensively
+  - [x] Test indentation edge cases (mixed, inconsistent, tabs)
+  - [x] Test escape sequences
+  - [x] Test error cases and recovery
 
 ### 1.2 Parser Implementation
 
 The parser builds the AST with scope-aware directive validation.
 
-- [ ] **Define AST node types**
-  - [ ] Buildfile (root)
-  - [ ] Statement enum (Directive, Environment, Variable, Conditional, Target, Comment, Blank)
-  - [ ] Directive and DirectiveKind
-  - [ ] Environment with Runtime enum
-  - [ ] Variable with lazy flag
-  - [ ] Conditional with branches
-  - [ ] Target with TargetPattern and Dependency
-  - [ ] Recipe with RecipeDirectives and Command
-  - [ ] Value and ValuePart for interpolated strings
-  - [ ] SourceLocation for all nodes
+- [x] **Define AST node types**
+  - [x] Buildfile (root)
+  - [x] Statement enum (Directive, Environment, Variable, Conditional, Target, Comment, Blank)
+  - [x] Directive and DirectiveKind
+  - [x] Environment with Runtime enum
+  - [x] Variable with lazy flag
+  - [x] Conditional with branches
+  - [x] Target with TargetPattern and Dependency
+  - [x] Recipe with RecipeDirectives and Command
+  - [x] Value and ValuePart for interpolated strings
+  - [x] SourceLocation for all nodes
 
 - [ ] **Implement parser scope stack**
   - [ ] Define Scope enum (GLOBAL, ENVIRONMENT, RECIPE, BLOCK)

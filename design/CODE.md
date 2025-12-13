@@ -5,16 +5,21 @@ This document tracks the implementation architecture and design decisions as cod
 ## Package Structure
 
 ```
-github.com/vinay/build/
+github.com/vinayprograms/build/
 ├── cmd/
 │   └── build/          # CLI entry point
 │       └── main.go
 ├── internal/
+│   ├── ast/            # Abstract Syntax Tree
+│   │   ├── ast.go          # AST node type definitions
+│   │   └── ast_test.go
 │   └── lexer/          # Lexical analysis
 │       ├── indent.go       # Indentation tracking
 │       ├── indent_test.go
 │       ├── interp.go       # Interpolation boundary detection
 │       ├── interp_test.go
+│       ├── lexer.go        # Main lexer implementation
+│       ├── lexer_test.go
 │       ├── token.go        # Token types and source location
 │       └── token_test.go
 ├── Buildfile           # Build configuration for this project
@@ -287,3 +292,315 @@ Identifiers can contain:
 4. **Escape sequence priority**: `{{` is checked before boundary rules. This ensures escape sequences are recognized even at valid interpolation positions.
 
 5. **Strict modifier validation**: Only `:raw` is accepted. Any other modifier (`:foo`) is an error, providing early feedback for typos.
+
+### Lexer (`lexer.go`)
+
+The main lexer implementation that tokenizes Buildfile source code.
+
+#### Lexer Modes
+
+| Mode | Description |
+|------|-------------|
+| `ModeLineStart` | At beginning of line, consuming indentation |
+| `ModeNormal` | Normal token recognition (targets, identifiers, paths) |
+| `ModeValue` | After `=` or `:`, consuming value content as strings |
+| `ModeInterp` | Inside `{}` interpolation, lexing identifier and modifier |
+
+#### Lexer Structure
+
+```go
+type Lexer struct {
+    file      string         // Source file name
+    input     string         // Input source
+    pos       int            // Current position
+    line      int            // Current line (1-based)
+    col       int            // Current column (1-based)
+    mode      LexerMode      // Current lexing mode
+    indent    *IndentTracker // Indentation tracker
+    prevChar  byte           // Previous character (for boundaries)
+    atSOL     bool           // At start of line
+    modeStack []LexerMode    // Stack for nested modes
+}
+```
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `New(file, input string) *Lexer` | Creates a new lexer |
+| `NextToken() Token` | Returns the next token |
+
+#### Token Recognition
+
+**ModeNormal:**
+- Dot keywords (`.shell:`, `.default:`, etc.)
+- `@identifier` for phony targets
+- Identifiers and keywords (`if`, `else`, `lazy`, etc.)
+- Paths (tokens containing `/` or `.`)
+- Operators (`=`, `:`, `==`, `!=`, `(`, `)`)
+- Interpolation start `{` (with boundary check)
+- Escape sequences `{{` and `}}`
+
+**ModeValue (after `=` or `:`):**
+- String content until newline, comment, or special char
+- Interpolations with boundary detection
+- Function names followed by `(`
+
+**ModeInterp (inside `{}`):**
+- Identifier (with `.` for `target.dir`)
+- Modifier (`:raw`)
+- Close brace `}`
+
+#### Line Classification
+
+Lines are classified by first non-whitespace token:
+
+| First Token | Line Type |
+|-------------|-----------|
+| `.keyword` | Directive |
+| `@identifier` | Phony target |
+| `path:` | File target |
+| `identifier =` | Variable |
+| `if`, `elif`, `else`, `end` | Conditional |
+| `#` | Comment |
+| Empty | Blank |
+
+#### Design Decisions
+
+1. **Mode-based lexing**: Different modes handle different contexts (line start, normal, value, interpolation). This simplifies token recognition without complex lookahead.
+
+2. **Mode stack for interpolations**: When entering `{}`, the previous mode is pushed to a stack. After `}`, we pop back to the previous mode. This handles nested contexts correctly.
+
+3. **Value mode simplicity**: After `=` or `:`, most content becomes STRING. The parser handles semantic meaning. This keeps the lexer simple.
+
+4. **Path detection via lookahead**: `looksLikePath()` checks if an identifier-like token contains `/` or `.` ahead. This distinguishes `build/app` (PATH) from `gcc` (IDENTIFIER).
+
+5. **Escape handling in normal mode**: `}}` in normal mode returns ESCAPE_RBRACE. Single `}` in normal mode is treated as string content (unexpected, but recoverable).
+
+## AST Package (`internal/ast`)
+
+Defines the Abstract Syntax Tree node types for Buildfile parsing. The AST captures syntactic structure without interpretation—no evaluation happens during parsing.
+
+### Root Node
+
+```go
+type Buildfile struct {
+    SourcePath string      // Path to the source file
+    Statements []Statement // Top-level statements
+}
+```
+
+### Statement Interface
+
+All top-level AST nodes implement the `Statement` interface:
+
+| Type | Description |
+|------|-------------|
+| `Directive` | Global directives (`.shell:`, `.parallel:`, `.default:`, `.include:`) |
+| `Environment` | Environment block (`.environment:`) |
+| `Variable` | Variable definition (immediate or lazy) |
+| `Conditional` | If/elif/else/end block |
+| `Target` | Target definition with dependencies and recipe |
+| `Comment` | Comment line |
+| `Blank` | Blank line |
+
+### Directive Types
+
+```go
+type DirectiveKind int
+
+const (
+    DirectiveShell    DirectiveKind = iota  // .shell:
+    DirectiveParallel                        // .parallel:
+    DirectiveDefault                         // .default:
+    DirectiveInclude                         // .include:
+)
+```
+
+### Environment Types
+
+#### Runtime
+
+```go
+type Runtime int
+
+const (
+    RuntimeBare         Runtime = iota  // Host system directly
+    RuntimeDocker                        // Docker container
+    RuntimePodman                        // Podman container
+    RuntimeDevcontainer                  // VS Code devcontainer
+    RuntimeNix                           // Nix shell
+    RuntimeLima                          // Lima VM (macOS)
+)
+```
+
+#### VersionSpec Interface
+
+Represents version specifications for requirements:
+
+| Type | Example | Description |
+|------|---------|-------------|
+| `VersionLatest` | `gcc` or `gcc@latest` | Any version |
+| `VersionMajor` | `gcc@11` | Major version 11.x.x |
+| `VersionMajorMinor` | `gcc@11.4` | Version 11.4.x |
+| `VersionExact` | `gcc@11.4.0` | Exact version |
+
+#### Environment Structure
+
+```go
+type Environment struct {
+    Name     *string       // nil for default environment
+    Runtime  *Runtime      // .using
+    Source   *Value        // .source
+    Args     *Value        // .args
+    Requires []Requirement // .requires
+    Location SourceLocation
+}
+```
+
+### Variable Types
+
+```go
+type Variable struct {
+    Name     string
+    Value    *Value
+    Lazy     bool // true for lazy assignment
+    Location SourceLocation
+}
+```
+
+### Conditional Types
+
+#### Condition Interface
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `EqualsCondition` | `==` comparison | `if {os} == linux` |
+| `NotEqualsCondition` | `!=` comparison | `if {os} != windows` |
+| `DefinedCondition` | ifdef check | `ifdef DEBUG` |
+| `NotDefinedCondition` | ifndef check | `ifndef CC` |
+
+#### Conditional Structure
+
+```go
+type Conditional struct {
+    IfBranch     ConditionalBranch
+    ElifBranches []ConditionalBranch
+    ElseBody     []Statement // nil if no else clause
+    Location     SourceLocation
+}
+
+type ConditionalBranch struct {
+    Condition Condition
+    Body      []Statement
+}
+```
+
+### Target Types
+
+#### PatternSegment Interface
+
+Represents segments in a target pattern:
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `LiteralSegment` | Literal string | `build/`, `.o` |
+| `BraceExpr` | Unresolved `{name}` | `{name}` (capture or interpolation TBD) |
+
+**Note:** `BraceExpr` is unresolved during parsing. Semantic analysis determines whether it's a capture or variable interpolation based on the symbol table.
+
+#### Target Structure
+
+```go
+type TargetPattern struct {
+    Segments    []PatternSegment
+    IsPhony     bool // true for @name targets
+    IsDirectory bool // true for targets ending with /
+}
+
+type Dependency struct {
+    Segments []PatternSegment
+}
+
+type Target struct {
+    Pattern      TargetPattern
+    Dependencies []Dependency
+    Recipe       *Recipe
+    Location     SourceLocation
+}
+```
+
+### Recipe Types
+
+#### RecipeDirectives
+
+```go
+type RecipeDirectives struct {
+    Shell    *Value        // .shell override
+    After    []*Value      // .after order-only dependencies
+    Autodeps *Value        // .autodeps file path
+    Requires []Requirement // .requires binaries
+}
+```
+
+#### Command Interface
+
+| Type | Description |
+|------|-------------|
+| `LineCommand` | Single command line |
+| `BlockCommand` | Block with multiple lines (`block:`) |
+
+#### CommandPart Interface
+
+| Type | Description |
+|------|-------------|
+| `LiteralCommand` | Literal text in command |
+| `CommandInterpolation` | Variable interpolation (`{var}` or `{var:raw}`) |
+
+### Value Types
+
+#### ValuePart Interface
+
+| Type | Description |
+|------|-------------|
+| `LiteralValue` | Literal text |
+| `Interpolation` | Variable interpolation (`{var}` or `{var:raw}`) |
+| `FunctionCall` | Function call (`shell()`, `glob()`, etc.) |
+
+#### FunctionName
+
+```go
+type FunctionName int
+
+const (
+    FuncShell    FunctionName = iota  // shell()
+    FuncGlob                           // glob()
+    FuncBasename                       // basename()
+    FuncDirname                        // dirname()
+    FuncReplace                        // replace()
+)
+```
+
+### SourceLocation
+
+```go
+type SourceLocation struct {
+    File   string // Source file path
+    Line   int    // 1-based line number
+    Column int    // 1-based column number
+}
+```
+
+Can be created from a lexer token using `SourceLocationFromToken(tok)`.
+
+### Design Decisions
+
+1. **BraceExpr remains unresolved during parsing**: In target patterns, `{name}` could be either a capture or a variable interpolation. The parser produces `BraceExpr` nodes; semantic analysis resolves them based on the symbol table.
+
+2. **Separate Statement and Node interfaces**: All top-level constructs implement `Statement`. This allows type-safe iteration over `Buildfile.Statements` with type switches.
+
+3. **Marker method pattern**: Interfaces use unexported marker methods (`statementNode()`, `valuePartNode()`, etc.) to enforce interface implementation at compile time while preventing external implementation.
+
+4. **Nil for optional fields**: Optional fields like `Environment.Name` (nil = default environment), `Recipe.Directives.Shell` (nil = use global default), etc. use nil to indicate absence.
+
+5. **Location on all nodes**: Every AST node carries a `SourceLocation` for error reporting. This enables precise error messages with file:line:column format.
