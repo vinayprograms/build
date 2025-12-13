@@ -74,11 +74,11 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Value and ValuePart for interpolated strings
   - [x] SourceLocation for all nodes
 
-- [ ] **Implement parser scope stack**
-  - [ ] Define Scope enum (GLOBAL, ENVIRONMENT, RECIPE, BLOCK)
-  - [ ] Push/pop scope on block entry/exit
-  - [ ] Validate directive placement based on current scope
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement parser scope stack**
+  - [x] Define Scope enum (GLOBAL, ENVIRONMENT, RECIPE, BLOCK)
+  - [x] Push/pop scope on block entry/exit
+  - [x] Validate directive placement based on current scope
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement variable parsing**
   - [ ] Detect `=` before `:` to distinguish from targets

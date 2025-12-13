@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/build/internal/parser"
 )
 
 // Version information (set at build time via -ldflags).
@@ -39,6 +40,7 @@ type flags struct {
 	showVersion bool
 	showHelp    bool
 	debugLex    bool // Debug: dump lexer tokens
+	debugParse  bool // Debug: dump parser scope validation
 }
 
 func main() {
@@ -76,6 +78,11 @@ func run(args []string) int {
 	// Debug mode: dump lexer tokens
 	if f.debugLex {
 		return debugLexer(buildfile)
+	}
+
+	// Debug mode: dump parser scope validation
+	if f.debugParse {
+		return debugParser(buildfile)
 	}
 
 	// For now, just print what we would do
@@ -116,6 +123,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.showHelp, "help", false, "Show help")
 	fs.BoolVar(&f.showHelp, "h", false, "Show help (shorthand)")
 	fs.BoolVar(&f.debugLex, "debug-lex", false, "Debug: dump lexer tokens")
+	fs.BoolVar(&f.debugParse, "debug-parse", false, "Debug: dump parser scope validation")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -145,6 +153,7 @@ Options:
 
 Debug Options:
   --debug-lex          Dump lexer tokens (for development)
+  --debug-parse        Dump parser scope validation (for development)
 
 Examples:
   build                Build default target
@@ -204,5 +213,81 @@ func debugLexer(path string) int {
 	if hasError {
 		return exitParseError
 	}
+	return exitSuccess
+}
+
+func debugParser(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Parser Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Create lexer and parser
+	l := lexer.New(path, string(content))
+	p := parser.New(l)
+
+	fmt.Println("Scope validation test:")
+	fmt.Printf("  Initial scope: %s\n", p.CurrentScope())
+	fmt.Println()
+
+	// Demonstrate scope transitions
+	fmt.Println("Scope transitions:")
+	fmt.Printf("  Global → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+
+	p.EnterScope(parser.ScopeEnvironment)
+	fmt.Printf("  After entering environment → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+	p.ExitScope()
+	fmt.Printf("  After exiting environment → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+
+	p.EnterScope(parser.ScopeRecipe)
+	fmt.Printf("  After entering recipe → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+
+	p.EnterScope(parser.ScopeBlock)
+	fmt.Printf("  After entering block → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+	p.ExitScope()
+	fmt.Printf("  After exiting block → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+	p.ExitScope()
+	fmt.Printf("  After exiting recipe → %s (indent level: %d)\n", p.CurrentScope(), p.CurrentIndentLevel())
+	fmt.Println()
+
+	// Demonstrate directive validation
+	fmt.Println("Directive scope validation:")
+	testDirectives := []struct {
+		tok   lexer.TokenType
+		scope parser.Scope
+	}{
+		{lexer.DOT_SHELL, parser.ScopeGlobal},
+		{lexer.DOT_SHELL, parser.ScopeRecipe},
+		{lexer.DOT_SHELL, parser.ScopeEnvironment},
+		{lexer.DOT_USING, parser.ScopeGlobal},
+		{lexer.DOT_USING, parser.ScopeEnvironment},
+		{lexer.DOT_AFTER, parser.ScopeGlobal},
+		{lexer.DOT_AFTER, parser.ScopeRecipe},
+		{lexer.DOT_REQUIRES, parser.ScopeGlobal},
+		{lexer.DOT_REQUIRES, parser.ScopeEnvironment},
+		{lexer.DOT_REQUIRES, parser.ScopeRecipe},
+	}
+
+	for _, td := range testDirectives {
+		valid := parser.IsDirectiveValidAtScope(td.tok, td.scope)
+		name := parser.DirectiveNameForError(td.tok)
+		status := "✓"
+		if !valid {
+			status = "✗"
+		}
+		fmt.Printf("  %s %s at %s\n", status, name, td.scope)
+	}
+
 	return exitSuccess
 }

@@ -8,20 +8,30 @@ This document tracks the implementation architecture and design decisions as cod
 github.com/vinayprograms/build/
 ├── cmd/
 │   └── build/          # CLI entry point
-│       └── main.go
+│       ├── main.go
+│       └── main_test.go
 ├── internal/
 │   ├── ast/            # Abstract Syntax Tree
 │   │   ├── ast.go          # AST node type definitions
 │   │   └── ast_test.go
-│   └── lexer/          # Lexical analysis
-│       ├── indent.go       # Indentation tracking
-│       ├── indent_test.go
-│       ├── interp.go       # Interpolation boundary detection
-│       ├── interp_test.go
-│       ├── lexer.go        # Main lexer implementation
-│       ├── lexer_test.go
-│       ├── token.go        # Token types and source location
-│       └── token_test.go
+│   ├── lexer/          # Lexical analysis
+│   │   ├── indent.go       # Indentation tracking
+│   │   ├── indent_test.go
+│   │   ├── interp.go       # Interpolation boundary detection
+│   │   ├── interp_test.go
+│   │   ├── lexer.go        # Main lexer implementation
+│   │   ├── lexer_test.go
+│   │   ├── token.go        # Token types and source location
+│   │   └── token_test.go
+│   └── parser/         # Syntactic analysis
+│       ├── directive.go    # Directive scope validation
+│       ├── directive_test.go
+│       ├── errors.go       # Parse error types
+│       ├── errors_test.go
+│       ├── parser.go       # Parser with scope stack
+│       ├── parser_test.go
+│       ├── scope.go        # Scope types and stack
+│       └── scope_test.go
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -67,6 +77,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | Flag | Description |
 |------|-------------|
 | `--debug-lex` | Dump lexer analysis (indentation, interpolations) |
+| `--debug-parse` | Dump parser scope validation |
 
 ### Version Information
 
@@ -604,3 +615,130 @@ Can be created from a lexer token using `SourceLocationFromToken(tok)`.
 4. **Nil for optional fields**: Optional fields like `Environment.Name` (nil = default environment), `Recipe.Directives.Shell` (nil = use global default), etc. use nil to indicate absence.
 
 5. **Location on all nodes**: Every AST node carries a `SourceLocation` for error reporting. This enables precise error messages with file:line:column format.
+
+## Parser Package (`internal/parser`)
+
+The parser transforms a token stream from the lexer into an AST. It maintains scope context to validate directive placement.
+
+### Scope Types (`scope.go`)
+
+Defines the parsing scope for directive validation:
+
+```go
+type Scope int
+
+const (
+    ScopeGlobal      Scope = iota  // Top-level scope
+    ScopeEnvironment               // Inside .environment: block
+    ScopeRecipe                    // Inside a target's recipe
+    ScopeBlock                     // Inside block: within a recipe
+)
+```
+
+### ScopeStack
+
+Tracks nested scopes during parsing:
+
+| Method | Description |
+|--------|-------------|
+| `NewScopeStack()` | Creates stack initialized at global scope |
+| `Current() Scope` | Returns the topmost scope |
+| `Depth() int` | Returns nesting depth |
+| `Push(Scope)` | Enters a new scope |
+| `Pop() Scope` | Exits current scope (can't pop below global) |
+| `IsIn(Scope) bool` | True if scope is anywhere in stack |
+| `Reset()` | Returns to global scope |
+
+### Directive Validation (`directive.go`)
+
+Validates directive placement based on current scope per DESIGN.md Section 3.3.3:
+
+| Directive | Valid Scopes |
+|-----------|--------------|
+| `.shell:` | GLOBAL, RECIPE |
+| `.parallel:` | GLOBAL |
+| `.default:` | GLOBAL |
+| `.include:` | GLOBAL |
+| `.environment:` | GLOBAL |
+| `.using:` | ENVIRONMENT |
+| `.source:` | ENVIRONMENT |
+| `.args:` | ENVIRONMENT |
+| `.requires:` | ENVIRONMENT, RECIPE |
+| `.after:` | RECIPE |
+| `.autodeps:` | RECIPE |
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `IsDirectiveValidAtScope(tok, scope) bool` | Returns true if directive is valid at scope |
+| `ValidScopesForDirective(tok) []Scope` | Returns list of valid scopes for directive |
+
+### Parse Errors (`errors.go`)
+
+Structured error types for parser errors:
+
+```go
+type ParseError struct {
+    Message  string
+    Location lexer.SourceLocation
+    Hint     string  // Optional fix suggestion
+}
+
+type ParseErrors struct {
+    Errors []*ParseError
+}
+```
+
+Error format: `file:line:column: message (hint: suggestion)`
+
+**Error Creation:**
+
+| Function | Description |
+|----------|-------------|
+| `NewScopeError(directive, scope, loc)` | Creates error for directive at wrong scope |
+| `DirectiveNameForError(tok) string` | Returns `.name` format for error messages |
+
+### Parser Structure (`parser.go`)
+
+```go
+type Parser struct {
+    lexer   *lexer.Lexer
+    current lexer.Token
+    scope   *ScopeStack
+    errors  *ParseErrors
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `New(lexer) *Parser` | Creates parser, primes first token |
+| `CurrentScope() Scope` | Returns current parsing scope |
+| `EnterScope(Scope)` | Pushes new scope |
+| `ExitScope() Scope` | Pops current scope |
+| `CurrentIndentLevel() int` | Expected indent level for scope |
+| `Errors() *ParseErrors` | Returns collected errors |
+| `HasErrors() bool` | True if any errors collected |
+
+### Indentation Levels
+
+Scopes map to expected indentation:
+
+| Scope | Indent Level |
+|-------|--------------|
+| GLOBAL | 0 |
+| ENVIRONMENT | 1 |
+| RECIPE | 1 |
+| BLOCK | 2 |
+
+### Design Decisions
+
+1. **Scope stack for context-sensitive parsing**: The scope stack enables directive validation during parsing without semantic analysis. This catches scope errors early.
+
+2. **Separate directive validation**: Directive scope rules are data-driven (`directiveScopes` map), making it easy to add new directives or modify rules.
+
+3. **Error collection**: Parser collects multiple errors rather than failing on first error, enabling better developer experience.
+
+4. **Exported and unexported methods**: Internal methods are lowercase, with uppercase exported wrappers for CLI/testing access. This maintains encapsulation while enabling debug features.

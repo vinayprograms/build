@@ -302,6 +302,48 @@ func TestRunDebugLexMissingFile(t *testing.T) {
 	}
 }
 
+func TestRunDebugParse(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Sample Buildfile
+.shell: bash
+.parallel: 4
+
+cc = gcc
+cflags = -Wall -O2
+
+build/app: build/main.o
+    .shell: zsh
+    .after: build/
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-parse"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugParseMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-parse"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestParseFlagsDebugParse(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-parse"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugParse {
+		t.Error("debugParse should be true")
+	}
+}
+
 func TestFindBuildfile(t *testing.T) {
 	oldDir, err := os.Getwd()
 	if err != nil {
@@ -407,6 +449,8 @@ func TestPrintUsage(t *testing.T) {
 		"--verbose",
 		"--help",
 		"--version",
+		"--debug-lex",
+		"--debug-parse",
 	}
 
 	for _, s := range essentials {
