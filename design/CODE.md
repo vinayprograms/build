@@ -8,7 +8,9 @@ This document tracks the implementation architecture and design decisions as cod
 github.com/vinay/build/
 ├── internal/
 │   └── lexer/          # Lexical analysis
-│       ├── token.go    # Token types and source location
+│       ├── indent.go       # Indentation tracking
+│       ├── indent_test.go
+│       ├── token.go        # Token types and source location
 │       └── token_test.go
 └── go.mod
 ```
@@ -70,3 +72,72 @@ type Token struct {
 3. **ERROR token for recovery**: The `ERROR` token type supports error recovery by allowing the lexer to continue after encountering invalid input.
 
 4. **1-based line/column**: Matches user expectations and editor conventions for error messages.
+
+### Indentation Tracking (`indent.go`)
+
+Implements indentation state tracking as specified in `DESIGN.md` Section 2.3.3.
+
+#### IndentChar Type
+
+Represents the type of whitespace character used for indentation:
+
+| Value | Description |
+|-------|-------------|
+| `IndentUnknown` | Not yet determined (initial state) |
+| `IndentSpace` | Spaces used for indentation |
+| `IndentTab` | Tabs used for indentation |
+
+#### IndentTracker
+
+Stateful tracker that enforces consistent indentation across a Buildfile:
+
+```go
+type IndentTracker struct {
+    char  IndentChar // Character type used for indentation
+    width int        // Width of one indentation unit
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NewIndentTracker()` | Creates tracker with unknown indent type |
+| `Process(indent string) (level int, err error)` | Analyzes indentation, returns logical level |
+| `Char() IndentChar` | Returns established indent character type |
+| `Width() int` | Returns width of one indent unit |
+| `Reset()` | Clears state for reuse |
+
+**Indentation Rules (from DESIGN.md):**
+
+1. First indented line establishes the indent unit (e.g., 4 spaces or 1 tab)
+2. Subsequent indents must be exact multiples of this unit
+3. Mixed tabs and spaces within a single indent string is an error
+4. Switching between tabs and spaces after establishing the unit is an error
+5. Empty string always returns level 0 without affecting state
+
+#### IndentError
+
+Structured error type for indentation problems:
+
+```go
+type IndentError struct {
+    Message string
+    Line    int
+    Column  int
+}
+```
+
+Format: `indentation error at line X, column Y: message`
+
+#### Design Decisions
+
+1. **Stateful tracking**: The tracker maintains state across lines because the first indented line establishes the unit. This matches the spec requirement that "first indented line establishes the indent unit."
+
+2. **Strict validation**: Mixed indentation (spaces and tabs in the same indent string) is rejected immediately. This catches errors early and provides clear feedback.
+
+3. **Level-based abstraction**: The tracker converts raw character counts to logical levels (0, 1, 2). This simplifies parser logic—it only needs to track levels, not raw widths.
+
+4. **No lookahead required**: Each line's indentation can be validated independently once the unit is established. The tracker doesn't need to see future lines.
+
+5. **Reset capability**: The `Reset()` method allows reuse for different files or testing scenarios without allocating a new tracker.

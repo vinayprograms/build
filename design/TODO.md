@@ -22,11 +22,11 @@ The lexer must handle context-free tokenization with careful boundary detection 
   - [x] Define token structure with source location tracking (file, line, column)
   - [x] Design error token type for error recovery
 
-- [ ] **Implement indentation tracking**
-  - [ ] Track indentation character (space vs tab) from first indented line
-  - [ ] Calculate logical indentation level (0, 1, 2)
-  - [ ] Detect and report mixed indentation errors
-  - [ ] Handle empty lines and comment-only lines correctly
+- [x] **Implement indentation tracking**
+  - [x] Track indentation character (space vs tab) from first indented line
+  - [x] Calculate logical indentation level (0, 1, 2)
+  - [x] Detect and report mixed indentation errors
+  - [x] Handle empty lines and comment-only lines correctly
 
 - [ ] **Implement interpolation boundary detection**
   - [ ] Recognize `{` as INTERP_START only when preceded by whitespace/SOL/`:=/=`
