@@ -53,6 +53,7 @@ func TestTokenTypeString(t *testing.T) {
 		{FUNC_DIRNAME, "FUNC_DIRNAME"},
 		{FUNC_REPLACE, "FUNC_REPLACE"},
 		{ERROR, "ERROR"},
+		{TokenType(9999), "UNKNOWN(9999)"}, // Unknown token type returns fallback
 	}
 
 	for _, tt := range tests {
@@ -168,6 +169,24 @@ func TestTokenString(t *testing.T) {
 				Location: SourceLocation{File: "Buildfile", Line: 7, Column: 3},
 			},
 			want: "ERROR(unexpected character)",
+		},
+		{
+			name: "operator with empty literal",
+			token: Token{
+				Type:     EQUALS,
+				Literal:  "",
+				Location: SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+			},
+			want: "EQUALS",
+		},
+		{
+			name: "indent token",
+			token: Token{
+				Type:     INDENT,
+				Literal:  "    ",
+				Location: SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+			},
+			want: "INDENT",
 		},
 	}
 
