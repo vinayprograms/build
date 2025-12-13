@@ -78,12 +78,13 @@ The parser builds the AST with scope-aware directive validation.
   - [ ] Define Scope enum (GLOBAL, ENVIRONMENT, RECIPE, BLOCK)
   - [ ] Push/pop scope on block entry/exit
   - [ ] Validate directive placement based on current scope
-  - [ ] Update cmd/
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement variable parsing**
   - [ ] Detect `=` before `:` to distinguish from targets
   - [ ] Parse `lazy` keyword prefix
   - [ ] Parse right-hand side as Value with interpolations and function calls
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement target parsing**
   - [ ] Parse target pattern (file path with `{name}` segments)
@@ -91,6 +92,7 @@ The parser builds the AST with scope-aware directive validation.
   - [ ] Parse directory targets (ending with `/`)
   - [ ] Parse dependency list
   - [ ] Handle pattern targets with captures
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement recipe parsing**
   - [ ] Detect recipe start by indentation after target
@@ -98,35 +100,41 @@ The parser builds the AST with scope-aware directive validation.
   - [ ] Parse command lines with interpolations
   - [ ] Parse `block:` with deeper indentation
   - [ ] Handle dedent to end recipe
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement environment block parsing**
   - [ ] Parse `.environment:` with optional name
   - [ ] Enter ENVIRONMENT scope
   - [ ] Parse environment directives (.using, .source, .args, .requires)
   - [ ] Handle dedent to end environment block
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement conditional parsing**
   - [ ] Parse `if`, `elif`, `else`, `end` keywords
   - [ ] Parse conditions (`{var} == value`, `{var} != value`)
   - [ ] Parse `ifdef` and `ifndef` variants
   - [ ] Collect body statements for each branch
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement value parsing**
   - [ ] Parse literal strings
   - [ ] Parse interpolations (`{var}`, `{var:raw}`)
   - [ ] Parse function calls (shell, glob, basename, dirname, replace)
   - [ ] Handle nested parentheses in function arguments
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `.include:` directive**
   - [ ] Parse include path with variable interpolation
   - [ ] Recursively lex/parse included file
   - [ ] Merge included AST into parent
   - [ ] Detect and prevent circular includes
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement error recovery**
   - [ ] On parse error, skip to next line at indentation level 0
   - [ ] Collect multiple errors before failing
   - [ ] Provide actionable error messages with source locations
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write parser unit tests**
   - [ ] Test all statement types
@@ -135,6 +143,7 @@ The parser builds the AST with scope-aware directive validation.
   - [ ] Test conditionals with all branch combinations
   - [ ] Test include directive
   - [ ] Test error recovery and messages
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 1.3 Semantic Analysis
 
@@ -144,12 +153,14 @@ Validates the AST and resolves ambiguous constructs.
   - [ ] Define SymbolTable structure (variables, targets, environments, automatic)
   - [ ] Populate automatic variable set (target, deps, in, out, stem, target.dir, target.file)
   - [ ] Populate built-in variable set (os, arch)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 1: Symbol Collection**
   - [ ] Collect all variable definitions
   - [ ] Collect all target definitions
   - [ ] Collect all environment definitions
   - [ ] Detect duplicate definitions with clear error messages
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 2: Capture Validation**
   - [ ] For each target pattern, identify `{name}` segments
@@ -158,17 +169,20 @@ Validates the AST and resolves ambiguous constructs.
   - [ ] Otherwise → treat as capture
   - [ ] Verify capture consistency between target and dependencies
   - [ ] Transform AST from BraceExpr to resolved Capture/Interpolation
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 3: Reference Validation**
   - [ ] For each interpolation in values/commands, verify it references a defined symbol
   - [ ] Check automatic variables are only used in recipe/block scope
   - [ ] Check captures are only referenced in their target's recipe
   - [ ] Check built-in variables (os, arch)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 4: Dependency Graph Validation**
   - [ ] Build dependency graph from targets
   - [ ] Detect circular dependencies with cycle path reporting
   - [ ] Validate all dependencies can be satisfied (by explicit target or pattern)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Define semantic error types**
   - [ ] DuplicateVariable, DuplicateTarget, DuplicateEnvironment
@@ -177,6 +191,7 @@ Validates the AST and resolves ambiguous constructs.
   - [ ] UndefinedVariable, AutomaticOutsideRecipe
   - [ ] CircularDependency with cycle path
   - [ ] InvalidDirectiveScope
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write semantic analysis tests**
   - [ ] Test symbol collection and duplicate detection
@@ -184,6 +199,7 @@ Validates the AST and resolves ambiguous constructs.
   - [ ] Test automatic variable scope enforcement
   - [ ] Test circular dependency detection
   - [ ] Test comprehensive error messages
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -197,21 +213,25 @@ Variable evaluation, function execution, and conditional logic.
   - [ ] Store evaluated immediate variables
   - [ ] Store unevaluated lazy variable ASTs
   - [ ] Store os and arch built-in values
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement immediate variable evaluation**
   - [ ] Evaluate variables in definition order
   - [ ] Handle forward references (error if immediate var references later immediate var)
   - [ ] Allow lazy variables to reference any other variable
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement value interpolation**
   - [ ] Substitute `{var}` with evaluated value
   - [ ] Handle `:raw` modifier (affects command execution, not evaluation)
   - [ ] Handle missing variable with clear error
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement lazy variable on-demand evaluation**
   - [ ] Detect when lazy variable is referenced
   - [ ] Evaluate at point of use with current context
   - [ ] Cache result? (spec unclear, decide and document)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.2 Built-in Functions
 
@@ -220,30 +240,36 @@ Variable evaluation, function execution, and conditional logic.
   - [ ] Capture stdout, trim trailing newline
   - [ ] Handle command failure with error message
   - [ ] Apply shell quoting for interpolated values (default) vs raw
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `glob()` function**
   - [ ] Parse glob pattern
   - [ ] Match files in filesystem
   - [ ] Return space-separated list of matches
   - [ ] Handle no matches (empty string or error?)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `basename()` function**
   - [ ] Extract filename without directory
   - [ ] Handle edge cases (trailing slash, no directory)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `dirname()` function**
   - [ ] Extract directory part of path
   - [ ] Handle edge cases (no directory, root)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `replace()` function**
   - [ ] Parse three arguments (input, from, to)
   - [ ] Replace all occurrences of `from` with `to`
   - [ ] Handle special characters in patterns
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write function unit tests**
   - [ ] Test each function independently
   - [ ] Test function composition in values
   - [ ] Test error cases (shell failure, bad args)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.3 Conditional Evaluation
 
@@ -251,22 +277,26 @@ Variable evaluation, function execution, and conditional logic.
   - [ ] Evaluate left side of comparison
   - [ ] Compare with right side literal or evaluated value
   - [ ] Handle `==` and `!=` operators
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `ifdef`/`ifndef` checks**
   - [ ] Check if variable name is in symbol table
   - [ ] Does NOT evaluate the variable, just checks existence
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement conditional branch execution**
   - [ ] Evaluate if condition, execute body if true
   - [ ] Otherwise try elif conditions in order
   - [ ] Finally execute else body if no match
   - [ ] Collect variable definitions from chosen branch
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write conditional tests**
   - [ ] Test os/arch conditionals
   - [ ] Test ifdef/ifndef
   - [ ] Test nested conditionals
   - [ ] Test variable definitions inside conditionals
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -279,24 +309,28 @@ Dependency resolution, staleness detection, and pattern matching.
 - [ ] **Implement literal target matching**
   - [ ] Exact path comparison
   - [ ] Handle phony targets (always match regardless of file)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement pattern target matching**
   - [ ] Match concrete path against pattern
   - [ ] Extract capture values (e.g., `{name}` → `"utils"`)
   - [ ] Handle multiple captures in single pattern
   - [ ] Handle patterns with variable interpolations already resolved
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement target lookup**
   - [ ] Given concrete path, find matching target definition
   - [ ] Prefer exact match over pattern match
   - [ ] Return captures if pattern match
   - [ ] Error if no match and not a source file
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write pattern matching tests**
   - [ ] Test single capture patterns
   - [ ] Test multiple capture patterns
   - [ ] Test patterns with literal path segments
   - [ ] Test ambiguous patterns (multiple matches)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 3.2 Dependency Resolution
 
@@ -304,17 +338,20 @@ Dependency resolution, staleness detection, and pattern matching.
   - [ ] For each dependency, resolve pattern with captures
   - [ ] Expand interpolations with evaluation context
   - [ ] Build list of concrete dependency paths
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement recursive dependency planning**
   - [ ] For requested target, find matching definition
   - [ ] For each dependency, recursively plan its build
   - [ ] Handle order-only dependencies (`.after:`)
   - [ ] Detect and report cycles during planning
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement topological sort**
   - [ ] Sort build tasks in dependency order
   - [ ] Tasks with no dependencies first
   - [ ] Identify independent tasks for parallelism
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 3.3 Staleness Detection
 
@@ -322,27 +359,32 @@ Dependency resolution, staleness detection, and pattern matching.
   - [ ] Get mtime for target and all dependencies
   - [ ] Handle missing target (always rebuild)
   - [ ] Handle missing dependency (error)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement rebuild decision**
   - [ ] Phony targets always rebuild
   - [ ] Missing targets always rebuild
   - [ ] Rebuild if any dependency mtime > target mtime
   - [ ] Skip if target newer than all dependencies
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement order-only dependency handling**
   - [ ] `.after:` dependencies must exist
   - [ ] Their timestamps are NOT checked for staleness
   - [ ] Only used to ensure build order
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement autodeps support**
   - [ ] After successful build, parse `.d` file specified by `.autodeps:`
   - [ ] Store learned dependencies for future builds
   - [ ] Incorporate into staleness checking
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Build plan structure**
   - [ ] List of BuildTask in execution order
   - [ ] Each task has target, dependencies, recipe, and build reason
   - [ ] Build reason explains why rebuild needed
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write planning tests**
   - [ ] Test simple dependency chains
@@ -350,6 +392,7 @@ Dependency resolution, staleness detection, and pattern matching.
   - [ ] Test phony targets
   - [ ] Test order-only dependencies
   - [ ] Test staleness detection logic
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -366,14 +409,17 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] `{stem}` → pattern capture (for pattern targets)
   - [ ] `{target.dir}` → directory part of target
   - [ ] `{target.file}` → filename part of target
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement capture resolution**
   - [ ] Resolve pattern captures from match (e.g., `{name}` → matched value)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement shell quoting**
   - [ ] Default: shell-quote interpolated values (single quotes, escape embedded quotes)
   - [ ] With `:raw` modifier: no quoting, allows word splitting
   - [ ] Pass through `$var` to shell unchanged
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.2 Shell Execution
 
@@ -381,27 +427,32 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] Each command line is separate shell invocation
   - [ ] Use global `.shell:` or recipe `.shell:` override
   - [ ] Execute via `shell -c "command"`
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement block mode execution**
   - [ ] All lines in `block:` passed as single script
   - [ ] Preserve internal structure (if/fi, loops, etc.)
   - [ ] Execute via `shell -c "script"`
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement shell selection**
   - [ ] Default: `/bin/sh`
   - [ ] Global override: `.shell: bash`
   - [ ] Recipe override: `.shell: zsh` (indented under target)
   - [ ] Verify shell exists before execution
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement dry-run mode**
   - [ ] Print commands without executing
   - [ ] Show interpolated values
   - [ ] Prefix with "Would build: target"
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement verbose mode**
   - [ ] Print commands before executing
   - [ ] Show variable evaluation results
   - [ ] Show staleness check decisions
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.3 Execution Error Handling
 
@@ -409,14 +460,17 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] Check exit status of each command
   - [ ] Stop build on first failure (default)
   - [ ] Implement `--keep-going` flag to continue despite failures
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Handle missing dependencies**
   - [ ] If dependency can't be built and doesn't exist, error
   - [ ] Clear error message with dependency path
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Handle missing binaries**
   - [ ] If shell not found, error
   - [ ] If `.requires:` binary not found, suggest installation
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write execution tests**
   - [ ] Test line mode execution
@@ -424,6 +478,7 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] Test shell selection
   - [ ] Test dry-run output
   - [ ] Test error handling
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -437,27 +492,32 @@ Concurrent task execution respecting dependencies.
   - [ ] Tasks ready when all dependencies complete
   - [ ] Track in-progress and completed tasks
   - [ ] Handle task completion events
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement worker pool**
   - [ ] Spawn N workers based on `.parallel:` or `-j` flag
   - [ ] Workers pull tasks from ready queue
   - [ ] Workers report completion or failure
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement dependency-aware scheduling**
   - [ ] Only schedule task when all dependencies satisfied
   - [ ] Update ready queue when task completes
   - [ ] Handle parallel diamond dependencies correctly
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement cancellation on failure**
   - [ ] On task failure, stop scheduling new tasks
   - [ ] Wait for in-progress tasks to complete
   - [ ] Report all failures
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write parallel execution tests**
   - [ ] Test parallel independent tasks
   - [ ] Test parallel with dependencies
   - [ ] Test failure propagation
   - [ ] Test `-j` flag override
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -471,78 +531,93 @@ Runtime environments for build isolation.
   - [ ] Parse `.requires:` list with version specs
   - [ ] Check if binaries exist in PATH
   - [ ] Check version if specified
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement version parsing**
   - [ ] `gcc` or `gcc@latest` → any version
   - [ ] `gcc@11` → major version 11.x.x
   - [ ] `gcc@11.4` → version 11.4.x
   - [ ] `gcc@11.4.0` → exact version
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement version detection**
   - [ ] Run `binary --version` and parse output
   - [ ] Handle different version output formats
   - [ ] Cache version checks
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement install suggestions**
   - [ ] For `--show-install` flag
   - [ ] Detect OS and suggest package manager command
   - [ ] Map binary names to package names
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.2 Container Environments (Docker/Podman)
 
 - [ ] **Implement Dockerfile detection**
   - [ ] Locate file specified in `.source:`
   - [ ] Validate Dockerfile exists
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement image building**
   - [ ] Build Docker/Podman image from Dockerfile
   - [ ] Tag with project-specific name
   - [ ] Cache built images
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement container execution**
   - [ ] Run container with workspace mounted
   - [ ] Apply `.args:` (e.g., `--platform linux/amd64`)
   - [ ] Execute build commands inside container
   - [ ] Stream output to terminal
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `--shell` flag**
   - [ ] Open interactive shell in container
   - [ ] Mount workspace
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `--keep` flag**
   - [ ] Keep container running after build
   - [ ] Print instructions to enter/stop container
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.3 Devcontainer Environment
 
 - [ ] **Implement devcontainer detection**
   - [ ] Check for `.devcontainer/` directory or `devcontainer.json`
   - [ ] Parse devcontainer configuration
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement devcontainer CLI integration**
   - [ ] Use `devcontainer` CLI to start environment
   - [ ] Execute build commands inside devcontainer
   - [ ] Handle lifecycle (start, stop)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.4 Nix Environment
 
 - [ ] **Implement nix file detection**
   - [ ] Locate `shell.nix` or `flake.nix` from `.source:`
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement nix-shell execution**
   - [ ] Enter nix-shell with specified configuration
   - [ ] Apply `.args:` (e.g., `--pure`)
   - [ ] Execute build commands inside nix environment
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.5 Lima Environment (macOS VMs)
 
 - [ ] **Implement lima.yaml detection**
   - [ ] Locate lima configuration from `.source:`
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Lima VM management**
   - [ ] Start Lima VM
   - [ ] Mount workspace
   - [ ] Execute build commands inside VM
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.6 Environment Selection Logic
 
@@ -551,22 +626,26 @@ Runtime environments for build isolation.
   - [ ] `BUILD_ENV` environment variable second
   - [ ] Unnamed `.environment:` as default
   - [ ] Error if only named environments and no selection
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `--list-env` flag**
   - [ ] List all defined environments
   - [ ] Show runtime type and source for each
   - [ ] Mark default environment
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `--check-env` flag**
   - [ ] Verify environment requirements are met
   - [ ] For containers, verify Dockerfile/runtime exists
   - [ ] Print status for each requirement
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write environment tests**
   - [ ] Test bare environment requirements checking
   - [ ] Test container environment (requires Docker/Podman)
   - [ ] Test environment selection logic
   - [ ] Test --list-env and --check-env output
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -581,6 +660,7 @@ Command-line argument parsing and user interaction.
   - [ ] `build target` → build specific file target
   - [ ] `build @phony` → build phony target
   - [ ] Multiple targets → build all in order
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement option flags**
   - [ ] `--env` / `-e` → environment selection
@@ -595,11 +675,13 @@ Command-line argument parsing and user interaction.
   - [ ] `--keep` → keep sandbox running
   - [ ] `--help` / `-h` → show help
   - [ ] `--version` / `-V` → show version
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Buildfile discovery**
   - [ ] Look for `Buildfile` in current directory
   - [ ] Look in parent directories up to root
   - [ ] Respect `-f` flag override
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 7.2 Output Formatting
 
@@ -607,19 +689,23 @@ Command-line argument parsing and user interaction.
   - [ ] Show target being built
   - [ ] Show command output
   - [ ] Show completion/failure status
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement dry-run output**
   - [ ] "Would build: target"
   - [ ] Show each command that would execute
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement verbose output**
   - [ ] Show variable evaluation
   - [ ] Show staleness check results
   - [ ] Show dependency resolution
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement progress for parallel builds**
   - [ ] Show currently building targets
   - [ ] Show completion count (e.g., [3/10])
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 7.3 Exit Codes
 
@@ -629,6 +715,7 @@ Command-line argument parsing and user interaction.
   - [ ] 2 → usage error (bad arguments)
   - [ ] 3 → parse error (invalid Buildfile)
   - [ ] 4 → environment error (missing requirements)
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -641,6 +728,7 @@ User-friendly, actionable error messages.
 - [ ] **Implement source location tracking**
   - [ ] All AST nodes carry SourceLocation
   - [ ] Include file path, line number, column number
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement error message template**
   - [ ] Error code (E001, E100, etc.)
@@ -649,11 +737,13 @@ User-friendly, actionable error messages.
   - [ ] Pointer to error location (^^^)
   - [ ] "note:" for additional context
   - [ ] "help:" for fix suggestions
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement source snippet extraction**
   - [ ] Read relevant lines from source file
   - [ ] Show 1-3 lines of context around error
   - [ ] Highlight error location with carets
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 8.2 Error Categories
 
@@ -661,28 +751,33 @@ User-friendly, actionable error messages.
   - [ ] Invalid character
   - [ ] Bad indentation (mixed tabs/spaces)
   - [ ] Unterminated interpolation
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement syntax errors (E100-E199)**
   - [ ] Unexpected token
   - [ ] Missing colon in target
   - [ ] Missing `end` for conditional
   - [ ] Invalid directive at scope
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement semantic errors (E200-E299)**
   - [ ] Undefined variable
   - [ ] Duplicate definition
   - [ ] Circular dependency
   - [ ] Capture conflicts
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement evaluation errors (E300-E399)**
   - [ ] Shell command failed
   - [ ] Glob matched nothing
   - [ ] Invalid function arguments
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement execution errors (E400-E499)**
   - [ ] Recipe failed
   - [ ] Missing dependency file
   - [ ] Missing binary
+  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
