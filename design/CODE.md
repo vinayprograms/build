@@ -40,6 +40,36 @@ github.com/vinayprograms/build/
 
 The command-line interface for the build tool.
 
+### Architecture
+
+The CLI follows interface-based design where `cmd/build` defines the interfaces and internal packages provide implementations:
+
+```
+cmd/build/
+├── main.go         # CLI entry point and flag handling
+├── interfaces.go   # Interface definitions (Lexer, Parser, Token, Scope)
+└── adapters.go     # Adapters wrapping internal packages
+```
+
+**Key Interfaces:**
+
+| Interface | Description |
+|-----------|-------------|
+| `Token` | Represents a lexical token with type, literal, and location |
+| `Lexer` | Tokenizes source code into a stream of tokens |
+| `Scope` | Represents parsing context (global, environment, recipe, block) |
+| `Parser` | Transforms token stream into AST with scope tracking |
+| `DirectiveValidator` | Validates directive placement at scopes |
+
+**Design Rationale:**
+
+This follows Go's "accept interfaces, return structs" principle:
+- CLI defines what it needs (interfaces)
+- Internal packages provide implementations (concrete types)
+- Adapters bridge the gap without exposing internal types to CLI
+- Enables testing with mock implementations
+- Decouples CLI from internal package structure
+
 ### Usage
 
 ```
