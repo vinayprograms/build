@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/vinayprograms/build/internal/lexer"
 )
 
 // Version information (set at build time via -ldflags).
@@ -179,173 +181,28 @@ func debugLexer(path string) int {
 	fmt.Println("---")
 	fmt.Println()
 
-	// Test indentation tracking on each line
-	fmt.Println("Indentation analysis:")
-	if err := analyzeIndentation(string(content)); err != nil {
-		fmt.Fprintf(os.Stderr, "indentation error: %v\n", err)
+	// Tokenize using the actual lexer
+	fmt.Println("Tokens:")
+	l := lexer.New(path, string(content))
+	hasError := false
+	for {
+		tok := l.NextToken()
+		fmt.Printf("  %s %s", tok.Location, tok.Type)
+		if tok.Literal != "" && tok.Type != lexer.NEWLINE && tok.Type != lexer.EOF {
+			fmt.Printf(" %q", tok.Literal)
+		}
+		fmt.Println()
+
+		if tok.Type == lexer.ERROR {
+			hasError = true
+		}
+		if tok.Type == lexer.EOF {
+			break
+		}
+	}
+
+	if hasError {
 		return exitParseError
 	}
-
-	fmt.Println()
-
-	// Test interpolation detection
-	fmt.Println("Interpolation analysis:")
-	analyzeInterpolations(string(content))
-
 	return exitSuccess
-}
-
-func analyzeIndentation(content string) error {
-	// Import would create cycle, so inline the logic for now
-	// In future, this will use the actual lexer
-	lines := splitLines(content)
-
-	var indentChar byte
-	var indentWidth int
-
-	for i, line := range lines {
-		if len(line) == 0 {
-			fmt.Printf("  line %d: (empty)\n", i+1)
-			continue
-		}
-
-		// Count leading whitespace
-		indent := 0
-		for indent < len(line) && (line[indent] == ' ' || line[indent] == '\t') {
-			indent++
-		}
-
-		if indent == len(line) {
-			fmt.Printf("  line %d: (whitespace only)\n", i+1)
-			continue
-		}
-
-		if indent == 0 {
-			fmt.Printf("  line %d: level=0\n", i+1)
-			continue
-		}
-
-		// First indented line establishes the unit
-		if indentChar == 0 {
-			indentChar = line[0]
-			indentWidth = indent
-			charName := "spaces"
-			if indentChar == '\t' {
-				charName = "tabs"
-			}
-			fmt.Printf("  line %d: level=1 (established %d %s as unit)\n", i+1, indentWidth, charName)
-			continue
-		}
-
-		// Check consistency
-		for j := 0; j < indent; j++ {
-			if line[j] != indentChar {
-				return fmt.Errorf("line %d: mixed indentation", i+1)
-			}
-		}
-
-		if indent%indentWidth != 0 {
-			return fmt.Errorf("line %d: indent %d is not multiple of unit %d", i+1, indent, indentWidth)
-		}
-
-		level := indent / indentWidth
-		fmt.Printf("  line %d: level=%d\n", i+1, level)
-	}
-
-	return nil
-}
-
-func analyzeInterpolations(content string) {
-	// Simple scan for { characters and test boundary rules
-	lines := splitLines(content)
-
-	for lineNum, line := range lines {
-		for i := 0; i < len(line); i++ {
-			if line[i] != '{' {
-				continue
-			}
-
-			// Determine previous character
-			var prev byte
-			atSOL := i == 0
-			if i > 0 {
-				prev = line[i-1]
-			}
-
-			// Check for escape
-			if i+1 < len(line) && line[i+1] == '{' {
-				fmt.Printf("  line %d col %d: {{ (escaped brace)\n", lineNum+1, i+1)
-				i++ // skip next {
-				continue
-			}
-
-			// Check boundary
-			isBoundary := atSOL || prev == ' ' || prev == '\t' || prev == ':' || prev == '=' || prev == '/' || prev == '"' || prev == '\'' || prev == '(' || prev == ')' || prev == ',' || prev == '>' || prev == '<'
-			if !isBoundary {
-				fmt.Printf("  line %d col %d: { not at boundary (prev=%q)\n", lineNum+1, i+1, prev)
-				continue
-			}
-
-			// Check identifier start
-			if i+1 >= len(line) {
-				fmt.Printf("  line %d col %d: { at end of line\n", lineNum+1, i+1)
-				continue
-			}
-
-			next := line[i+1]
-			isIdentStart := (next >= 'a' && next <= 'z') || (next >= 'A' && next <= 'Z') || next == '_'
-			if !isIdentStart {
-				fmt.Printf("  line %d col %d: { not followed by identifier (next=%q)\n", lineNum+1, i+1, next)
-				continue
-			}
-
-			// Scan identifier
-			j := i + 2
-			for j < len(line) {
-				c := line[j]
-				isIdent := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.'
-				if !isIdent {
-					break
-				}
-				j++
-			}
-
-			name := line[i+1 : j]
-			raw := false
-
-			// Check for modifier or close
-			if j < len(line) && line[j] == ':' {
-				// Check for :raw
-				if j+4 <= len(line) && line[j:j+4] == ":raw" {
-					raw = true
-					j += 4
-				}
-			}
-
-			if j < len(line) && line[j] == '}' {
-				if raw {
-					fmt.Printf("  line %d col %d: {%s:raw} (interpolation with raw)\n", lineNum+1, i+1, name)
-				} else {
-					fmt.Printf("  line %d col %d: {%s} (interpolation)\n", lineNum+1, i+1, name)
-				}
-			} else {
-				fmt.Printf("  line %d col %d: {%s (unclosed)\n", lineNum+1, i+1, name)
-			}
-		}
-	}
-}
-
-func splitLines(s string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\n' {
-			lines = append(lines, s[start:i])
-			start = i + 1
-		}
-	}
-	if start < len(s) {
-		lines = append(lines, s[start:])
-	}
-	return lines
 }
