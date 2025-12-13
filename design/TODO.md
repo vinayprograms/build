@@ -17,10 +17,10 @@ These components form the foundation. Errors here cascade through everything els
 
 The lexer must handle context-free tokenization with careful boundary detection for interpolations.
 
-- [ ] **Design token type enumeration**
-  - [ ] Define all token types from spec (TOKEN_EOF, TOKEN_NEWLINE, TOKEN_INDENT, etc.)
-  - [ ] Define token structure with source location tracking (file, line, column)
-  - [ ] Design error token type for error recovery
+- [x] **Design token type enumeration**
+  - [x] Define all token types from spec (TOKEN_EOF, TOKEN_NEWLINE, TOKEN_INDENT, etc.)
+  - [x] Define token structure with source location tracking (file, line, column)
+  - [x] Design error token type for error recovery
 
 - [ ] **Implement indentation tracking**
   - [ ] Track indentation character (space vs tab) from first indented line
