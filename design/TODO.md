@@ -78,6 +78,7 @@ The parser builds the AST with scope-aware directive validation.
   - [ ] Define Scope enum (GLOBAL, ENVIRONMENT, RECIPE, BLOCK)
   - [ ] Push/pop scope on block entry/exit
   - [ ] Validate directive placement based on current scope
+  - [ ] Update cmd/
 
 - [ ] **Implement variable parsing**
   - [ ] Detect `=` before `:` to distinguish from targets
