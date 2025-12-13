@@ -7,7 +7,7 @@
 # Configuration
 # ====================
 
-.shell: bash
+.shell: /bin/bash
 .default: @all
 
 # ====================
