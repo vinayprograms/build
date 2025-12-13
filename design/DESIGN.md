@@ -94,8 +94,17 @@ Each line is classified by its first non-whitespace content:
 #### 2.3.2 Interpolation Recognition
 
 **Rule**: `{` is recognized as `TOKEN_INTERP_START` if and only if:
-1. It is preceded by whitespace, start-of-line, `:`, or `=`
+1. It is preceded by a boundary character (see below)
 2. It is followed by a valid identifier character (letter or underscore)
+
+**Boundary characters**:
+- Whitespace: space, tab
+- Start-of-line
+- Operators: `:`, `=`
+- Path separator: `/`
+- Quotes: `"`, `'`
+- Parentheses and comma: `(`, `)`, `,`
+- Redirections: `>`, `<`
 
 **Examples**:
 
@@ -103,8 +112,12 @@ Each line is classified by its first non-whitespace content:
 |-------|--------|--------|
 | `{var}` | INTERP_START, IDENTIFIER, INTERP_END | SOL + valid identifier |
 | `x {var}` | STRING("x "), INTERP_START, IDENTIFIER, INTERP_END | Space boundary |
-| `${var}` | STRING("${var}") | `$` precedes `{`, not whitespace |
-| `x{var}` | STRING("x{var}") | No whitespace before `{` |
+| `a/{var}` | STRING("a/"), INTERP_START, IDENTIFIER, INTERP_END | `/` boundary |
+| `"{var}"` | STRING(`"`), INTERP_START, IDENTIFIER, INTERP_END, STRING(`"`) | `"` boundary |
+| `shell({var})` | ..., INTERP_START, IDENTIFIER, INTERP_END, ... | `(` boundary |
+| `>{file}` | STRING(">"), INTERP_START, IDENTIFIER, INTERP_END | `>` boundary |
+| `${var}` | STRING("${var}") | `$` precedes `{`, not a boundary |
+| `x{var}` | STRING("x{var}") | Letter precedes `{`, not a boundary |
 | `{"key"}` | STRING(`{"key"}`) | `"` is not valid identifier start |
 | `{{var}}` | ESCAPE_BRACE, STRING("var"), ESCAPE_BRACE | Escape sequence |
 | `{var:raw}` | INTERP_START, IDENTIFIER, INTERP_MOD, INTERP_END | Modifier syntax |

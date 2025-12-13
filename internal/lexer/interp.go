@@ -55,17 +55,21 @@ func IsValidIdentifierChar(c byte) bool {
 // IsInterpBoundary returns true if prev is a valid boundary character
 // for interpolation recognition.
 //
-// Per DESIGN.md Section 2.3.2:
+// Per DESIGN.md Section 2.3.2 (extended for practical use):
 // `{` is recognized as INTERP_START if preceded by:
 //   - whitespace (space or tab)
 //   - start-of-line (atSOL=true)
-//   - `:` or `=`
+//   - `:` or `=` (operators)
+//   - `/` (path separator, for patterns like {dir}/{file})
+//   - `"` or `'` (quotes, for strings like "{var}")
+//   - `(`, `)`, `,` (function call syntax)
+//   - `>`, `<` (shell redirections)
 func IsInterpBoundary(prev byte, atSOL bool) bool {
 	if atSOL {
 		return true
 	}
 	switch prev {
-	case ' ', '\t', ':', '=':
+	case ' ', '\t', ':', '=', '/', '"', '\'', '(', ')', ',', '>', '<':
 		return true
 	default:
 		return false

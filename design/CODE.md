@@ -6,6 +6,9 @@ This document tracks the implementation architecture and design decisions as cod
 
 ```
 github.com/vinay/build/
+├── cmd/
+│   └── build/          # CLI entry point
+│       └── main.go
 ├── internal/
 │   └── lexer/          # Lexical analysis
 │       ├── indent.go       # Indentation tracking
@@ -14,7 +17,58 @@ github.com/vinay/build/
 │       ├── interp_test.go
 │       ├── token.go        # Token types and source location
 │       └── token_test.go
+├── Buildfile           # Build configuration for this project
 └── go.mod
+```
+
+## CLI (`cmd/build/main.go`)
+
+The command-line interface for the build tool.
+
+### Usage
+
+```
+build [options] [targets...]
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Build failure (recipe returned non-zero) |
+| 2 | Usage error (bad arguments) |
+| 3 | Parse error (invalid Buildfile) |
+| 4 | Environment error (missing requirements) |
+
+### Flags
+
+All flags from BUILDFILE_SPEC.md are implemented:
+
+| Flag | Description |
+|------|-------------|
+| `-f, --file` | Use alternate Buildfile |
+| `-e, --env` | Use named environment |
+| `-j, --jobs` | Parallel jobs |
+| `-n, --dry-run` | Show what would execute |
+| `-v, --verbose` | Verbose output |
+| `--check-env` | Verify environment requirements |
+| `--list-env` | List available environments |
+| `-V, --version` | Show version |
+| `-h, --help` | Show help |
+
+### Debug Flags
+
+| Flag | Description |
+|------|-------------|
+| `--debug-lex` | Dump lexer analysis (indentation, interpolations) |
+
+### Version Information
+
+Version and commit are embedded at build time via `-ldflags`:
+
+```bash
+go build -ldflags "-X main.version=v1.0.0 -X main.commit=abc123" ./cmd/build
 ```
 
 ## Lexer Package (`internal/lexer`)
@@ -150,19 +204,35 @@ Implements interpolation recognition rules as specified in `DESIGN.md` Section 2
 
 #### Boundary Rules
 
-Per spec, `{` is recognized as interpolation start if and only if:
-1. Preceded by whitespace (space or tab), start-of-line, `:`, or `=`
+Per spec (extended for practical use), `{` is recognized as interpolation start if and only if:
+1. Preceded by a boundary character (see table below)
 2. Followed by a valid identifier start character (letter or underscore)
+
+**Boundary Characters:**
+
+| Char | Category | Example |
+|------|----------|---------|
+| ` `, `\t` | Whitespace | `echo {var}` |
+| SOL | Start of line | `{var}: dep` |
+| `:`, `=` | Operators | `x={var}`, `x:{var}` |
+| `/` | Path separator | `{dir}/{file}` |
+| `"`, `'` | Quotes | `"{var}"`, `'{var}'` |
+| `(`, `)` | Parentheses | `shell({cmd})` |
+| `,` | Comma | `replace({a},{b},{c})` |
+| `>`, `<` | Redirections | `>{file}`, `<{input}` |
+
+**Not boundaries:** `$`, letters, digits, `_`, `.`, `-`
 
 | Input | Result | Reason |
 |-------|--------|--------|
-| `{var}` | Valid interpolation | SOL + valid identifier |
-| `x {var}` | Valid interpolation | Space boundary |
+| `{var}` | Valid | SOL |
+| `x {var}` | Valid | Space |
+| `a/{var}` | Valid | `/` |
+| `"{var}"` | Valid | `"` |
+| `shell({var})` | Valid | `(` |
+| `>{file}` | Valid | `>` |
 | `${var}` | Not interpolation | `$` is not a boundary |
-| `x{var}` | Not interpolation | No boundary before `{` |
-| `{"key"}` | Not interpolation | `"` is not identifier start |
-| `{{var}}` | Escaped brace | `{{` is escape sequence |
-| `{var:raw}` | Valid with modifier | `:raw` modifier parsed |
+| `x{var}` | Not interpolation | Letter is not a boundary |
 
 #### InterpResultKind
 

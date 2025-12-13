@@ -29,7 +29,7 @@ The lexer must handle context-free tokenization with careful boundary detection 
   - [x] Handle empty lines and comment-only lines correctly
 
 - [x] **Implement interpolation boundary detection**
-  - [x] Recognize `{` as INTERP_START only when preceded by whitespace/SOL/`:=/=`
+  - [x] Recognize `{` as INTERP_START when preceded by boundary chars (whitespace, SOL, `:`, `=`, `/`, `"`, `'`, `(`, `)`, `,`, `>`, `<`)
   - [x] Verify following character is valid identifier start
   - [x] Handle `{{` and `}}` escape sequences
   - [x] Parse `:raw` modifier inside interpolations
