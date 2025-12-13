@@ -826,6 +826,64 @@ func TestLexerEdgeCases(t *testing.T) {
 	}
 }
 
+func TestLexerInterpolationErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantError bool
+		errMsg    string
+	}{
+		{
+			name:      "unclosed interpolation in value",
+			input:     "x = {var",
+			wantError: true,
+			errMsg:    "unclosed",
+		},
+		{
+			name:      "unclosed interpolation at EOF",
+			input:     "{var",
+			wantError: true,
+			errMsg:    "unclosed",
+		},
+		{
+			name:      "interpolation starting with digit",
+			input:     "{123}",
+			wantError: false, // Not an interpolation, treated as string
+		},
+		{
+			name:      "invalid modifier in interpolation",
+			input:     "{var:invalid}",
+			wantError: true,
+			errMsg:    "invalid modifier",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New("test.build", tt.input)
+			var foundError bool
+			var errorMsg string
+			for i := 0; i < 20; i++ {
+				tok := l.NextToken()
+				if tok.Type == ERROR {
+					foundError = true
+					errorMsg = tok.Literal
+					break
+				}
+				if tok.Type == EOF {
+					break
+				}
+			}
+			if tt.wantError && !foundError {
+				t.Errorf("expected an error for input %q", tt.input)
+			}
+			if !tt.wantError && foundError {
+				t.Errorf("unexpected error for input %q: %s", tt.input, errorMsg)
+			}
+		})
+	}
+}
+
 func TestLexerIndentationErrors(t *testing.T) {
 	tests := []struct {
 		name  string
