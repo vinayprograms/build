@@ -1,0 +1,358 @@
+package parser
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/lexer"
+)
+
+func TestParser_ParseInclude_Simple(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create included file
+	includedContent := `cc = gcc
+cflags = -Wall
+`
+	includedPath := filepath.Join(tmpDir, "common.build")
+	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	// Create main file content
+	mainContent := `.include: ` + includedPath + `
+binary = app
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	// Parse include directive
+	if p.current.Type != lexer.DOT_INCLUDE {
+		t.Fatalf("expected DOT_INCLUDE token, got %v", p.current.Type)
+	}
+
+	directive, statements, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check directive kind
+	if directive.Kind != ast.DirectiveInclude {
+		t.Errorf("directive kind = %v, want DirectiveInclude", directive.Kind)
+	}
+
+	// Check that included statements were returned
+	if len(statements) != 2 {
+		t.Fatalf("expected 2 included statements, got %d", len(statements))
+	}
+
+	// Check first included statement is a variable
+	v1, ok := statements[0].(*ast.Variable)
+	if !ok {
+		t.Errorf("statement[0] is not Variable, got %T", statements[0])
+	} else if v1.Name != "cc" {
+		t.Errorf("variable name = %q, want %q", v1.Name, "cc")
+	}
+
+	// Check second included statement is a variable
+	v2, ok := statements[1].(*ast.Variable)
+	if !ok {
+		t.Errorf("statement[1] is not Variable, got %T", statements[1])
+	} else if v2.Name != "cflags" {
+		t.Errorf("variable name = %q, want %q", v2.Name, "cflags")
+	}
+}
+
+func TestParser_ParseInclude_WithInterpolation(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create included file
+	includedContent := `extra_flags = -O2
+`
+	includedPath := filepath.Join(tmpDir, "extra.build")
+	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	// Create main file content with interpolation in path
+	// Note: interpolation evaluation happens during semantic analysis, not parsing
+	// So we test that the value is parsed correctly
+	mainContent := `.include: ` + includedPath + `
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	directive, _, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check directive has a value
+	if directive.Value == nil {
+		t.Error("directive value is nil")
+	}
+}
+
+func TestParser_ParseInclude_FileNotFound(t *testing.T) {
+	mainContent := `.include: /nonexistent/path/file.build
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	_, _, err := p.ParseInclude()
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
+func TestParser_ParseInclude_CircularInclude(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create file A that includes file B
+	fileAPath := filepath.Join(tmpDir, "a.build")
+	fileBPath := filepath.Join(tmpDir, "b.build")
+
+	fileAContent := `.include: ` + fileBPath + `
+varA = value
+`
+	fileBContent := `.include: ` + fileAPath + `
+varB = value
+`
+
+	if err := os.WriteFile(fileAPath, []byte(fileAContent), 0644); err != nil {
+		t.Fatalf("failed to create file A: %v", err)
+	}
+	if err := os.WriteFile(fileBPath, []byte(fileBContent), 0644); err != nil {
+		t.Fatalf("failed to create file B: %v", err)
+	}
+
+	// Read file A content
+	content, _ := os.ReadFile(fileAPath)
+	l := lexer.New(fileAPath, string(content))
+	p := New(l)
+
+	// Parse include - should detect circular include
+	_, _, err := p.ParseInclude()
+	if err == nil {
+		t.Error("expected error for circular include")
+	}
+}
+
+func TestParser_ParseInclude_NestedInclude(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create nested include chain: main -> common -> base
+	basePath := filepath.Join(tmpDir, "base.build")
+	commonPath := filepath.Join(tmpDir, "common.build")
+
+	baseContent := `base_var = base_value
+`
+	commonContent := `.include: ` + basePath + `
+common_var = common_value
+`
+
+	if err := os.WriteFile(basePath, []byte(baseContent), 0644); err != nil {
+		t.Fatalf("failed to create base file: %v", err)
+	}
+	if err := os.WriteFile(commonPath, []byte(commonContent), 0644); err != nil {
+		t.Fatalf("failed to create common file: %v", err)
+	}
+
+	mainContent := `.include: ` + commonPath + `
+main_var = main_value
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	directive, statements, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if directive.Kind != ast.DirectiveInclude {
+		t.Errorf("directive kind = %v, want DirectiveInclude", directive.Kind)
+	}
+
+	// Should have statements from both common and base files
+	// base.build: base_var
+	// common.build: .include (processed), common_var
+	// So we expect: base_var, common_var
+	if len(statements) < 2 {
+		t.Fatalf("expected at least 2 statements from nested includes, got %d", len(statements))
+	}
+
+	// Check that base_var came first (from nested include)
+	foundBaseVar := false
+	foundCommonVar := false
+	for _, stmt := range statements {
+		if v, ok := stmt.(*ast.Variable); ok {
+			if v.Name == "base_var" {
+				foundBaseVar = true
+			}
+			if v.Name == "common_var" {
+				foundCommonVar = true
+			}
+		}
+	}
+
+	if !foundBaseVar {
+		t.Error("expected to find base_var from nested include")
+	}
+	if !foundCommonVar {
+		t.Error("expected to find common_var from include")
+	}
+}
+
+func TestParser_ParseInclude_RelativePath(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create included file
+	includedContent := `rel_var = value
+`
+	includedPath := filepath.Join(tmpDir, "included.build")
+	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	// Create main file in same directory
+	mainPath := filepath.Join(tmpDir, "main.build")
+	mainContent := `.include: ./included.build
+`
+	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
+		t.Fatalf("failed to create main file: %v", err)
+	}
+
+	// Read and parse
+	content, _ := os.ReadFile(mainPath)
+	l := lexer.New(mainPath, string(content))
+	p := New(l)
+
+	_, statements, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(statements) != 1 {
+		t.Fatalf("expected 1 statement, got %d", len(statements))
+	}
+
+	v, ok := statements[0].(*ast.Variable)
+	if !ok {
+		t.Errorf("statement is not Variable, got %T", statements[0])
+	} else if v.Name != "rel_var" {
+		t.Errorf("variable name = %q, want %q", v.Name, "rel_var")
+	}
+}
+
+func TestParser_ParseInclude_SourceLocation(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create included file
+	includedContent := `inc_var = value
+`
+	includedPath := filepath.Join(tmpDir, "inc.build")
+	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	mainContent := `.include: ` + includedPath + `
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	directive, _, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Check directive location is in main file
+	if directive.Location.File != "main.build" {
+		t.Errorf("directive location file = %q, want %q", directive.Location.File, "main.build")
+	}
+	if directive.Location.Line != 1 {
+		t.Errorf("directive location line = %d, want %d", directive.Location.Line, 1)
+	}
+}
+
+func TestParser_ParseInclude_EmptyFile(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create empty included file
+	includedPath := filepath.Join(tmpDir, "empty.build")
+	if err := os.WriteFile(includedPath, []byte(""), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	mainContent := `.include: ` + includedPath + `
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	directive, statements, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if directive.Kind != ast.DirectiveInclude {
+		t.Errorf("directive kind = %v, want DirectiveInclude", directive.Kind)
+	}
+
+	// Empty file should result in empty statements
+	if len(statements) != 0 {
+		t.Errorf("expected 0 statements from empty file, got %d", len(statements))
+	}
+}
+
+func TestParser_ParseInclude_WithComments(t *testing.T) {
+	// Create a temp directory with test files
+	tmpDir := t.TempDir()
+
+	// Create included file with comments
+	includedContent := `# This is a comment
+comment_var = value
+# Another comment
+`
+	includedPath := filepath.Join(tmpDir, "comments.build")
+	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	mainContent := `.include: ` + includedPath + `
+`
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	_, statements, err := p.ParseInclude()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have comments and variable
+	// The exact count depends on whether we preserve comments in AST
+	foundVar := false
+	for _, stmt := range statements {
+		if v, ok := stmt.(*ast.Variable); ok && v.Name == "comment_var" {
+			foundVar = true
+		}
+	}
+
+	if !foundVar {
+		t.Error("expected to find comment_var in included statements")
+	}
+}

@@ -561,6 +561,26 @@ func valueToText(v *ast.Value) string {
 	return text
 }
 
+// patternToText converts an ast.TargetPattern to its text representation.
+func patternToText(p *ast.TargetPattern) string {
+	if p == nil {
+		return ""
+	}
+	var text string
+	if p.IsPhony {
+		text = "@"
+	}
+	for _, seg := range p.Segments {
+		switch s := seg.(type) {
+		case *ast.LiteralSegment:
+			text += s.Text
+		case *ast.BraceExpr:
+			text += "{" + s.Identifier + "}"
+		}
+	}
+	return text
+}
+
 // environmentParserAdapter wraps parser.Parser to implement EnvironmentParser.
 type environmentParserAdapter struct {
 	p *parser.Parser
@@ -727,4 +747,111 @@ func NewConditionalParser(p Parser) ConditionalParser {
 		return &conditionalParserAdapter{p: pa.p}
 	}
 	panic("NewConditionalParser requires a Parser created by NewParser")
+}
+
+// ----------------------------------------------------------------------------
+// Include Adapters
+// ----------------------------------------------------------------------------
+
+// includeResultAdapter wraps ast.Directive and statements to implement IncludeResult.
+type includeResultAdapter struct {
+	directive  *ast.Directive
+	statements []ast.Statement
+}
+
+func (ia includeResultAdapter) DirectiveKind() string {
+	return ia.directive.Kind.String()
+}
+
+func (ia includeResultAdapter) Path() string {
+	return valueToText(ia.directive.Value)
+}
+
+func (ia includeResultAdapter) IncludedStatementCount() int {
+	return len(ia.statements)
+}
+
+func (ia includeResultAdapter) IncludedStatementType(i int) string {
+	if i < 0 || i >= len(ia.statements) {
+		return ""
+	}
+	switch ia.statements[i].(type) {
+	case *ast.Variable:
+		return "variable"
+	case *ast.Target:
+		return "target"
+	case *ast.Directive:
+		return "directive"
+	case *ast.Environment:
+		return "environment"
+	case *ast.Conditional:
+		return "conditional"
+	case *ast.Comment:
+		return "comment"
+	case *ast.Blank:
+		return "blank"
+	default:
+		return "unknown"
+	}
+}
+
+func (ia includeResultAdapter) IncludedStatementText(i int) string {
+	if i < 0 || i >= len(ia.statements) {
+		return ""
+	}
+	switch s := ia.statements[i].(type) {
+	case *ast.Variable:
+		lazyStr := ""
+		if s.Lazy {
+			lazyStr = "lazy "
+		}
+		return lazyStr + s.Name + " = " + valueToText(s.Value)
+	case *ast.Target:
+		return patternToText(&s.Pattern)
+	case *ast.Directive:
+		return "." + s.Kind.String() + ": " + valueToText(s.Value)
+	case *ast.Environment:
+		if s.Name != nil {
+			return ".environment: " + *s.Name
+		}
+		return ".environment:"
+	case *ast.Conditional:
+		return "if ..."
+	case *ast.Comment:
+		return s.Text
+	default:
+		return ""
+	}
+}
+
+func (ia includeResultAdapter) Location() string {
+	return ia.directive.Location.String()
+}
+
+// includeParserAdapter wraps parser.Parser to implement IncludeParser.
+type includeParserAdapter struct {
+	p *parser.Parser
+}
+
+func (ip *includeParserAdapter) ParseInclude() (IncludeResult, error) {
+	directive, statements, err := ip.p.ParseInclude()
+	if err != nil {
+		return nil, err
+	}
+	return includeResultAdapter{
+		directive:  directive,
+		statements: statements,
+	}, nil
+}
+
+func (ip *includeParserAdapter) IsIncludeLine() bool {
+	return ip.p.CurrentToken().Type == lexer.DOT_INCLUDE
+}
+
+// NewIncludeParser creates an IncludeParser from a Parser.
+func NewIncludeParser(p Parser) IncludeParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &includeParserAdapter{p: pa.p}
+	}
+	panic("NewIncludeParser requires a Parser created by NewParser")
 }

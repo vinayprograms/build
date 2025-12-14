@@ -285,3 +285,34 @@ type ConditionalParser interface {
 	// IsConditionalLine returns true if the current line starts a conditional.
 	IsConditionalLine() bool
 }
+
+// IncludeResult represents the result of parsing an .include: directive.
+type IncludeResult interface {
+	// DirectiveKind returns "include".
+	DirectiveKind() string
+
+	// Path returns the include path.
+	Path() string
+
+	// IncludedStatementCount returns the number of statements from the included file.
+	IncludedStatementCount() int
+
+	// IncludedStatementType returns the type of the i-th included statement.
+	IncludedStatementType(i int) string
+
+	// IncludedStatementText returns a text representation of the i-th statement.
+	IncludedStatementText(i int) string
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+}
+
+// IncludeParser parses .include: directives.
+type IncludeParser interface {
+	// ParseInclude parses an .include: directive from the current position.
+	// Returns the include result and any error encountered.
+	ParseInclude() (IncludeResult, error)
+
+	// IsIncludeLine returns true if the current line is an .include: directive.
+	IsIncludeLine() bool
+}

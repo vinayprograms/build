@@ -43,6 +43,7 @@ type flags struct {
 	debugRecipe bool // Debug: dump recipe parsing
 	debugEnv    bool // Debug: dump environment parsing
 	debugCond   bool // Debug: dump conditional parsing
+	debugIncl   bool // Debug: dump include parsing
 }
 
 func main() {
@@ -112,6 +113,11 @@ func run(args []string) int {
 		return debugConditionals(buildfile)
 	}
 
+	// Debug mode: dump include parsing
+	if f.debugIncl {
+		return debugIncludes(buildfile)
+	}
+
 	// For now, just print what we would do
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -156,6 +162,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugRecipe, "debug-recipe", false, "Debug: dump recipe parsing")
 	fs.BoolVar(&f.debugEnv, "debug-env", false, "Debug: dump environment parsing")
 	fs.BoolVar(&f.debugCond, "debug-cond", false, "Debug: dump conditional parsing")
+	fs.BoolVar(&f.debugIncl, "debug-include", false, "Debug: dump include parsing")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -191,6 +198,7 @@ Debug Options:
   --debug-recipe       Dump recipe parsing (for development)
   --debug-env          Dump environment parsing (for development)
   --debug-cond         Dump conditional parsing (for development)
+  --debug-include      Dump include parsing (for development)
 
 Examples:
   build                Build default target
@@ -930,6 +938,74 @@ func debugConditionals(path string) int {
 
 	if condCount == 0 {
 		fmt.Println("  (no conditional blocks found)")
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+func debugIncludes(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Include Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse include directives
+	fmt.Println(".include: directives found:")
+	hasError := false
+	includeCount := 0
+
+	// Scan for include directives
+	lines := splitLines(string(content))
+
+	for lineIdx, line := range lines {
+		trimmed := trimLeadingWhitespace(line)
+
+		// Look for .include:
+		if len(trimmed) < 9 || trimmed[:9] != ".include:" {
+			continue
+		}
+
+		// Parse the include directive
+		l := NewLexer(path, line+"\n")
+		p := NewParser(l)
+		ip := NewIncludeParser(p)
+
+		result, err := ip.ParseInclude()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", lineIdx+1, err)
+			hasError = true
+			continue
+		}
+
+		includeCount++
+
+		// Print include info
+		fmt.Printf("  Line %d: .include: %s\n", lineIdx+1, result.Path())
+		fmt.Printf("    Included %d statement(s):\n", result.IncludedStatementCount())
+
+		for i := 0; i < result.IncludedStatementCount(); i++ {
+			stmtType := result.IncludedStatementType(i)
+			stmtText := result.IncludedStatementText(i)
+			fmt.Printf("      - [%s] %s\n", stmtType, stmtText)
+		}
+	}
+
+	if includeCount == 0 {
+		fmt.Println("  (no .include: directives found)")
 	}
 
 	if hasError {

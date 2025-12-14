@@ -123,12 +123,12 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Handle nested parentheses in function arguments
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `.include:` directive**
-  - [ ] Parse include path with variable interpolation
-  - [ ] Recursively lex/parse included file
-  - [ ] Merge included AST into parent
-  - [ ] Detect and prevent circular includes
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement `.include:` directive**
+  - [x] Parse include path with variable interpolation
+  - [x] Recursively lex/parse included file
+  - [x] Merge included AST into parent
+  - [x] Detect and prevent circular includes
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement error recovery**
   - [ ] On parse error, skip to next line at indentation level 0

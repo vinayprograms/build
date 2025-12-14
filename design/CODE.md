@@ -34,6 +34,8 @@ github.com/vinayprograms/build/
 │       ├── environment_test.go
 │       ├── errors.go       # Parse error types
 │       ├── errors_test.go
+│       ├── include.go      # Include directive parsing
+│       ├── include_test.go
 │       ├── parser.go       # Parser with scope stack
 │       ├── parser_test.go
 │       ├── recipe.go       # Recipe parsing
@@ -134,6 +136,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-recipe` | Dump recipe parsing (shows parsed recipes with commands) |
 | `--debug-env` | Dump environment parsing (shows parsed environment blocks) |
 | `--debug-cond` | Dump conditional parsing (shows parsed conditionals) |
+| `--debug-include` | Dump include parsing (shows included files and statements) |
 
 ### Version Information
 
@@ -1289,3 +1292,84 @@ end
 4. **Flexible condition values**: Both sides of `==`/`!=` are full values, allowing `{var1} == {var2}` comparisons.
 
 5. **No scope change for conditionals**: Conditionals don't create a new scope. Variables defined in conditional bodies are visible after the conditional ends (matching Make behavior).
+
+### Include Parsing (`include.go`)
+
+Parses `.include:` directives per DESIGN.md Section 3.2 grammar:
+```
+global_directive = ".include:" value ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ParseInclude() (*ast.Directive, []ast.Statement, *ParseError)` | Parses .include: directive and returns included statements |
+| `parseIncludeWithStack(stack) (...)` | Internal implementation with circular include tracking |
+| `parseIncludedFile(path, content, stack) ([]ast.Statement, *ParseError)` | Parses content of included file |
+| `parseStatement() (ast.Statement, *ParseError)` | Parses a single top-level statement |
+| `extractLiteralPath(v *ast.Value) string` | Extracts literal path from value (interpolation not yet supported) |
+
+**Include Detection:**
+
+An `.include:` directive is detected when `DOT_INCLUDE` token is encountered at global scope:
+```
+.include: ./common.build
+.include: {config_dir}/settings.build
+```
+
+**Recursive Parsing:**
+
+The include parser:
+1. Extracts the path from the directive value
+2. Resolves relative paths based on the including file's directory
+3. Reads the included file content
+4. Recursively parses the included file
+5. Returns both the directive AST node and the parsed statements
+
+**Circular Include Detection:**
+
+Uses an `includeStack` to track files being processed:
+```go
+type includeStack struct {
+    files map[string]bool
+}
+```
+
+- Before parsing a file, its absolute path is added to the stack
+- If the path already exists, a "circular include detected" error is returned
+- After parsing completes, the path is removed from the stack
+
+This detects both direct circular includes (A→A) and indirect circular includes (A→B→A).
+
+**Relative Path Resolution:**
+
+Include paths are resolved relative to the including file:
+```
+# In /project/build/Buildfile:
+.include: ./common.build    # → /project/build/common.build
+.include: ../lib/deps.build # → /project/lib/deps.build
+.include: /etc/defaults.build # → /etc/defaults.build (absolute)
+```
+
+**Statement Parsing:**
+
+The `parseStatement()` function handles all statement types in included files:
+- Variable definitions
+- Target definitions
+- Directives (`.shell:`, `.parallel:`, `.default:`)
+- Environment blocks
+- Nested conditionals
+- Nested includes
+
+**Design Decisions:**
+
+1. **Literal paths only**: Currently, interpolation in include paths is not supported. The path must be a literal string. This simplifies implementation and avoids chicken-and-egg issues with variable evaluation order.
+
+2. **Statements returned separately**: `ParseInclude()` returns both the directive node and the parsed statements. This allows the caller to decide how to merge the statements into the parent AST.
+
+3. **Recursive with stack**: The include stack is passed through recursive calls to detect circular includes at any depth.
+
+4. **Comments preserved**: Comments in included files are preserved in the returned statements.
+
+5. **No indentation in included files**: Included files are parsed at global scope. Indented content in included files follows the same rules as the main file.

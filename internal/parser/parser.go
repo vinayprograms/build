@@ -35,6 +35,11 @@ func (p *Parser) currentToken() lexer.Token {
 	return p.current
 }
 
+// CurrentToken is the exported version of currentToken for external use.
+func (p *Parser) CurrentToken() lexer.Token {
+	return p.currentToken()
+}
+
 // enterScope pushes a new scope onto the stack.
 func (p *Parser) enterScope(scope Scope) {
 	p.scope.Push(scope)
