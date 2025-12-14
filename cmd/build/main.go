@@ -39,6 +39,7 @@ type flags struct {
 	debugLex    bool // Debug: dump lexer tokens
 	debugParse  bool // Debug: dump parser scope validation
 	debugVar    bool // Debug: dump variable parsing
+	debugTarget bool // Debug: dump target parsing
 }
 
 func main() {
@@ -88,6 +89,11 @@ func run(args []string) int {
 		return debugVariables(buildfile)
 	}
 
+	// Debug mode: dump target parsing
+	if f.debugTarget {
+		return debugTargets(buildfile)
+	}
+
 	// For now, just print what we would do
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -128,6 +134,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugLex, "debug-lex", false, "Debug: dump lexer tokens")
 	fs.BoolVar(&f.debugParse, "debug-parse", false, "Debug: dump parser scope validation")
 	fs.BoolVar(&f.debugVar, "debug-var", false, "Debug: dump variable parsing")
+	fs.BoolVar(&f.debugTarget, "debug-target", false, "Debug: dump target parsing")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -159,6 +166,7 @@ Debug Options:
   --debug-lex          Dump lexer tokens (for development)
   --debug-parse        Dump parser scope validation (for development)
   --debug-var          Dump variable parsing (for development)
+  --debug-target       Dump target parsing (for development)
 
 Examples:
   build                Build default target
@@ -424,4 +432,106 @@ func looksLikeVariable(s string) bool {
 	}
 	// Has equals, and either no colon or equals comes first
 	return equalsPos >= 0 && (colonPos < 0 || equalsPos < colonPos)
+}
+
+// looksLikeTarget checks if a line looks like a target definition.
+// A line is a target if : appears before = (or = doesn't appear).
+func looksLikeTarget(s string) bool {
+	// Phony targets start with @
+	if len(s) > 0 && s[0] == '@' {
+		return true
+	}
+	equalsPos := -1
+	colonPos := -1
+	for i := 0; i < len(s); i++ {
+		if s[i] == '=' && equalsPos < 0 {
+			equalsPos = i
+		}
+		if s[i] == ':' && colonPos < 0 {
+			colonPos = i
+		}
+	}
+	// Has colon, and either no equals or colon comes first
+	return colonPos >= 0 && (equalsPos < 0 || colonPos < equalsPos)
+}
+
+func debugTargets(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Target Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse line by line looking for target definitions
+	fmt.Println("Target definitions found:")
+	lines := splitLines(string(content))
+	hasError := false
+
+	for lineNum, line := range lines {
+		// Skip empty lines and comments
+		trimmed := trimLeadingWhitespace(line)
+		if trimmed == "" || trimmed[0] == '#' {
+			continue
+		}
+
+		// Check if this looks like a target (has : before =)
+		if !looksLikeTarget(trimmed) {
+			continue
+		}
+
+		// Try to parse as target
+		l := NewLexer(path, line)
+		p := NewParser(l)
+		tp := NewTargetParser(p)
+
+		t, err := tp.ParseTarget()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", lineNum+1, err)
+			hasError = true
+			continue
+		}
+
+		// Print target info
+		typeStr := "file"
+		if t.IsPhony() {
+			typeStr = "phony"
+		} else if t.IsDirectory() {
+			typeStr = "dir"
+		}
+
+		fmt.Printf("  Line %d: [%s] %s", lineNum+1, typeStr, t.PatternText())
+
+		// Print captures if any
+		if t.HasCaptures() {
+			fmt.Printf(" (captures: %v)", t.CaptureNames())
+		}
+
+		// Print dependencies
+		depCount := t.DependencyCount()
+		if depCount > 0 {
+			fmt.Printf(" ← ")
+			for i := 0; i < depCount; i++ {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Print(t.DependencyText(i))
+			}
+		}
+		fmt.Println()
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
 }

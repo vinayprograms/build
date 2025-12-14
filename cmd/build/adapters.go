@@ -254,3 +254,101 @@ func NewVariableParser(p Parser) VariableParser {
 	}
 	panic("NewVariableParser requires a Parser created by NewParser")
 }
+
+// ----------------------------------------------------------------------------
+// Target Adapters
+// ----------------------------------------------------------------------------
+
+// targetAdapter wraps ast.Target to implement the Target interface.
+type targetAdapter struct {
+	t *ast.Target
+}
+
+func (ta targetAdapter) PatternText() string {
+	var text string
+	for _, seg := range ta.t.Pattern.Segments {
+		switch s := seg.(type) {
+		case *ast.LiteralSegment:
+			text += s.Text
+		case *ast.BraceExpr:
+			text += "{" + s.Identifier + "}"
+		}
+	}
+	return text
+}
+
+func (ta targetAdapter) IsPhony() bool {
+	return ta.t.Pattern.IsPhony
+}
+
+func (ta targetAdapter) IsDirectory() bool {
+	return ta.t.Pattern.IsDirectory
+}
+
+func (ta targetAdapter) DependencyCount() int {
+	return len(ta.t.Dependencies)
+}
+
+func (ta targetAdapter) DependencyText(i int) string {
+	if i < 0 || i >= len(ta.t.Dependencies) {
+		return ""
+	}
+	var text string
+	for _, seg := range ta.t.Dependencies[i].Segments {
+		switch s := seg.(type) {
+		case *ast.LiteralSegment:
+			text += s.Text
+		case *ast.BraceExpr:
+			text += "{" + s.Identifier + "}"
+		}
+	}
+	return text
+}
+
+func (ta targetAdapter) HasCaptures() bool {
+	for _, seg := range ta.t.Pattern.Segments {
+		if _, ok := seg.(*ast.BraceExpr); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (ta targetAdapter) CaptureNames() []string {
+	var names []string
+	for _, seg := range ta.t.Pattern.Segments {
+		if be, ok := seg.(*ast.BraceExpr); ok {
+			names = append(names, be.Identifier)
+		}
+	}
+	return names
+}
+
+func (ta targetAdapter) Location() string {
+	return ta.t.Location.String()
+}
+
+// targetParserAdapter wraps parser.Parser to implement TargetParser.
+type targetParserAdapter struct {
+	p *parser.Parser
+}
+
+func (tp *targetParserAdapter) ParseTarget() (Target, error) {
+	t, err := tp.p.ParseTarget()
+	if err != nil {
+		return nil, err
+	}
+	return targetAdapter{t: t}, nil
+}
+
+func (tp *targetParserAdapter) IsTargetLine() bool {
+	return tp.p.IsTargetLine()
+}
+
+// NewTargetParser creates a TargetParser from a Parser.
+func NewTargetParser(p Parser) TargetParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &targetParserAdapter{p: pa.p}
+	}
+	panic("NewTargetParser requires a Parser created by NewParser")
+}

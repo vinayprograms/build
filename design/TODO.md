@@ -86,13 +86,13 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Parse right-hand side as Value with interpolations and function calls
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement target parsing**
-  - [ ] Parse target pattern (file path with `{name}` segments)
-  - [ ] Parse phony targets (`@name`)
-  - [ ] Parse directory targets (ending with `/`)
-  - [ ] Parse dependency list
-  - [ ] Handle pattern targets with captures
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement target parsing**
+  - [x] Parse target pattern (file path with `{name}` segments)
+  - [x] Parse phony targets (`@name`)
+  - [x] Parse directory targets (ending with `/`)
+  - [x] Parse dependency list
+  - [x] Handle pattern targets with captures
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement recipe parsing**
   - [ ] Detect recipe start by indentation after target

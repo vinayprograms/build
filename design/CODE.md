@@ -34,6 +34,8 @@ github.com/vinayprograms/build/
 │       ├── parser_test.go
 │       ├── scope.go        # Scope types and stack
 │       ├── scope_test.go
+│       ├── target.go       # Target parsing
+│       ├── target_test.go
 │       ├── variable.go     # Variable parsing
 │       └── variable_test.go
 ├── Buildfile           # Build configuration for this project
@@ -64,6 +66,10 @@ cmd/build/
 | `Scope` | Represents parsing context (global, environment, recipe, block) |
 | `Parser` | Transforms token stream into AST with scope tracking |
 | `DirectiveValidator` | Validates directive placement at scopes |
+| `Variable` | Represents a parsed variable definition |
+| `VariableParser` | Parses variable definitions |
+| `Target` | Represents a parsed target definition |
+| `TargetParser` | Parses target definitions |
 
 **Design Rationale:**
 
@@ -113,6 +119,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-lex` | Dump lexer analysis (indentation, interpolations) |
 | `--debug-parse` | Dump parser scope validation |
 | `--debug-var` | Dump variable parsing (shows parsed variables) |
+| `--debug-target` | Dump target parsing (shows parsed targets) |
 
 ### Version Information
 
@@ -852,3 +859,79 @@ sources = shell(find {src_dir} -name *.c)
 3. **Parentheses depth tracking**: Function argument parsing tracks parenthesis depth to handle nested parentheses in function arguments.
 
 4. **Error recovery**: On parse error, the parser records the error and allows continued parsing of subsequent tokens.
+
+### Target Parsing (`target.go`)
+
+Parses target definitions per DESIGN.md Section 3.2 grammar:
+```
+target_def = target_spec ":" dependency_list NEWLINE [ recipe ] ;
+target_spec = phony_target | file_target ;
+phony_target = "@" identifier ;
+file_target = path_pattern ;
+path_pattern = { path_segment | capture } ;
+dependency_list = { dependency } ;
+dependency = path_pattern | interpolation ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ParseTarget() (*ast.Target, *ParseError)` | Parses a complete target definition |
+| `parseTargetPattern(isPhony bool) (*ast.TargetPattern, *ParseError)` | Parses target pattern (left of `:`) |
+| `parseBraceExpr() (*ast.BraceExpr, *ParseError)` | Parses `{name}` in patterns |
+| `parseDependencyList() ([]ast.Dependency, *ParseError)` | Parses dependencies (right of `:`) |
+| `IsTargetLine() bool` | Checks if current line is a target (`: before =`) |
+
+**Target Types:**
+
+| Type | Syntax | Example | Detection |
+|------|--------|---------|-----------|
+| File target | `path:` | `build/app:` | No `@` prefix |
+| Phony target | `@name:` | `@clean:` | Starts with `@` |
+| Directory target | `path/:` | `build/:` | Ends with `/` |
+| Pattern target | `{name}` in path | `build/{name}.o:` | Contains `BraceExpr` |
+
+**Pattern Parsing:**
+
+Target patterns are parsed into segments:
+- `LiteralSegment`: Literal path text (e.g., `build/`, `.o`)
+- `BraceExpr`: Unresolved `{name}` expression
+
+At parse time, `{name}` in patterns is stored as `BraceExpr`. Semantic analysis later determines if it's:
+- A capture (pattern matching variable)
+- A variable interpolation (if name is defined)
+
+**Dependency Parsing:**
+
+After the colon, the lexer enters `ModeValue` and returns STRING tokens with interpolations interspersed. Dependencies are space-separated:
+
+```
+build/app: build/main.o build/utils.o
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+          Dependencies (space-separated)
+```
+
+The parser handles this by:
+1. Accumulating segments for current dependency
+2. Flushing on whitespace boundaries (from STRING tokens containing spaces)
+3. Keeping interpolations attached to surrounding literals (e.g., `src/{name}.c` is ONE dependency)
+
+**Directory Detection:**
+
+A target is marked as a directory (`IsDirectory=true`) if its final merged pattern ends with `/`:
+
+```
+build/:      # IsDirectory = true
+build/{name}.o:  # IsDirectory = false (ends with .o)
+```
+
+**Design Decisions:**
+
+1. **BraceExpr deferred resolution**: The parser produces `BraceExpr` nodes without determining if they are captures or interpolations. This keeps parsing context-free and moves semantic decisions to the appropriate phase.
+
+2. **Adjacent literal merging**: After parsing, adjacent `LiteralSegment` nodes are merged for a cleaner AST. This simplifies pattern text reconstruction.
+
+3. **Space handling in dependencies**: The lexer skips spaces between tokens in value mode, so the parser detects dependency boundaries by checking for spaces within STRING tokens.
+
+4. **Phony name extraction**: For phony targets (`@name`), the parser strips the `@` prefix and stores just the name in the pattern.

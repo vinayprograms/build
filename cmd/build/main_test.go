@@ -354,6 +354,16 @@ func TestParseFlagsDebugVar(t *testing.T) {
 	}
 }
 
+func TestParseFlagsDebugTarget(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-target"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugTarget {
+		t.Error("debugTarget should be true")
+	}
+}
+
 func TestRunDebugVar(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
@@ -375,6 +385,41 @@ sources = shell(find src -name *.c)
 
 func TestRunDebugVarMissingFile(t *testing.T) {
 	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-var"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugTarget(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Sample Buildfile with targets
+build/app: build/main.o build/utils.o
+    gcc -o {target} {deps}
+
+build/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+
+@all: build/app
+
+@clean:
+    rm -rf build/
+
+build/:
+    mkdir -p {target}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-target"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugTargetMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-target"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -488,6 +533,7 @@ func TestPrintUsage(t *testing.T) {
 		"--debug-lex",
 		"--debug-parse",
 		"--debug-var",
+		"--debug-target",
 	}
 
 	for _, s := range essentials {

@@ -111,3 +111,40 @@ type VariableParser interface {
 	// Returns the variable and any error encountered.
 	ParseVariable() (Variable, error)
 }
+
+// Target represents a parsed target definition from the AST.
+type Target interface {
+	// PatternText returns a textual representation of the target pattern.
+	PatternText() string
+
+	// IsPhony returns true for @name phony targets.
+	IsPhony() bool
+
+	// IsDirectory returns true for targets ending with /.
+	IsDirectory() bool
+
+	// DependencyCount returns the number of dependencies.
+	DependencyCount() int
+
+	// DependencyText returns the textual representation of the i-th dependency.
+	DependencyText(i int) string
+
+	// HasCaptures returns true if the pattern contains {name} expressions.
+	HasCaptures() bool
+
+	// CaptureNames returns the names of captures in the pattern.
+	CaptureNames() []string
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+}
+
+// TargetParser parses target definitions.
+type TargetParser interface {
+	// ParseTarget parses a target definition from the current position.
+	// Returns the target and any error encountered.
+	ParseTarget() (Target, error)
+
+	// IsTargetLine returns true if the current line is a target definition.
+	IsTargetLine() bool
+}
