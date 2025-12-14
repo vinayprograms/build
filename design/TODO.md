@@ -109,19 +109,19 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Handle dedent to end environment block
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement conditional parsing**
-  - [ ] Parse `if`, `elif`, `else`, `end` keywords
-  - [ ] Parse conditions (`{var} == value`, `{var} != value`)
-  - [ ] Parse `ifdef` and `ifndef` variants
-  - [ ] Collect body statements for each branch
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement conditional parsing**
+  - [x] Parse `if`, `elif`, `else`, `end` keywords
+  - [x] Parse conditions (`{var} == value`, `{var} != value`)
+  - [x] Parse `ifdef` and `ifndef` variants
+  - [x] Collect body statements for each branch
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement value parsing**
-  - [ ] Parse literal strings
-  - [ ] Parse interpolations (`{var}`, `{var:raw}`)
-  - [ ] Parse function calls (shell, glob, basename, dirname, replace)
-  - [ ] Handle nested parentheses in function arguments
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement value parsing**
+  - [x] Parse literal strings
+  - [x] Parse interpolations (`{var}`, `{var:raw}`)
+  - [x] Parse function calls (shell, glob, basename, dirname, replace)
+  - [x] Handle nested parentheses in function arguments
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement `.include:` directive**
   - [ ] Parse include path with variable interpolation

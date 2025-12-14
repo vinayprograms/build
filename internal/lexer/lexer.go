@@ -341,6 +341,12 @@ func (l *Lexer) lexValue() Token {
 		return l.makeToken(LPAREN, "(")
 	}
 
+	// Comma separates function arguments
+	if ch == ',' {
+		l.advance()
+		return l.makeToken(COMMA, ",")
+	}
+
 	// Check for function names (only if followed by '(' to be a function call)
 	if isIdentStart(ch) {
 		// Peek ahead to see if it's a function call
@@ -372,7 +378,7 @@ func (l *Lexer) lexValueString() Token {
 		ch := l.input[l.pos]
 
 		// Stop at special characters
-		if ch == '\n' || ch == '#' || ch == ')' || ch == '(' {
+		if ch == '\n' || ch == '#' || ch == ')' || ch == '(' || ch == ',' {
 			break
 		}
 

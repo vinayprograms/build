@@ -26,6 +26,8 @@ github.com/vinayprograms/build/
 │   │   ├── token.go        # Token types and source location
 │   │   └── token_test.go
 │   └── parser/         # Syntactic analysis
+│       ├── conditional.go  # Conditional parsing
+│       ├── conditional_test.go
 │       ├── directive.go    # Directive scope validation
 │       ├── directive_test.go
 │       ├── environment.go  # Environment block parsing
@@ -77,6 +79,8 @@ cmd/build/
 | `Recipe` | Represents a parsed recipe with directives and commands |
 | `Environment` | Represents a parsed environment block |
 | `EnvironmentParser` | Parses environment blocks |
+| `Conditional` | Represents a parsed conditional block |
+| `ConditionalParser` | Parses conditional blocks |
 
 **Design Rationale:**
 
@@ -129,6 +133,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-target` | Dump target parsing (shows parsed targets) |
 | `--debug-recipe` | Dump recipe parsing (shows parsed recipes with commands) |
 | `--debug-env` | Dump environment parsing (shows parsed environment blocks) |
+| `--debug-cond` | Dump conditional parsing (shows parsed conditionals) |
 
 ### Version Information
 
@@ -151,7 +156,7 @@ Defines all token types for the Buildfile language as specified in `DESIGN.md` S
 | Special | `EOF`, `NEWLINE`, `INDENT`, `COMMENT`, `ERROR` | Control tokens |
 | Dot Keywords | `DOT_SHELL`, `DOT_PARALLEL`, `DOT_DEFAULT`, `DOT_INCLUDE`, `DOT_ENVIRONMENT`, `DOT_USING`, `DOT_SOURCE`, `DOT_ARGS`, `DOT_REQUIRES`, `DOT_AFTER`, `DOT_AUTODEPS` | Directives starting with `.` |
 | Keywords | `LAZY`, `IF`, `ELIF`, `ELSE`, `END`, `IFDEF`, `IFNDEF`, `BLOCK` | Control flow and modifiers |
-| Operators | `EQUALS`, `COLON`, `DOUBLE_EQUALS`, `NOT_EQUALS`, `LPAREN`, `RPAREN` | Punctuation |
+| Operators | `EQUALS`, `COLON`, `DOUBLE_EQUALS`, `NOT_EQUALS`, `LPAREN`, `RPAREN`, `COMMA` | Punctuation |
 | Identifiers | `IDENTIFIER`, `AT_IDENTIFIER`, `PATH`, `STRING` | Names and literals |
 | Interpolation | `INTERP_START`, `INTERP_END`, `INTERP_MOD`, `ESCAPE_LBRACE`, `ESCAPE_RBRACE` | `{var}` syntax |
 | Functions | `FUNC_SHELL`, `FUNC_GLOB`, `FUNC_BASENAME`, `FUNC_DIRNAME`, `FUNC_REPLACE` | Built-in functions |
@@ -852,11 +857,37 @@ Recognizes built-in functions:
 | `glob(...)` | `FuncGlob` | File pattern matching |
 | `basename(...)` | `FuncBasename` | Extract filename |
 | `dirname(...)` | `FuncDirname` | Extract directory |
-| `replace(...)` | `FuncReplace` | String replacement |
+| `replace(...)` | `FuncReplace` | String replacement (3 args) |
 
 Function arguments can contain interpolations:
 ```
 sources = shell(find {src_dir} -name *.c)
+objects = replace({sources}, .c, .o)
+```
+
+**Multi-Argument Functions:**
+
+The `replace(...)` function takes three comma-separated arguments:
+```
+replace(input, from, to)
+```
+
+The parser handles:
+- Comma-separated arguments (stops at `,` unless inside nested parentheses)
+- Nested parentheses in arguments (e.g., `shell(echo $(date))`)
+- Interpolations within any argument
+
+**COMMA Token:**
+
+The lexer emits `COMMA` tokens when in value mode. The parser uses this to separate function arguments:
+```
+replace({sources}, .c, .o)
+        ^       ^  ^  ^  ^
+        |       |  |  |  +-- arg3
+        |       |  |  +-- COMMA
+        |       |  +-- arg2
+        |       +-- COMMA
+        +-- arg1 (with interpolation)
 ```
 
 **Design Decisions:**
@@ -1148,3 +1179,113 @@ Values in environment directives can contain:
 4. **Strict scope validation**: Invalid directives in environment scope (like `.shell:`) are rejected with clear error messages.
 
 5. **Comment handling**: Comments within environment blocks are skipped, allowing inline documentation.
+
+### Conditional Parsing (`conditional.go`)
+
+Parses conditional blocks per DESIGN.md Section 3.2 grammar:
+```
+conditional = if_clause { elif_clause } [ else_clause ] "end" NEWLINE ;
+if_clause = "if" condition NEWLINE { statement } ;
+elif_clause = "elif" condition NEWLINE { statement } ;
+else_clause = "else" NEWLINE { statement } ;
+condition = interpolation "==" value | interpolation "!=" value ;
+ifdef_clause = "ifdef" identifier NEWLINE { statement } "end" NEWLINE ;
+ifndef_clause = "ifndef" identifier NEWLINE { statement } "end" NEWLINE ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `IsConditionalLine() bool` | Returns true if current token starts a conditional (if, ifdef, ifndef) |
+| `ParseConditional() (*ast.Conditional, *ParseError)` | Parses complete conditional block |
+| `parseIfConditional(loc) (*ast.Conditional, *ParseError)` | Parses if/elif/else/end block |
+| `parseIfdefConditional(loc, isDefined) (*ast.Conditional, *ParseError)` | Parses ifdef/ifndef/end block |
+| `parseElifBranch() (*ast.ConditionalBranch, *ParseError)` | Parses a single elif branch |
+| `parseCondition() (ast.Condition, *ParseError)` | Parses condition expression (== or !=) |
+| `parseConditionValue() *ast.Value` | Parses left or right side of condition |
+| `parseConditionalBody() ([]ast.Statement, *ParseError)` | Parses statements until end, elif, or else |
+| `parseBodyStatement() (ast.Statement, *ParseError)` | Parses a single statement in conditional body |
+
+**Conditional Types:**
+
+| Type | Syntax | Example | AST Condition Type |
+|------|--------|---------|-------------------|
+| If with equals | `if {var} == value` | `if {os} == linux` | `EqualsCondition` |
+| If with not-equals | `if {var} != value` | `if {os} != windows` | `NotEqualsCondition` |
+| Ifdef | `ifdef VARNAME` | `ifdef DEBUG` | `DefinedCondition` |
+| Ifndef | `ifndef VARNAME` | `ifndef CC` | `NotDefinedCondition` |
+
+**Conditional Structure:**
+
+```
+if {os} == linux       # if branch
+cc = gcc
+cflags = -Wall
+elif {os} == darwin    # elif branch (0 or more)
+cc = clang
+cflags = -Wall -Wextra
+else                   # else branch (optional)
+cc = cc
+end                    # required terminator
+```
+
+**Condition Parsing:**
+
+The condition expression is parsed in two parts:
+1. Left side: Typically an interpolation `{var}` or `{var:raw}`
+2. Comparison operator: `==` or `!=`
+3. Right side: A value (literal or containing interpolations)
+
+```go
+type EqualsCondition struct {
+    Left  *Value
+    Right *Value
+}
+
+type NotEqualsCondition struct {
+    Left  *Value
+    Right *Value
+}
+```
+
+**Body Statement Parsing:**
+
+Statements allowed in conditional bodies:
+- Variable definitions (immediate or lazy)
+- Nested conditionals
+- Comments
+- Blank lines
+
+**Nested Conditional Support:**
+
+Conditionals can be nested to arbitrary depth:
+```
+if {os} == linux
+    ifdef DEBUG
+        debug_flags = -g
+    end
+    cc = gcc
+end
+```
+
+**Error Handling:**
+
+| Error | Condition | Message |
+|-------|-----------|---------|
+| Missing condition | No condition after `if` | "expected condition expression" |
+| Missing operator | No `==` or `!=` | "expected '==' or '!=' in condition" |
+| Missing end | EOF before `end` | "expected 'end' to close conditional" |
+| Missing identifier | No identifier after `ifdef`/`ifndef` | "expected identifier after 'ifdef'/'ifndef'" |
+
+**Design Decisions:**
+
+1. **Unified conditional structure**: Both `if/elif/else/end` and `ifdef/ifndef/end` use the same `ast.Conditional` structure. This simplifies evaluation logic.
+
+2. **DefinedCondition vs interpolation check**: `ifdef` and `ifndef` store just the variable name (string), not a full value. This makes the "is defined" check straightforward.
+
+3. **Body parsing delegation**: `parseBodyStatement()` delegates to existing parsers (`ParseVariable`, `ParseConditional`) for reuse.
+
+4. **Flexible condition values**: Both sides of `==`/`!=` are full values, allowing `{var1} == {var2}` comparisons.
+
+5. **No scope change for conditionals**: Conditionals don't create a new scope. Variables defined in conditional bodies are visible after the conditional ends (matching Make behavior).

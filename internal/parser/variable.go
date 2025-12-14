@@ -227,12 +227,19 @@ func (p *Parser) parseFunctionCall() *ast.FunctionCall {
 	}
 	p.nextToken() // consume (
 
-	// Parse arguments (for now, single argument)
+	// Parse comma-separated arguments
 	var args []*ast.Value
-	if p.current.Type != lexer.RPAREN {
+	for p.current.Type != lexer.RPAREN && p.current.Type != lexer.EOF && p.current.Type != lexer.NEWLINE {
 		arg := p.parseFunctionArg()
 		if arg != nil {
 			args = append(args, arg)
+		}
+
+		// Check for comma between arguments
+		if p.current.Type == lexer.COMMA {
+			p.nextToken() // consume comma
+		} else {
+			break
 		}
 	}
 
@@ -253,18 +260,22 @@ func (p *Parser) parseFunctionCall() *ast.FunctionCall {
 	}
 }
 
-// parseFunctionArg parses a single function argument.
+// parseFunctionArg parses a single function argument (until comma, ), newline, or EOF).
 func (p *Parser) parseFunctionArg() *ast.Value {
 	loc := ast.SourceLocationFromToken(p.current)
 	var parts []ast.ValuePart
 
-	// Consume tokens until ), newline, or EOF
+	// Consume tokens until ), comma, newline, or EOF
 	parenDepth := 0
 	for {
 		if p.current.Type == lexer.EOF || p.current.Type == lexer.NEWLINE {
 			break
 		}
 		if p.current.Type == lexer.RPAREN && parenDepth == 0 {
+			break
+		}
+		// Stop at comma when not inside nested parens
+		if p.current.Type == lexer.COMMA && parenDepth == 0 {
 			break
 		}
 

@@ -44,6 +44,7 @@ const (
 	NOT_EQUALS    // !=
 	LPAREN        // (
 	RPAREN        // )
+	COMMA         // ,
 
 	// Identifiers and literals
 	IDENTIFIER    // alphanumeric + underscore
@@ -97,6 +98,7 @@ var tokenTypeNames = map[TokenType]string{
 	NOT_EQUALS:      "NOT_EQUALS",
 	LPAREN:          "LPAREN",
 	RPAREN:          "RPAREN",
+	COMMA:           "COMMA",
 	IDENTIFIER:      "IDENTIFIER",
 	AT_IDENTIFIER:   "AT_IDENTIFIER",
 	PATH:            "PATH",

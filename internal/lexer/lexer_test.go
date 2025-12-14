@@ -507,7 +507,7 @@ func TestLexerFunctions(t *testing.T) {
 		{
 			name:  "replace function",
 			input: "replace({src}, .c, .o)",
-			want:  []TokenType{FUNC_REPLACE, LPAREN, INTERP_START, IDENTIFIER, INTERP_END, STRING, RPAREN, EOF},
+			want:  []TokenType{FUNC_REPLACE, LPAREN, INTERP_START, IDENTIFIER, INTERP_END, COMMA, STRING, COMMA, STRING, RPAREN, EOF},
 		},
 	}
 

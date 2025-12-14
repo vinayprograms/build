@@ -493,6 +493,12 @@ func TestParser_ParseFunctionCall(t *testing.T) {
 			wantFunc: ast.FuncDirname,
 			wantArgs: 1,
 		},
+		{
+			name:     "replace function with three args",
+			input:    "replace({sources}, .c, .o)",
+			wantFunc: ast.FuncReplace,
+			wantArgs: 3,
+		},
 	}
 
 	for _, tt := range tests {
@@ -525,4 +531,156 @@ func TestParser_ParseFunctionCall(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParser_ParseFunctionCall_NestedParentheses(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantFunc  ast.FunctionName
+		wantArgs  int
+		wantInArg string // expected text within argument
+	}{
+		{
+			name:      "shell with subshell",
+			input:     "shell(echo $(date))",
+			wantFunc:  ast.FuncShell,
+			wantArgs:  1,
+			wantInArg: "$(date)",
+		},
+		{
+			name:      "shell with arithmetic expansion",
+			input:     "shell(echo $((1 + 2)))",
+			wantFunc:  ast.FuncShell,
+			wantArgs:  1,
+			wantInArg: "$((1 + 2))",
+		},
+		{
+			name:      "shell with nested command",
+			input:     "shell(bash -c 'echo (test)')",
+			wantFunc:  ast.FuncShell,
+			wantArgs:  1,
+			wantInArg: "(test)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := "x = " + tt.input
+			l := lexer.New("test.build", input)
+			p := New(l)
+
+			v, err := p.ParseVariable()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if len(v.Value.Parts) < 1 {
+				t.Fatal("expected at least one part")
+			}
+
+			funcCall, ok := v.Value.Parts[0].(*ast.FunctionCall)
+			if !ok {
+				t.Fatalf("Part[0] is not FunctionCall, got %T", v.Value.Parts[0])
+			}
+
+			if funcCall.Name != tt.wantFunc {
+				t.Errorf("Name = %v, want %v", funcCall.Name, tt.wantFunc)
+			}
+
+			if len(funcCall.Args) != tt.wantArgs {
+				t.Errorf("Args count = %d, want %d", len(funcCall.Args), tt.wantArgs)
+			}
+
+			// Check that the nested parentheses are preserved in the argument
+			if len(funcCall.Args) > 0 {
+				argText := ""
+				for _, part := range funcCall.Args[0].Parts {
+					if lit, ok := part.(*ast.LiteralValue); ok {
+						argText += lit.Text
+					}
+				}
+				if !containsSubstring(argText, tt.wantInArg) {
+					t.Errorf("Argument text %q does not contain %q", argText, tt.wantInArg)
+				}
+			}
+		})
+	}
+}
+
+func TestParser_ParseFunctionCall_ReplaceWithMultipleArgs(t *testing.T) {
+	input := "objs = replace({sources}, .c, .o)"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	v, err := p.ParseVariable()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if v.Name != "objs" {
+		t.Errorf("Name = %q, want %q", v.Name, "objs")
+	}
+
+	if len(v.Value.Parts) < 1 {
+		t.Fatal("expected at least one part")
+	}
+
+	funcCall, ok := v.Value.Parts[0].(*ast.FunctionCall)
+	if !ok {
+		t.Fatalf("Part[0] is not FunctionCall, got %T", v.Value.Parts[0])
+	}
+
+	if funcCall.Name != ast.FuncReplace {
+		t.Errorf("Name = %v, want FuncReplace", funcCall.Name)
+	}
+
+	if len(funcCall.Args) != 3 {
+		t.Fatalf("Args count = %d, want 3", len(funcCall.Args))
+	}
+
+	// First arg should contain interpolation
+	hasInterp := false
+	for _, part := range funcCall.Args[0].Parts {
+		if _, ok := part.(*ast.Interpolation); ok {
+			hasInterp = true
+			break
+		}
+	}
+	if !hasInterp {
+		t.Error("expected first argument to contain interpolation")
+	}
+
+	// Second arg should be ".c"
+	if len(funcCall.Args[1].Parts) < 1 {
+		t.Fatal("expected second argument to have parts")
+	}
+	lit, ok := funcCall.Args[1].Parts[0].(*ast.LiteralValue)
+	if !ok || !containsSubstring(lit.Text, ".c") {
+		t.Errorf("second arg should contain '.c', got %v", funcCall.Args[1].Parts)
+	}
+
+	// Third arg should be ".o"
+	if len(funcCall.Args[2].Parts) < 1 {
+		t.Fatal("expected third argument to have parts")
+	}
+	lit, ok = funcCall.Args[2].Parts[0].(*ast.LiteralValue)
+	if !ok || !containsSubstring(lit.Text, ".o") {
+		t.Errorf("third arg should contain '.o', got %v", funcCall.Args[2].Parts)
+	}
+}
+
+// containsSubstring is a helper for checking substrings
+func containsSubstring(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
+		(len(s) > 0 && len(substr) > 0 && contains(s, substr)))
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
