@@ -733,3 +733,96 @@ build/app: src/main.c
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
+
+func TestParseFlagsDebugAST(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-ast"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugAST {
+		t.Error("debugAST should be true")
+	}
+}
+
+func TestRunDebugAST(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Full buildfile test
+.shell: bash
+.parallel: 4
+
+cc = gcc
+lazy cflags = -Wall
+
+if {os} == linux
+cc = gcc
+end
+
+.environment:
+    .using: bare
+    .requires: gcc
+
+@test:
+    echo test
+
+build/app: src/main.c
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugASTMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-ast"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugASTWithErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Buildfile with errors
+.after: invalid
+cc = gcc
+.using: invalid
+cflags = -Wall
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	// Should return exitParseError because there are parse errors
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugASTEmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := ``
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestPrintUsageIncludesDebugAST(t *testing.T) {
+	output := captureOutput(printUsage)
+
+	if !strings.Contains(output, "--debug-ast") {
+		t.Error("usage output should include --debug-ast")
+	}
+}

@@ -5,6 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/vinayprograms/build/internal/ast"
 )
 
 // Version information (set at build time via -ldflags).
@@ -44,6 +46,7 @@ type flags struct {
 	debugEnv    bool // Debug: dump environment parsing
 	debugCond   bool // Debug: dump conditional parsing
 	debugIncl   bool // Debug: dump include parsing
+	debugAST    bool // Debug: dump full AST with error recovery
 }
 
 func main() {
@@ -118,14 +121,56 @@ func run(args []string) int {
 		return debugIncludes(buildfile)
 	}
 
-	// For now, just print what we would do
-	if f.verbose {
-		fmt.Printf("Buildfile: %s\n", buildfile)
-		fmt.Printf("Targets: %v\n", targets)
+	// Debug mode: dump full AST with error recovery
+	if f.debugAST {
+		return debugAST(buildfile)
 	}
 
-	fmt.Println("build: lexer and parser not yet fully implemented")
-	fmt.Println("use --debug-lex to test lexer components")
+	// Parse the buildfile
+	content, err := os.ReadFile(buildfile)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", buildfile, err)
+		return exitParseError
+	}
+
+	l := NewLexer(buildfile, string(content))
+	p := NewParser(l)
+	bp := NewBuildfileParser(p)
+	result := bp.ParseBuildfile()
+
+	// Report parse errors
+	if result.HasErrors() {
+		fmt.Fprintf(os.Stderr, "parse errors in %s:\n", buildfile)
+		for i := 0; i < result.ErrorCount(); i++ {
+			e := result.GetError(i)
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	// Show what was parsed (verbose mode)
+	if f.verbose {
+		fmt.Printf("Buildfile: %s\n", buildfile)
+		fmt.Printf("Parsed %d statements\n", len(result.Statements()))
+
+		// Count statement types
+		counts := make(map[string]int)
+		for _, stmt := range result.Statements() {
+			counts[stmt.StatementType()]++
+		}
+
+		for stmtType, count := range counts {
+			fmt.Printf("  %s: %d\n", stmtType, count)
+		}
+
+		if len(targets) > 0 {
+			fmt.Printf("Requested targets: %v\n", targets)
+		}
+	}
+
+	// TODO: Semantic analysis, build planning, and execution not yet implemented
+	fmt.Println("build: semantic analysis and execution not yet implemented")
+	fmt.Println("use --debug-ast to see parsed AST")
 
 	return exitSuccess
 }
@@ -163,6 +208,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugEnv, "debug-env", false, "Debug: dump environment parsing")
 	fs.BoolVar(&f.debugCond, "debug-cond", false, "Debug: dump conditional parsing")
 	fs.BoolVar(&f.debugIncl, "debug-include", false, "Debug: dump include parsing")
+	fs.BoolVar(&f.debugAST, "debug-ast", false, "Debug: dump full AST with error recovery")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -199,6 +245,7 @@ Debug Options:
   --debug-env          Dump environment parsing (for development)
   --debug-cond         Dump conditional parsing (for development)
   --debug-include      Dump include parsing (for development)
+  --debug-ast          Dump full AST with error recovery (for development)
 
 Examples:
   build                Build default target
@@ -1012,4 +1059,306 @@ func debugIncludes(path string) int {
 		return exitParseError
 	}
 	return exitSuccess
+}
+
+func debugAST(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Full AST Debug (with error recovery): %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse complete buildfile with error recovery
+	l := NewLexer(path, string(content))
+	p := NewParser(l)
+	bp := NewBuildfileParser(p)
+
+	result := bp.ParseBuildfile()
+
+	// Print errors (if any)
+	if result.HasErrors() {
+		fmt.Printf("Parse errors (%d):\n", result.ErrorCount())
+		for i := 0; i < result.ErrorCount(); i++ {
+			e := result.GetError(i)
+			fmt.Printf("  %s\n", e.Error())
+			if e.ErrorHint() != "" {
+				fmt.Printf("    hint: %s\n", e.ErrorHint())
+			}
+		}
+		fmt.Println()
+	} else {
+		fmt.Println("No parse errors.")
+		fmt.Println()
+	}
+
+	// Print statements as tree
+	stmts := result.Statements()
+	fmt.Printf("AST (%d statements):\n", len(stmts))
+	for _, stmt := range stmts {
+		printStatementTree(stmt, 0)
+	}
+
+	if result.HasErrors() {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+// printStatementTree prints a statement as a tree with indentation.
+func printStatementTree(stmt Statement, indent int) {
+	// Get the underlying AST node for detailed printing
+	if sa, ok := stmt.(interface{ Raw() interface{} }); ok {
+		printASTNode(sa.Raw(), indent)
+	} else {
+		ind := indentStr(indent)
+		fmt.Printf("%s%s: %s\n", ind, stmt.StatementType(), stmt.Summary())
+	}
+}
+
+func indentStr(level int) string {
+	s := ""
+	for i := 0; i < level; i++ {
+		s += "  "
+	}
+	return s
+}
+
+// printASTNode prints an AST node as a tree.
+func printASTNode(node interface{}, indent int) {
+	ind := indentStr(indent)
+
+	switch n := node.(type) {
+	case *ast.Comment:
+		// Skip comments in tree view for cleaner output
+		return
+
+	case *ast.Blank:
+		// Skip blanks
+		return
+
+	case *ast.Directive:
+		fmt.Printf("%sDirective\n", ind)
+		fmt.Printf("%s  kind: %s\n", ind, n.Kind.String())
+		fmt.Printf("%s  value:\n", ind)
+		printValue(n.Value, indent+2)
+
+	case *ast.Variable:
+		fmt.Printf("%sVariable\n", ind)
+		fmt.Printf("%s  name: %s\n", ind, n.Name)
+		fmt.Printf("%s  lazy: %v\n", ind, n.Lazy)
+		fmt.Printf("%s  value:\n", ind)
+		printValue(n.Value, indent+2)
+
+	case *ast.Environment:
+		fmt.Printf("%sEnvironment\n", ind)
+		if n.Name != nil {
+			fmt.Printf("%s  name: %s\n", ind, *n.Name)
+		} else {
+			fmt.Printf("%s  name: (default)\n", ind)
+		}
+		if n.Runtime != nil {
+			fmt.Printf("%s  runtime: %s\n", ind, n.Runtime.String())
+		}
+		if n.Source != nil {
+			fmt.Printf("%s  source:\n", ind)
+			printValue(n.Source, indent+2)
+		}
+		if n.Args != nil {
+			fmt.Printf("%s  args:\n", ind)
+			printValue(n.Args, indent+2)
+		}
+		if len(n.Requires) > 0 {
+			fmt.Printf("%s  requires:\n", ind)
+			for _, req := range n.Requires {
+				fmt.Printf("%s    - %s@%s\n", ind, req.Name, req.Version.String())
+			}
+		}
+
+	case *ast.Conditional:
+		fmt.Printf("%sConditional\n", ind)
+		fmt.Printf("%s  if:\n", ind)
+		printCondition(n.IfBranch.Condition, indent+2)
+		fmt.Printf("%s  then: (%d statements)\n", ind, len(n.IfBranch.Body))
+		for _, stmt := range n.IfBranch.Body {
+			printASTNode(stmt, indent+3)
+		}
+		for i, elif := range n.ElifBranches {
+			fmt.Printf("%s  elif[%d]:\n", ind, i)
+			printCondition(elif.Condition, indent+2)
+			fmt.Printf("%s  then: (%d statements)\n", ind, len(elif.Body))
+			for _, stmt := range elif.Body {
+				printASTNode(stmt, indent+3)
+			}
+		}
+		if n.ElseBody != nil {
+			fmt.Printf("%s  else: (%d statements)\n", ind, len(n.ElseBody))
+			for _, stmt := range n.ElseBody {
+				printASTNode(stmt, indent+3)
+			}
+		}
+
+	case *ast.Target:
+		fmt.Printf("%sTarget\n", ind)
+		fmt.Printf("%s  pattern: %s\n", ind, patternStr(&n.Pattern))
+		if n.Pattern.IsPhony {
+			fmt.Printf("%s  phony: true\n", ind)
+		}
+		if n.Pattern.IsDirectory {
+			fmt.Printf("%s  directory: true\n", ind)
+		}
+		if len(n.Dependencies) > 0 {
+			fmt.Printf("%s  dependencies:\n", ind)
+			for _, dep := range n.Dependencies {
+				fmt.Printf("%s    - %s\n", ind, depStr(&dep))
+			}
+		}
+		if n.Recipe != nil {
+			fmt.Printf("%s  recipe:\n", ind)
+			printRecipe(n.Recipe, indent+2)
+		}
+
+	default:
+		fmt.Printf("%s(unknown node type)\n", ind)
+	}
+}
+
+func printCondition(cond ast.Condition, indent int) {
+	ind := indentStr(indent)
+	switch c := cond.(type) {
+	case *ast.EqualsCondition:
+		fmt.Printf("%scondition: == \n", ind)
+		fmt.Printf("%s  left:\n", ind)
+		printValue(c.Left, indent+2)
+		fmt.Printf("%s  right:\n", ind)
+		printValue(c.Right, indent+2)
+	case *ast.NotEqualsCondition:
+		fmt.Printf("%scondition: !=\n", ind)
+		fmt.Printf("%s  left:\n", ind)
+		printValue(c.Left, indent+2)
+		fmt.Printf("%s  right:\n", ind)
+		printValue(c.Right, indent+2)
+	case *ast.DefinedCondition:
+		fmt.Printf("%scondition: ifdef %s\n", ind, c.Name)
+	case *ast.NotDefinedCondition:
+		fmt.Printf("%scondition: ifndef %s\n", ind, c.Name)
+	}
+}
+
+func printValue(v *ast.Value, indent int) {
+	if v == nil {
+		return
+	}
+	ind := indentStr(indent)
+	for _, part := range v.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralValue:
+			fmt.Printf("%sLiteral: %q\n", ind, p.Text)
+		case *ast.Interpolation:
+			if p.Raw {
+				fmt.Printf("%sInterpolation: {%s:raw}\n", ind, p.Name)
+			} else {
+				fmt.Printf("%sInterpolation: {%s}\n", ind, p.Name)
+			}
+		case *ast.FunctionCall:
+			fmt.Printf("%sFunctionCall: %s(\n", ind, p.Name.String())
+			for _, arg := range p.Args {
+				printValue(arg, indent+1)
+			}
+			fmt.Printf("%s)\n", ind)
+		}
+	}
+}
+
+func printRecipe(r *ast.Recipe, indent int) {
+	ind := indentStr(indent)
+	if r.Directives.Shell != nil {
+		fmt.Printf("%s.shell:\n", ind)
+		printValue(r.Directives.Shell, indent+1)
+	}
+	if len(r.Directives.After) > 0 {
+		fmt.Printf("%s.after:\n", ind)
+		for _, a := range r.Directives.After {
+			printValue(a, indent+1)
+		}
+	}
+	if r.Directives.Autodeps != nil {
+		fmt.Printf("%s.autodeps:\n", ind)
+		printValue(r.Directives.Autodeps, indent+1)
+	}
+	if len(r.Directives.Requires) > 0 {
+		fmt.Printf("%s.requires:\n", ind)
+		for _, req := range r.Directives.Requires {
+			fmt.Printf("%s  - %s@%s\n", ind, req.Name, req.Version.String())
+		}
+	}
+	fmt.Printf("%scommands: (%d)\n", ind, len(r.Commands))
+	for i, cmd := range r.Commands {
+		switch c := cmd.(type) {
+		case *ast.LineCommand:
+			fmt.Printf("%s  [%d] line: ", ind, i)
+			printCommandParts(c.Parts)
+			fmt.Println()
+		case *ast.BlockCommand:
+			fmt.Printf("%s  [%d] block:\n", ind, i)
+			for j, line := range c.Lines {
+				fmt.Printf("%s    [%d] ", ind, j)
+				printCommandParts(line)
+				fmt.Println()
+			}
+		}
+	}
+}
+
+func printCommandParts(parts []ast.CommandPart) {
+	for _, part := range parts {
+		switch p := part.(type) {
+		case *ast.LiteralCommand:
+			fmt.Print(p.Text)
+		case *ast.CommandInterpolation:
+			if p.Raw {
+				fmt.Printf("{%s:raw}", p.Name)
+			} else {
+				fmt.Printf("{%s}", p.Name)
+			}
+		}
+	}
+}
+
+func patternStr(p *ast.TargetPattern) string {
+	var s string
+	if p.IsPhony {
+		s = "@"
+	}
+	for _, seg := range p.Segments {
+		switch sg := seg.(type) {
+		case *ast.LiteralSegment:
+			s += sg.Text
+		case *ast.BraceExpr:
+			s += "{" + sg.Identifier + "}"
+		}
+	}
+	return s
+}
+
+func depStr(d *ast.Dependency) string {
+	var s string
+	for _, seg := range d.Segments {
+		switch sg := seg.(type) {
+		case *ast.LiteralSegment:
+			s += sg.Text
+		case *ast.BraceExpr:
+			s += "{" + sg.Identifier + "}"
+		}
+	}
+	return s
 }

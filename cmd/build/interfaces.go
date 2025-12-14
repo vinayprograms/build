@@ -316,3 +316,53 @@ type IncludeParser interface {
 	// IsIncludeLine returns true if the current line is an .include: directive.
 	IsIncludeLine() bool
 }
+
+// Statement represents a parsed AST statement.
+type Statement interface {
+	// StatementType returns the type of statement (e.g., "variable", "target", "directive").
+	StatementType() string
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+
+	// Summary returns a brief text summary of the statement content.
+	Summary() string
+}
+
+// ParseError represents a parse error with location information.
+type ParseError interface {
+	// Error returns the error message.
+	Error() string
+
+	// Location returns the source location.
+	ErrorLocation() string
+
+	// Hint returns an optional hint for fixing the error.
+	ErrorHint() string
+}
+
+// BuildfileResult represents the result of parsing a complete buildfile.
+type BuildfileResult interface {
+	// Statements returns the successfully parsed statements.
+	Statements() []Statement
+
+	// ErrorCount returns the number of parse errors.
+	ErrorCount() int
+
+	// GetError returns the i-th parse error.
+	GetError(i int) ParseError
+
+	// HasErrors returns true if there are any parse errors.
+	HasErrors() bool
+
+	// AllErrors returns all errors as a single string.
+	AllErrors() string
+}
+
+// BuildfileParser parses complete buildfiles with error recovery.
+type BuildfileParser interface {
+	// ParseBuildfile parses the complete buildfile with error recovery.
+	// Returns statements and errors. Parsing continues after errors to collect
+	// as many valid statements as possible.
+	ParseBuildfile() BuildfileResult
+}

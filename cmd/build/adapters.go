@@ -855,3 +855,240 @@ func NewIncludeParser(p Parser) IncludeParser {
 	}
 	panic("NewIncludeParser requires a Parser created by NewParser")
 }
+
+// ----------------------------------------------------------------------------
+// Buildfile Parser Adapters
+// ----------------------------------------------------------------------------
+
+// statementAdapter wraps ast.Statement to implement the Statement interface.
+type statementAdapter struct {
+	s ast.Statement
+}
+
+// Raw returns the underlying AST node.
+func (sa statementAdapter) Raw() interface{} {
+	return sa.s
+}
+
+func (sa statementAdapter) StatementType() string {
+	switch sa.s.(type) {
+	case *ast.Directive:
+		return "directive"
+	case *ast.Environment:
+		return "environment"
+	case *ast.Variable:
+		return "variable"
+	case *ast.Conditional:
+		return "conditional"
+	case *ast.Target:
+		return "target"
+	case *ast.Comment:
+		return "comment"
+	case *ast.Blank:
+		return "blank"
+	default:
+		return "unknown"
+	}
+}
+
+func (sa statementAdapter) Location() string {
+	switch s := sa.s.(type) {
+	case *ast.Directive:
+		return s.Location.String()
+	case *ast.Environment:
+		return s.Location.String()
+	case *ast.Variable:
+		return s.Location.String()
+	case *ast.Conditional:
+		return s.Location.String()
+	case *ast.Target:
+		return s.Location.String()
+	case *ast.Comment:
+		return s.Location.String()
+	case *ast.Blank:
+		return s.Location.String()
+	default:
+		return ""
+	}
+}
+
+func (sa statementAdapter) Summary() string {
+	switch s := sa.s.(type) {
+	case *ast.Directive:
+		return "." + s.Kind.String() + ": " + valueToText(s.Value)
+	case *ast.Environment:
+		if s.Name != nil {
+			return ".environment: " + *s.Name
+		}
+		return ".environment: (default)"
+	case *ast.Variable:
+		prefix := ""
+		if s.Lazy {
+			prefix = "lazy "
+		}
+		return prefix + s.Name + " = " + valueToText(s.Value)
+	case *ast.Conditional:
+		return conditionalSummary(s)
+	case *ast.Target:
+		return targetSummary(s)
+	case *ast.Comment:
+		text := s.Text
+		if len(text) > 60 {
+			text = text[:57] + "..."
+		}
+		return text
+	case *ast.Blank:
+		return "(blank)"
+	default:
+		return ""
+	}
+}
+
+// conditionalSummary returns a brief summary of a conditional.
+func conditionalSummary(c *ast.Conditional) string {
+	switch cond := c.IfBranch.Condition.(type) {
+	case *ast.EqualsCondition:
+		return "if " + valueToText(cond.Left) + " == " + valueToText(cond.Right)
+	case *ast.NotEqualsCondition:
+		return "if " + valueToText(cond.Left) + " != " + valueToText(cond.Right)
+	case *ast.DefinedCondition:
+		return "ifdef " + cond.Name
+	case *ast.NotDefinedCondition:
+		return "ifndef " + cond.Name
+	default:
+		return "if ..."
+	}
+}
+
+// targetSummary returns a brief summary of a target.
+func targetSummary(t *ast.Target) string {
+	pattern := patternToText(&t.Pattern)
+	deps := ""
+	if len(t.Dependencies) > 0 {
+		depTexts := make([]string, len(t.Dependencies))
+		for i, dep := range t.Dependencies {
+			depTexts[i] = dependencyToText(&dep)
+		}
+		deps = " " + joinStrings(depTexts, " ")
+	}
+	recipe := ""
+	if t.Recipe != nil {
+		cmdCount := len(t.Recipe.Commands)
+		if cmdCount == 1 {
+			recipe = " (1 command)"
+		} else if cmdCount > 1 {
+			recipe = " (" + itoa(cmdCount) + " commands)"
+		}
+	}
+	return pattern + ":" + deps + recipe
+}
+
+// dependencyToText converts a dependency to text.
+func dependencyToText(d *ast.Dependency) string {
+	var text string
+	for _, seg := range d.Segments {
+		switch s := seg.(type) {
+		case *ast.LiteralSegment:
+			text += s.Text
+		case *ast.BraceExpr:
+			text += "{" + s.Identifier + "}"
+		}
+	}
+	return text
+}
+
+// joinStrings joins strings with a separator.
+func joinStrings(strs []string, sep string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	result := strs[0]
+	for i := 1; i < len(strs); i++ {
+		result += sep + strs[i]
+	}
+	return result
+}
+
+// itoa converts int to string without importing strconv.
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var digits []byte
+	for n > 0 {
+		digits = append([]byte{byte('0' + n%10)}, digits...)
+		n /= 10
+	}
+	return string(digits)
+}
+
+// parseErrorAdapter wraps parser.ParseError to implement the ParseError interface.
+type parseErrorAdapter struct {
+	e *parser.ParseError
+}
+
+func (pe parseErrorAdapter) Error() string {
+	return pe.e.Error()
+}
+
+func (pe parseErrorAdapter) ErrorLocation() string {
+	return pe.e.Location.String()
+}
+
+func (pe parseErrorAdapter) ErrorHint() string {
+	return pe.e.Hint
+}
+
+// buildfileResultAdapter wraps the result of ParseBuildfile.
+type buildfileResultAdapter struct {
+	statements []ast.Statement
+	errors     *parser.ParseErrors
+}
+
+func (br buildfileResultAdapter) Statements() []Statement {
+	result := make([]Statement, len(br.statements))
+	for i, s := range br.statements {
+		result[i] = statementAdapter{s: s}
+	}
+	return result
+}
+
+func (br buildfileResultAdapter) ErrorCount() int {
+	return len(br.errors.Errors)
+}
+
+func (br buildfileResultAdapter) GetError(i int) ParseError {
+	if i < 0 || i >= len(br.errors.Errors) {
+		return nil
+	}
+	return parseErrorAdapter{e: br.errors.Errors[i]}
+}
+
+func (br buildfileResultAdapter) HasErrors() bool {
+	return br.errors.HasErrors()
+}
+
+func (br buildfileResultAdapter) AllErrors() string {
+	return br.errors.Error()
+}
+
+// buildfileParserAdapter wraps parser.Parser to implement BuildfileParser.
+type buildfileParserAdapter struct {
+	p *parser.Parser
+}
+
+func (bp *buildfileParserAdapter) ParseBuildfile() BuildfileResult {
+	stmts, errs := bp.p.ParseBuildfile()
+	return buildfileResultAdapter{
+		statements: stmts,
+		errors:     errs,
+	}
+}
+
+// NewBuildfileParser creates a BuildfileParser from a Parser.
+func NewBuildfileParser(p Parser) BuildfileParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &buildfileParserAdapter{p: pa.p}
+	}
+	panic("NewBuildfileParser requires a Parser created by NewParser")
+}
