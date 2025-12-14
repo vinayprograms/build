@@ -12,6 +12,8 @@ const (
 	ModeValue
 	// ModeInterp is inside an interpolation {}.
 	ModeInterp
+	// ModeCommand is for recipe command lines where all spaces are significant.
+	ModeCommand
 )
 
 // Lexer performs lexical analysis on Buildfile source code.
@@ -51,6 +53,48 @@ func (l *Lexer) IndentTracker() *IndentTracker {
 	return l.indent
 }
 
+// SetValueMode switches the lexer to value mode where leading spaces are skipped
+// but internal spaces are preserved.
+func (l *Lexer) SetValueMode() {
+	l.mode = ModeValue
+}
+
+// SetNormalMode switches the lexer back to normal mode.
+func (l *Lexer) SetNormalMode() {
+	l.mode = ModeNormal
+}
+
+// SetCommandMode switches the lexer to command mode where ALL spaces are preserved.
+// This is used by the parser when lexing command lines in recipes.
+func (l *Lexer) SetCommandMode() {
+	l.mode = ModeCommand
+}
+
+// PeekNextIsDotKeyword returns true if the next non-whitespace character starts
+// a dot keyword (like .shell, .after). This is used by the parser to decide
+// whether to use command mode or normal mode for recipe lines.
+func (l *Lexer) PeekNextIsDotKeyword() bool {
+	// Skip any whitespace to find the next non-space character
+	pos := l.pos
+	for pos < len(l.input) && l.input[pos] == ' ' {
+		pos++
+	}
+	if pos >= len(l.input) {
+		return false
+	}
+	return l.input[pos] == '.'
+}
+
+// PeekNextIsBlock returns true if the next non-whitespace content is the block keyword.
+func (l *Lexer) PeekNextIsBlock() bool {
+	pos := l.pos
+	for pos < len(l.input) && l.input[pos] == ' ' {
+		pos++
+	}
+	remaining := l.input[pos:]
+	return len(remaining) >= 5 && remaining[:5] == "block"
+}
+
 // NextToken returns the next token from the input.
 func (l *Lexer) NextToken() Token {
 	// Handle end of input
@@ -63,8 +107,11 @@ func (l *Lexer) NextToken() Token {
 		return l.lexLineStart()
 	}
 
-	// Skip spaces (but not newlines or tabs at line start)
-	l.skipSpaces()
+	// Skip spaces only in normal mode
+	// In value, command, and interp modes, spaces are significant
+	if l.mode == ModeNormal {
+		l.skipSpaces()
+	}
 
 	if l.pos >= len(l.input) {
 		return l.makeToken(EOF, "")
@@ -85,6 +132,11 @@ func (l *Lexer) NextToken() Token {
 	// In interpolation mode, lex identifier, modifier, or close brace
 	if l.mode == ModeInterp {
 		return l.lexInsideInterp()
+	}
+
+	// In command mode, lex as command (like value but no leading space skip)
+	if l.mode == ModeCommand {
+		return l.lexCommand()
 	}
 
 	// In value mode, lex differently
@@ -182,11 +234,11 @@ func (l *Lexer) lexLineStart() Token {
 	}
 
 	indent := l.input[start:l.pos]
-	l.mode = ModeNormal
 	l.atSOL = true
 
 	// Empty line or comment-only line
 	if l.pos >= len(l.input) || l.input[l.pos] == '\n' || l.input[l.pos] == '#' {
+		l.mode = ModeNormal
 		if len(indent) > 0 {
 			// Return indent token even for blank/comment lines
 			return Token{
@@ -203,8 +255,11 @@ func (l *Lexer) lexLineStart() Token {
 		return l.NextToken()
 	}
 
-	// Non-empty indentation
+	// Non-empty indentation - stay in normal mode by default
+	// The parser can switch to command mode if needed for recipe content
 	if len(indent) > 0 {
+		l.mode = ModeNormal
+
 		// Validate indentation
 		_, err := l.indent.Process(indent)
 		if err != nil {
@@ -230,7 +285,8 @@ func (l *Lexer) lexLineStart() Token {
 		}
 	}
 
-	// No indentation, continue to next token
+	// No indentation, continue in normal mode
+	l.mode = ModeNormal
 	return l.NextToken()
 }
 
@@ -367,6 +423,130 @@ func (l *Lexer) lexValue() Token {
 
 	// Consume as string until special character
 	return l.lexValueString()
+}
+
+// lexCommand handles command mode (recipe lines where spaces are significant).
+// Unlike lexValue, this does not skip leading spaces.
+func (l *Lexer) lexCommand() Token {
+	if l.pos >= len(l.input) {
+		return l.makeToken(EOF, "")
+	}
+
+	ch := l.input[l.pos]
+
+	// End of command on newline
+	if ch == '\n' {
+		l.mode = ModeNormal
+		return l.lexNewline()
+	}
+
+	// Comment ends command
+	if ch == '#' {
+		l.mode = ModeNormal
+		return l.lexComment()
+	}
+
+	// Interpolation
+	if ch == '{' {
+		result, end := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
+		switch result.Kind {
+		case InterpValid:
+			return l.lexInterpolation(result, end)
+		case InterpEscapedOpen:
+			tok := l.makeToken(ESCAPE_LBRACE, "{{")
+			l.pos = end
+			l.col += 2
+			l.prevChar = '{'
+			l.atSOL = false
+			return tok
+		case InterpError:
+			tok := Token{
+				Type:    ERROR,
+				Literal: result.Error,
+				Location: SourceLocation{
+					File:   l.file,
+					Line:   l.line,
+					Column: l.col,
+				},
+			}
+			l.pos = end
+			return tok
+		}
+		// InterpNotInterp - fall through to string
+	}
+
+	// Escaped close brace
+	if ch == '}' {
+		if esc, end := ScanEscapedCloseBrace(l.input, l.pos); esc {
+			tok := l.makeToken(ESCAPE_RBRACE, "}}")
+			l.pos = end
+			l.col += 2
+			l.prevChar = '}'
+			l.atSOL = false
+			return tok
+		}
+		// Single } ends the string segment
+		l.advance()
+		return l.makeToken(INTERP_END, "}")
+	}
+
+	// Consume as string until special character (preserving spaces)
+	return l.lexCommandString()
+}
+
+// lexCommandString consumes a command string preserving all spaces.
+func (l *Lexer) lexCommandString() Token {
+	start := l.pos
+	startCol := l.col
+
+	for l.pos < len(l.input) {
+		ch := l.input[l.pos]
+
+		// Stop at special characters (but NOT spaces)
+		if ch == '\n' || ch == '#' {
+			break
+		}
+
+		// Check for interpolation start
+		if ch == '{' {
+			result, _ := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
+			if result.Kind == InterpValid || result.Kind == InterpEscapedOpen || result.Kind == InterpError {
+				break
+			}
+		}
+
+		// Check for escaped close brace
+		if ch == '}' {
+			if esc, _ := ScanEscapedCloseBrace(l.input, l.pos); esc {
+				break
+			}
+			// Single } ends the string segment
+			break
+		}
+
+		l.prevChar = ch
+		l.atSOL = false
+		l.advance()
+	}
+
+	literal := l.input[start:l.pos]
+	if len(literal) == 0 {
+		// If we didn't consume anything, advance one character
+		if l.pos < len(l.input) {
+			l.advance()
+			literal = l.input[start:l.pos]
+		}
+	}
+
+	return Token{
+		Type:    STRING,
+		Literal: literal,
+		Location: SourceLocation{
+			File:   l.file,
+			Line:   l.line,
+			Column: startCol,
+		},
+	}
 }
 
 // lexValueString consumes a string value until a special character.
@@ -604,7 +784,8 @@ func (l *Lexer) lexAtIdentifier() Token {
 
 	l.advance() // consume @
 
-	for l.pos < len(l.input) && isIdentChar(l.input[l.pos]) {
+	// Phony target names can include hyphens (like @test-cover, @debug-lex)
+	for l.pos < len(l.input) && isPhonyChar(l.input[l.pos]) {
 		l.advance()
 	}
 
@@ -783,4 +964,10 @@ func isIdentChar(ch byte) bool {
 
 func isPathChar(ch byte) bool {
 	return isIdentChar(ch) || ch == '/' || ch == '.' || ch == '-'
+}
+
+// isPhonyChar returns true for characters valid in phony target names.
+// Phony targets can use hyphens (e.g., @test-cover, @debug-lex).
+func isPhonyChar(ch byte) bool {
+	return isIdentChar(ch) || ch == '-'
 }
