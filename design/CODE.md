@@ -83,6 +83,10 @@ cmd/build/
 | `EnvironmentParser` | Parses environment blocks |
 | `Conditional` | Represents a parsed conditional block |
 | `ConditionalParser` | Parses conditional blocks |
+| `Statement` | Represents a parsed AST statement |
+| `ParseError` | Represents a parse error with location and hint |
+| `BuildfileResult` | Contains parsed statements and collected errors |
+| `BuildfileParser` | Parses complete buildfiles with error recovery |
 
 **Design Rationale:**
 
@@ -137,6 +141,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-env` | Dump environment parsing (shows parsed environment blocks) |
 | `--debug-cond` | Dump conditional parsing (shows parsed conditionals) |
 | `--debug-include` | Dump include parsing (shows included files and statements) |
+| `--debug-ast` | Dump full AST with error recovery (shows all parsed statements and errors) |
 
 ### Version Information
 
@@ -1373,3 +1378,158 @@ The `parseStatement()` function handles all statement types in included files:
 4. **Comments preserved**: Comments in included files are preserved in the returned statements.
 
 5. **No indentation in included files**: Included files are parsed at global scope. Indented content in included files follows the same rules as the main file.
+
+### Error Recovery (`parser.go` and `recovery_test.go`)
+
+Implements error recovery to collect multiple parse errors and continue parsing after errors.
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ParseBuildfile() ([]Statement, *ParseErrors)` | Parses complete buildfile with error recovery |
+| `parseTopLevelStatement() (Statement, *ParseError)` | Parses a single top-level statement |
+| `recoverToLevel0()` | Skips to next line at indentation level 0 |
+| `looksLikeVariableLine() bool` | Heuristic to detect variable definitions |
+
+**Error Recovery Strategy:**
+
+1. On parse error, record the error in `ParseErrors` collection
+2. Skip to the next line at indentation level 0 (global scope)
+3. Continue parsing from there
+4. Stop after `maxErrors` (10) to avoid infinite loops on badly malformed input
+
+**Recovery Rules:**
+
+| State | Recovery Action |
+|-------|-----------------|
+| Invalid directive at global scope | Record error, skip line, continue |
+| Malformed target | Record error, skip to level 0, continue |
+| Unclosed conditional | Record error at EOF, stop |
+| Invalid token | Record error, skip line, continue |
+| Environment with invalid directive | Record error, skip block, continue |
+
+**Example:**
+
+```
+.after: invalid          # Error: .after invalid at GLOBAL scope
+cc = gcc                 # Parsed successfully
+@test:                   # Parsed successfully
+    echo hello
+.using: invalid          # Error: .using invalid at GLOBAL scope
+suffix = bar             # Parsed successfully
+```
+
+Results in:
+- 2 errors (both scope errors)
+- 3 statements (2 variables, 1 target)
+
+**Constants:**
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `maxErrors` | 10 | Maximum errors before giving up |
+
+**Error Message Format:**
+
+All parse errors include:
+- `Message`: Human-readable description
+- `Location`: File, line, and column (`SourceLocation`)
+- `Hint`: Optional fix suggestion
+
+Example error output:
+```
+Buildfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only valid in: RECIPE)
+```
+
+**Design Decisions:**
+
+1. **Skip to level 0**: Recovery skips to indentation level 0 to ensure we're back at global scope. This avoids confusion with partially parsed blocks.
+
+2. **Max error limit**: After 10 errors, parsing stops to avoid runaway error cascades on severely broken input.
+
+3. **Preserve valid statements**: All successfully parsed statements are returned even if errors occurred. This enables partial analysis of broken files.
+
+4. **Scope error hints**: Directive scope errors include hints listing valid scopes, helping users understand where directives belong.
+
+5. **Indented line skipping**: During recovery, any indented lines (part of a block) are skipped until we reach a non-indented line.
+
+## Test Coverage
+
+### Parser Unit Tests
+
+The parser package has comprehensive test coverage across all parsing features:
+
+| Test File | Coverage |
+|-----------|----------|
+| `parser_test.go` | Parser initialization, scope transitions, directive validation |
+| `scope_test.go` | Scope stack operations (push/pop, IsIn, reset, nesting) |
+| `directive_test.go` | Directive scope validation for all scopes |
+| `errors_test.go` | Error formatting, hints, scope errors, error collection |
+| `variable_test.go` | Variables (simple, lazy, interpolation, functions, replace) |
+| `target_test.go` | Targets (simple, captures, phony, directory, patterns, dependencies) |
+| `recipe_test.go` | Recipes (commands, blocks, directives, interpolations, versions) |
+| `environment_test.go` | Environment blocks (all runtimes, named/default, directives, version specs) |
+| `conditional_test.go` | Conditionals (if/elif/else/end, ifdef/ifndef, ==, !=, multiple branches) |
+| `include_test.go` | Include directive (simple, nested, circular, relative paths, empty files) |
+| `recovery_test.go` | Error recovery (skip-to-level-0, actionable messages, max errors) |
+| `parser_integration_test.go` | Full `ParseBuildfile` integration tests |
+| `edge_cases_test.go` | Edge cases and negative tests |
+
+### Integration Tests (`parser_integration_test.go`)
+
+Tests `ParseBuildfile()` end-to-end parsing:
+
+| Test | Description |
+|------|-------------|
+| `TestParseBuildfile_AllStatementTypes` | Parses buildfile with all statement types |
+| `TestParseBuildfile_DirectiveDetails` | Verifies directive parsing details |
+| `TestParseBuildfile_VariableDetails` | Verifies variable parsing with interpolations |
+| `TestParseBuildfile_TargetDetails` | Verifies target and recipe parsing |
+| `TestParseBuildfile_EnvironmentDetails` | Verifies environment block parsing |
+| `TestParseBuildfile_ConditionalDetails` | Verifies conditional branch parsing |
+| `TestParseBuildfile_NestedBlocks` | Tests recipe with block command |
+| `TestParseBuildfile_SourceLocations` | Verifies source location tracking |
+| `TestParseBuildfile_EmptyFile` | Tests empty file handling |
+| `TestParseBuildfile_OnlyComments` | Tests comment-only file |
+| `TestParseBuildfile_MixedWithBlankLines` | Tests blank line handling |
+| `TestParseBuildfile_ErrorRecoveryIntegration` | Tests error recovery in full buildfile |
+
+### Edge Case Tests (`edge_cases_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestEdgeCase_NestedConditionals` | Conditionals inside conditionals |
+| `TestEdgeCase_DirectiveInWrongScope` | Directive scope validation errors |
+| `TestEdgeCase_EnvironmentInRecipe` | .environment inside recipe (error) |
+| `TestEdgeCase_ParallelInEnvironment` | .parallel inside environment (error) |
+| `TestEdgeCase_DefaultInRecipe` | .default inside recipe (error) |
+| `TestEdgeCase_DeeplyNestedBlocks` | Three levels of nested conditionals |
+| `TestEdgeCase_MultipleErrorsCollected` | Multiple errors collected before max |
+| `TestEdgeCase_RecipeWithOnlyDirectives` | Recipe with directives but no commands |
+| `TestEdgeCase_TargetWithNoRecipe` | Targets without recipes |
+| `TestEdgeCase_VersionSpecFormats` | All version spec formats |
+| `TestEdgeCase_FunctionCallsInCommands` | Interpolations in commands |
+| `TestEdgeCase_EscapedBracesInValue` | `{{` and `}}` escape sequences |
+| `TestEdgeCase_CommentAfterStatement` | Inline comments |
+| `TestEdgeCase_PathWithInterpolation` | Patterns with captures |
+
+### CLI Tests (`cmd/build/main_test.go`)
+
+All debug flags have corresponding tests:
+
+| Test | Flag |
+|------|------|
+| `TestRunDebugLex` | `--debug-lex` |
+| `TestRunDebugParse` | `--debug-parse` |
+| `TestRunDebugVar` | `--debug-var` |
+| `TestRunDebugTarget` | `--debug-target` |
+| `TestRunDebugRecipe` | `--debug-recipe` |
+| `TestRunDebugEnv` | `--debug-env` |
+| `TestRunDebugCond` | `--debug-cond` |
+| `TestRunDebugAST` | `--debug-ast` |
+
+Each debug test includes:
+- Success case with valid buildfile
+- Missing file error case
+- (Some) edge cases like empty files or files without target content

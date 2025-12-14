@@ -130,20 +130,20 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Detect and prevent circular includes
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement error recovery**
-  - [ ] On parse error, skip to next line at indentation level 0
-  - [ ] Collect multiple errors before failing
-  - [ ] Provide actionable error messages with source locations
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement error recovery**
+  - [x] On parse error, skip to next line at indentation level 0
+  - [x] Collect multiple errors before failing
+  - [x] Provide actionable error messages with source locations
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write parser unit tests**
-  - [ ] Test all statement types
-  - [ ] Test scope validation for directives
-  - [ ] Test nested blocks (recipe → block)
-  - [ ] Test conditionals with all branch combinations
-  - [ ] Test include directive
-  - [ ] Test error recovery and messages
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Write parser unit tests**
+  - [x] Test all statement types
+  - [x] Test scope validation for directives
+  - [x] Test nested blocks (recipe → block)
+  - [x] Test conditionals with all branch combinations
+  - [x] Test include directive
+  - [x] Test error recovery and messages
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 1.3 Semantic Analysis
 
