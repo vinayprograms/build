@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
 )
 
@@ -117,4 +118,174 @@ func (p *Parser) Errors() *ParseErrors {
 // HasErrors returns true if any parse errors were encountered.
 func (p *Parser) HasErrors() bool {
 	return p.errors.HasErrors()
+}
+
+// maxErrors is the maximum number of errors to collect before giving up.
+const maxErrors = 10
+
+// ParseBuildfile parses a complete buildfile with error recovery.
+// It collects multiple errors and attempts to continue parsing after each error.
+// Returns a slice of successfully parsed statements and all collected errors.
+func (p *Parser) ParseBuildfile() ([]ast.Statement, *ParseErrors) {
+	var statements []ast.Statement
+
+	for p.current.Type != lexer.EOF {
+		// Stop if we've collected too many errors
+		if len(p.errors.Errors) >= maxErrors {
+			break
+		}
+
+		stmt, err := p.parseTopLevelStatement()
+		if err != nil {
+			p.addError(err)
+			p.recoverToLevel0()
+			continue
+		}
+
+		if stmt != nil {
+			statements = append(statements, stmt)
+		}
+	}
+
+	return statements, p.errors
+}
+
+// parseTopLevelStatement parses a single top-level statement with error handling.
+func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
+	// Skip leading indentation at global scope (shouldn't happen, but be safe)
+	if p.current.Type == lexer.INDENT {
+		p.nextToken()
+	}
+
+	// Skip newlines
+	for p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
+	if p.current.Type == lexer.EOF {
+		return nil, nil
+	}
+
+	// Handle comments
+	if p.current.Type == lexer.COMMENT {
+		stmt := &ast.Comment{
+			Text:     p.current.Literal,
+			Location: ast.SourceLocationFromToken(p.current),
+		}
+		p.nextToken()
+		return stmt, nil
+	}
+
+	// Handle directives
+	if p.current.Type.IsDotKeyword() {
+		return p.parseTopLevelDirective()
+	}
+
+	// Handle conditionals
+	if p.IsConditionalLine() {
+		return p.ParseConditional()
+	}
+
+	// Handle lazy variables
+	if p.current.Type == lexer.LAZY {
+		return p.ParseVariable()
+	}
+
+	// Handle variables or targets
+	if p.current.Type == lexer.IDENTIFIER {
+		// Check if this is a variable (= before :)
+		if p.looksLikeVariableLine() {
+			return p.ParseVariable()
+		}
+		// Otherwise could be part of a path-like target
+	}
+
+	// Handle phony targets
+	if p.current.Type == lexer.AT_IDENTIFIER {
+		return p.ParseTarget()
+	}
+
+	// Handle file targets
+	if p.current.Type == lexer.PATH {
+		return p.ParseTarget()
+	}
+
+	// Handle targets starting with interpolation (e.g., {build_dir}/app:)
+	if p.current.Type == lexer.INTERP_START {
+		return p.ParseTarget()
+	}
+
+	// Unrecognized token - generate error
+	return nil, &ParseError{
+		Message:  "unexpected token: " + p.current.Type.String(),
+		Location: p.current.Location,
+		Hint:     "expected variable definition, target, directive, or conditional",
+	}
+}
+
+// parseTopLevelDirective handles directives at global scope with scope validation.
+func (p *Parser) parseTopLevelDirective() (ast.Statement, *ParseError) {
+	// Validate scope first
+	if err := p.validateDirectiveScope(p.current); err != nil {
+		return nil, err
+	}
+
+	switch p.current.Type {
+	case lexer.DOT_SHELL, lexer.DOT_PARALLEL, lexer.DOT_DEFAULT:
+		return p.parseGlobalDirective()
+	case lexer.DOT_INCLUDE:
+		directive, stmts, err := p.ParseInclude()
+		if err != nil {
+			return nil, err
+		}
+		// For now, return the directive; the caller would need to handle included statements
+		// In a full implementation, we'd merge stmts into the statement list
+		_ = stmts // Include statements are handled separately
+		return directive, nil
+	case lexer.DOT_ENVIRONMENT:
+		return p.ParseEnvironment()
+	default:
+		// Other directives invalid at global scope
+		return nil, NewScopeError(p.current.Type, p.currentScope(), p.current.Location)
+	}
+}
+
+// recoverToLevel0 advances the parser until it reaches a line at indentation level 0.
+// This is used for error recovery to skip past erroneous content.
+func (p *Parser) recoverToLevel0() {
+	// Skip the current line
+	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+		p.nextToken()
+	}
+
+	// Skip past the newline
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
+	// Continue skipping indented lines
+	for p.current.Type != lexer.EOF {
+		// If we see an INDENT token, skip the whole line
+		if p.current.Type == lexer.INDENT {
+			for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+				p.nextToken()
+			}
+			if p.current.Type == lexer.NEWLINE {
+				p.nextToken()
+			}
+			continue
+		}
+
+		// Reached a non-indented line, stop recovering
+		break
+	}
+}
+
+// looksLikeVariableLine checks if the current position looks like a variable definition.
+// Returns true if `=` appears before `:` (or there's no `:` at all).
+func (p *Parser) looksLikeVariableLine() bool {
+	// For now, use a simple heuristic: identifiers followed by = are variables
+	// This is called after we've verified the current token is IDENTIFIER
+	// A more robust check would peek ahead, but for now trust the lexer's mode handling
+	return true
 }

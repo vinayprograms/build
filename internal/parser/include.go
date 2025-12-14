@@ -267,6 +267,11 @@ func (p *Parser) parseGlobalDirective() (*ast.Directive, *ParseError) {
 	loc := ast.SourceLocationFromToken(p.current)
 	p.nextToken() // consume directive token
 
+	// Consume the colon if present (directives are tokenized as .shell + :)
+	if p.current.Type == lexer.COLON {
+		p.nextToken()
+	}
+
 	value := p.ParseValue()
 
 	// Skip trailing newline
