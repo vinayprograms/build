@@ -50,6 +50,12 @@ func (p *Parser) parseRecipe() (*ast.Recipe, *ParseError) {
 			// Back to global scope - end of recipe
 			break
 		}
+
+		// Peek ahead to determine if this is a directive, block, or command line
+		// Only switch to command mode for actual commands (not directives or block)
+		if !p.lexer.PeekNextIsDotKeyword() && !p.lexer.PeekNextIsBlock() {
+			p.lexer.SetCommandMode()
+		}
 		p.nextToken() // consume INDENT
 
 		// Empty line or comment in recipe
@@ -83,7 +89,7 @@ func (p *Parser) parseRecipe() (*ast.Recipe, *ParseError) {
 			continue
 		}
 
-		// Regular command line
+		// Regular command line - lexer is already in command mode
 		lineCmd, err := p.parseCommandLine()
 		if err != nil {
 			return nil, err
@@ -480,6 +486,9 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 			// Back to recipe level - end of block
 			break
 		}
+
+		// Block content is always command lines - switch to command mode
+		p.lexer.SetCommandMode()
 		p.nextToken() // consume INDENT
 
 		// Empty line in block
