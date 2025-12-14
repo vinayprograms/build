@@ -94,20 +94,20 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Handle pattern targets with captures
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement recipe parsing**
-  - [ ] Detect recipe start by indentation after target
-  - [ ] Parse recipe directives (.shell, .after, .autodeps, .requires)
-  - [ ] Parse command lines with interpolations
-  - [ ] Parse `block:` with deeper indentation
-  - [ ] Handle dedent to end recipe
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement recipe parsing**
+  - [x] Detect recipe start by indentation after target
+  - [x] Parse recipe directives (.shell, .after, .autodeps, .requires)
+  - [x] Parse command lines with interpolations
+  - [x] Parse `block:` with deeper indentation
+  - [x] Handle dedent to end recipe
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement environment block parsing**
-  - [ ] Parse `.environment:` with optional name
-  - [ ] Enter ENVIRONMENT scope
-  - [ ] Parse environment directives (.using, .source, .args, .requires)
-  - [ ] Handle dedent to end environment block
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement environment block parsing**
+  - [x] Parse `.environment:` with optional name
+  - [x] Enter ENVIRONMENT scope
+  - [x] Parse environment directives (.using, .source, .args, .requires)
+  - [x] Handle dedent to end environment block
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement conditional parsing**
   - [ ] Parse `if`, `elif`, `else`, `end` keywords

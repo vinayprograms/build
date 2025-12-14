@@ -137,6 +137,45 @@ type Target interface {
 
 	// Location returns the source location as "file:line:column".
 	Location() string
+
+	// HasRecipe returns true if the target has a recipe.
+	HasRecipe() bool
+
+	// Recipe returns the recipe information (if any).
+	Recipe() Recipe
+}
+
+// Recipe represents a parsed recipe from the AST.
+type Recipe interface {
+	// CommandCount returns the number of commands.
+	CommandCount() int
+
+	// CommandText returns textual representation of the i-th command.
+	CommandText(i int) string
+
+	// IsBlockCommand returns true if the i-th command is a block command.
+	IsBlockCommand(i int) bool
+
+	// HasShellDirective returns true if .shell: is specified.
+	HasShellDirective() bool
+
+	// HasAfterDirective returns true if .after: is specified.
+	HasAfterDirective() bool
+
+	// HasAutodepsDirective returns true if .autodeps: is specified.
+	HasAutodepsDirective() bool
+
+	// RequiresCount returns the number of .requires entries.
+	RequiresCount() int
+
+	// RequirementName returns the i-th requirement name.
+	RequirementName(i int) string
+
+	// RequirementVersion returns the i-th requirement version.
+	RequirementVersion(i int) string
+
+	// Location returns the source location as "file:line:column".
+	Location() string
 }
 
 // TargetParser parses target definitions.
@@ -147,4 +186,50 @@ type TargetParser interface {
 
 	// IsTargetLine returns true if the current line is a target definition.
 	IsTargetLine() bool
+}
+
+// Environment represents a parsed environment block from the AST.
+type Environment interface {
+	// Name returns the environment name (empty for default environment).
+	Name() string
+
+	// IsDefault returns true if this is the default (unnamed) environment.
+	IsDefault() bool
+
+	// RuntimeType returns the runtime type (bare, docker, podman, etc.).
+	RuntimeType() string
+
+	// HasRuntime returns true if .using: is specified.
+	HasRuntime() bool
+
+	// Source returns the source path for the environment.
+	Source() string
+
+	// HasSource returns true if .source: is specified.
+	HasSource() bool
+
+	// Args returns the runtime args.
+	Args() string
+
+	// HasArgs returns true if .args: is specified.
+	HasArgs() bool
+
+	// RequiresCount returns the number of requirements.
+	RequiresCount() int
+
+	// RequirementName returns the i-th requirement name.
+	RequirementName(i int) string
+
+	// RequirementVersion returns the i-th requirement version.
+	RequirementVersion(i int) string
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+}
+
+// EnvironmentParser parses environment blocks.
+type EnvironmentParser interface {
+	// ParseEnvironment parses an environment block from the current position.
+	// Returns the environment and any error encountered.
+	ParseEnvironment() (Environment, error)
 }

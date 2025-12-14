@@ -364,6 +364,16 @@ func TestParseFlagsDebugTarget(t *testing.T) {
 	}
 }
 
+func TestParseFlagsDebugRecipe(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-recipe"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugRecipe {
+		t.Error("debugRecipe should be true")
+	}
+}
+
 func TestRunDebugVar(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
@@ -422,6 +432,117 @@ func TestRunDebugTargetMissingFile(t *testing.T) {
 	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-target"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugRecipe(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Sample Buildfile with recipes
+build/app: build/main.o
+    .after: build/
+    .shell: bash
+    gcc -o {target} {deps}
+
+build/{name}.o: src/{name}.c
+    .autodeps: build/{name}.d
+    .requires: gcc@11 pkg-config@latest
+    gcc -MMD -c {in} -o {out}
+
+@clean:
+    rm -rf build/
+
+@all: build/app
+
+build/:
+    mkdir -p {target}
+
+build/complex: src/main.c
+    echo "Starting"
+    block:
+        if [[ -f {target} ]]; then
+            rm {target}
+        fi
+        gcc -o {target} {deps}
+    echo "Finished"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-recipe"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugRecipeMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-recipe"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestParseFlagsDebugEnv(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-env"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugEnv {
+		t.Error("debugEnv should be true")
+	}
+}
+
+func TestRunDebugEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Sample Buildfile with environments
+.environment:
+    .using: bare
+    .requires: gcc@11 python3@latest
+
+.environment: ci
+    .using: docker
+    .source: Dockerfile.ci
+    .args: --platform linux/amd64
+
+.environment: nix-dev
+    .using: nix
+    .source: shell.nix
+    .args: --pure
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEnvMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-env"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugEnvNoEnvironments(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Sample Buildfile without environments
+cc = gcc
+build/app: src/main.c
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
@@ -534,6 +655,8 @@ func TestPrintUsage(t *testing.T) {
 		"--debug-parse",
 		"--debug-var",
 		"--debug-target",
+		"--debug-recipe",
+		"--debug-env",
 	}
 
 	for _, s := range essentials {

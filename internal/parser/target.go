@@ -47,10 +47,16 @@ func (p *Parser) ParseTarget() (*ast.Target, *ParseError) {
 		p.nextToken()
 	}
 
+	// Parse recipe (if present)
+	recipe, err := p.parseRecipe()
+	if err != nil {
+		return nil, err
+	}
+
 	return &ast.Target{
 		Pattern:      *pattern,
 		Dependencies: deps,
-		Recipe:       nil, // Recipe parsing will be implemented separately
+		Recipe:       recipe,
 		Location:     loc,
 	}, nil
 }

@@ -328,6 +328,116 @@ func (ta targetAdapter) Location() string {
 	return ta.t.Location.String()
 }
 
+func (ta targetAdapter) HasRecipe() bool {
+	return ta.t.Recipe != nil
+}
+
+func (ta targetAdapter) Recipe() Recipe {
+	if ta.t.Recipe == nil {
+		return nil
+	}
+	return recipeAdapter{r: ta.t.Recipe}
+}
+
+// recipeAdapter wraps ast.Recipe to implement the Recipe interface.
+type recipeAdapter struct {
+	r *ast.Recipe
+}
+
+func (ra recipeAdapter) CommandCount() int {
+	return len(ra.r.Commands)
+}
+
+func (ra recipeAdapter) CommandText(i int) string {
+	if i < 0 || i >= len(ra.r.Commands) {
+		return ""
+	}
+	cmd := ra.r.Commands[i]
+	switch c := cmd.(type) {
+	case *ast.LineCommand:
+		return commandPartsToText(c.Parts)
+	case *ast.BlockCommand:
+		var lines []string
+		for _, line := range c.Lines {
+			lines = append(lines, commandPartsToText(line))
+		}
+		return "block:\n" + joinLines(lines, "        ")
+	}
+	return ""
+}
+
+func (ra recipeAdapter) IsBlockCommand(i int) bool {
+	if i < 0 || i >= len(ra.r.Commands) {
+		return false
+	}
+	_, ok := ra.r.Commands[i].(*ast.BlockCommand)
+	return ok
+}
+
+func (ra recipeAdapter) HasShellDirective() bool {
+	return ra.r.Directives.Shell != nil
+}
+
+func (ra recipeAdapter) HasAfterDirective() bool {
+	return len(ra.r.Directives.After) > 0
+}
+
+func (ra recipeAdapter) HasAutodepsDirective() bool {
+	return ra.r.Directives.Autodeps != nil
+}
+
+func (ra recipeAdapter) RequiresCount() int {
+	return len(ra.r.Directives.Requires)
+}
+
+func (ra recipeAdapter) RequirementName(i int) string {
+	if i < 0 || i >= len(ra.r.Directives.Requires) {
+		return ""
+	}
+	return ra.r.Directives.Requires[i].Name
+}
+
+func (ra recipeAdapter) RequirementVersion(i int) string {
+	if i < 0 || i >= len(ra.r.Directives.Requires) {
+		return ""
+	}
+	return ra.r.Directives.Requires[i].Version.String()
+}
+
+func (ra recipeAdapter) Location() string {
+	return ra.r.Location.String()
+}
+
+// commandPartsToText converts command parts to text.
+func commandPartsToText(parts []ast.CommandPart) string {
+	var text string
+	for _, part := range parts {
+		switch p := part.(type) {
+		case *ast.LiteralCommand:
+			text += p.Text
+		case *ast.CommandInterpolation:
+			if p.Raw {
+				text += "{" + p.Name + ":raw}"
+			} else {
+				text += "{" + p.Name + "}"
+			}
+		}
+	}
+	return text
+}
+
+// joinLines joins lines with a prefix.
+func joinLines(lines []string, prefix string) string {
+	var result string
+	for i, line := range lines {
+		if i > 0 {
+			result += "\n"
+		}
+		result += prefix + line
+	}
+	return result
+}
+
 // targetParserAdapter wraps parser.Parser to implement TargetParser.
 type targetParserAdapter struct {
 	p *parser.Parser
@@ -351,4 +461,123 @@ func NewTargetParser(p Parser) TargetParser {
 		return &targetParserAdapter{p: pa.p}
 	}
 	panic("NewTargetParser requires a Parser created by NewParser")
+}
+
+// ----------------------------------------------------------------------------
+// Environment Adapters
+// ----------------------------------------------------------------------------
+
+// environmentAdapter wraps ast.Environment to implement the Environment interface.
+type environmentAdapter struct {
+	e *ast.Environment
+}
+
+func (ea environmentAdapter) Name() string {
+	if ea.e.Name == nil {
+		return ""
+	}
+	return *ea.e.Name
+}
+
+func (ea environmentAdapter) IsDefault() bool {
+	return ea.e.Name == nil
+}
+
+func (ea environmentAdapter) RuntimeType() string {
+	if ea.e.Runtime == nil {
+		return ""
+	}
+	return ea.e.Runtime.String()
+}
+
+func (ea environmentAdapter) HasRuntime() bool {
+	return ea.e.Runtime != nil
+}
+
+func (ea environmentAdapter) Source() string {
+	if ea.e.Source == nil {
+		return ""
+	}
+	return valueToText(ea.e.Source)
+}
+
+func (ea environmentAdapter) HasSource() bool {
+	return ea.e.Source != nil
+}
+
+func (ea environmentAdapter) Args() string {
+	if ea.e.Args == nil {
+		return ""
+	}
+	return valueToText(ea.e.Args)
+}
+
+func (ea environmentAdapter) HasArgs() bool {
+	return ea.e.Args != nil
+}
+
+func (ea environmentAdapter) RequiresCount() int {
+	return len(ea.e.Requires)
+}
+
+func (ea environmentAdapter) RequirementName(i int) string {
+	if i < 0 || i >= len(ea.e.Requires) {
+		return ""
+	}
+	return ea.e.Requires[i].Name
+}
+
+func (ea environmentAdapter) RequirementVersion(i int) string {
+	if i < 0 || i >= len(ea.e.Requires) {
+		return ""
+	}
+	return ea.e.Requires[i].Version.String()
+}
+
+func (ea environmentAdapter) Location() string {
+	return ea.e.Location.String()
+}
+
+// valueToText converts an ast.Value to its text representation.
+func valueToText(v *ast.Value) string {
+	if v == nil {
+		return ""
+	}
+	var text string
+	for _, part := range v.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralValue:
+			text += p.Text
+		case *ast.Interpolation:
+			if p.Raw {
+				text += "{" + p.Name + ":raw}"
+			} else {
+				text += "{" + p.Name + "}"
+			}
+		case *ast.FunctionCall:
+			text += p.Name.String() + "(...)"
+		}
+	}
+	return text
+}
+
+// environmentParserAdapter wraps parser.Parser to implement EnvironmentParser.
+type environmentParserAdapter struct {
+	p *parser.Parser
+}
+
+func (ep *environmentParserAdapter) ParseEnvironment() (Environment, error) {
+	e, err := ep.p.ParseEnvironment()
+	if err != nil {
+		return nil, err
+	}
+	return environmentAdapter{e: e}, nil
+}
+
+// NewEnvironmentParser creates an EnvironmentParser from a Parser.
+func NewEnvironmentParser(p Parser) EnvironmentParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &environmentParserAdapter{p: pa.p}
+	}
+	panic("NewEnvironmentParser requires a Parser created by NewParser")
 }

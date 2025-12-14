@@ -40,6 +40,8 @@ type flags struct {
 	debugParse  bool // Debug: dump parser scope validation
 	debugVar    bool // Debug: dump variable parsing
 	debugTarget bool // Debug: dump target parsing
+	debugRecipe bool // Debug: dump recipe parsing
+	debugEnv    bool // Debug: dump environment parsing
 }
 
 func main() {
@@ -94,6 +96,16 @@ func run(args []string) int {
 		return debugTargets(buildfile)
 	}
 
+	// Debug mode: dump recipe parsing
+	if f.debugRecipe {
+		return debugRecipes(buildfile)
+	}
+
+	// Debug mode: dump environment parsing
+	if f.debugEnv {
+		return debugEnvironments(buildfile)
+	}
+
 	// For now, just print what we would do
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -135,6 +147,8 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugParse, "debug-parse", false, "Debug: dump parser scope validation")
 	fs.BoolVar(&f.debugVar, "debug-var", false, "Debug: dump variable parsing")
 	fs.BoolVar(&f.debugTarget, "debug-target", false, "Debug: dump target parsing")
+	fs.BoolVar(&f.debugRecipe, "debug-recipe", false, "Debug: dump recipe parsing")
+	fs.BoolVar(&f.debugEnv, "debug-env", false, "Debug: dump environment parsing")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -167,6 +181,8 @@ Debug Options:
   --debug-parse        Dump parser scope validation (for development)
   --debug-var          Dump variable parsing (for development)
   --debug-target       Dump target parsing (for development)
+  --debug-recipe       Dump recipe parsing (for development)
+  --debug-env          Dump environment parsing (for development)
 
 Examples:
   build                Build default target
@@ -534,4 +550,250 @@ func debugTargets(path string) int {
 		return exitParseError
 	}
 	return exitSuccess
+}
+
+func debugRecipes(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Recipe Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse targets with recipes
+	fmt.Println("Targets with recipes:")
+	hasError := false
+
+	// Simple approach: scan for target-like lines and parse them
+	// This is a simplified approach - a full parser would parse the entire file
+	lines := splitLines(string(content))
+	lineIdx := 0
+
+	for lineIdx < len(lines) {
+		line := lines[lineIdx]
+		trimmed := trimLeadingWhitespace(line)
+
+		// Skip non-target lines
+		if trimmed == "" || trimmed[0] == '#' || !looksLikeTarget(trimmed) {
+			lineIdx++
+			continue
+		}
+
+		// Collect the target line and following indented lines
+		targetBlock := line + "\n"
+		startLine := lineIdx + 1 // 1-based
+		lineIdx++
+
+		for lineIdx < len(lines) {
+			nextLine := lines[lineIdx]
+			if len(nextLine) > 0 && (nextLine[0] == ' ' || nextLine[0] == '\t') {
+				targetBlock += nextLine + "\n"
+				lineIdx++
+			} else if nextLine == "" {
+				// Empty line might be within recipe
+				targetBlock += "\n"
+				lineIdx++
+			} else {
+				break
+			}
+		}
+
+		// Re-create lexer and parser for this block
+		l := NewLexer(path, targetBlock)
+		p := NewParser(l)
+		tp := NewTargetParser(p)
+
+		t, err := tp.ParseTarget()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", startLine, err)
+			hasError = true
+			continue
+		}
+
+		// Print target info
+		typeStr := "file"
+		if t.IsPhony() {
+			typeStr = "phony"
+		} else if t.IsDirectory() {
+			typeStr = "dir"
+		}
+
+		fmt.Printf("  Line %d: [%s] %s\n", startLine, typeStr, t.PatternText())
+
+		// Print recipe info
+		if !t.HasRecipe() {
+			fmt.Println("    (no recipe)")
+			continue
+		}
+
+		recipe := t.Recipe()
+		fmt.Printf("    Recipe at %s:\n", recipe.Location())
+
+		// Print directives
+		if recipe.HasShellDirective() {
+			fmt.Println("      .shell: (set)")
+		}
+		if recipe.HasAfterDirective() {
+			fmt.Println("      .after: (set)")
+		}
+		if recipe.HasAutodepsDirective() {
+			fmt.Println("      .autodeps: (set)")
+		}
+		reqCount := recipe.RequiresCount()
+		if reqCount > 0 {
+			fmt.Printf("      .requires: ")
+			for i := 0; i < reqCount; i++ {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("%s@%s", recipe.RequirementName(i), recipe.RequirementVersion(i))
+			}
+			fmt.Println()
+		}
+
+		// Print commands
+		cmdCount := recipe.CommandCount()
+		fmt.Printf("      Commands (%d):\n", cmdCount)
+		for i := 0; i < cmdCount; i++ {
+			if recipe.IsBlockCommand(i) {
+				fmt.Printf("        [block] %s\n", recipe.CommandText(i))
+			} else {
+				fmt.Printf("        [line] %s\n", recipe.CommandText(i))
+			}
+		}
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+func debugEnvironments(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Environment Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse environment blocks
+	fmt.Println("Environment blocks found:")
+	hasError := false
+	envCount := 0
+
+	// Scan for .environment: lines
+	lines := splitLines(string(content))
+	lineIdx := 0
+
+	for lineIdx < len(lines) {
+		line := lines[lineIdx]
+		trimmed := trimLeadingWhitespace(line)
+
+		// Look for .environment: directive
+		if !looksLikeEnvironment(trimmed) {
+			lineIdx++
+			continue
+		}
+
+		// Collect the environment block
+		envBlock := line + "\n"
+		startLine := lineIdx + 1 // 1-based
+		lineIdx++
+
+		for lineIdx < len(lines) {
+			nextLine := lines[lineIdx]
+			if len(nextLine) > 0 && (nextLine[0] == ' ' || nextLine[0] == '\t') {
+				envBlock += nextLine + "\n"
+				lineIdx++
+			} else if nextLine == "" {
+				// Empty line might be within block
+				envBlock += "\n"
+				lineIdx++
+			} else {
+				break
+			}
+		}
+
+		// Parse environment block
+		l := NewLexer(path, envBlock)
+		p := NewParser(l)
+		ep := NewEnvironmentParser(p)
+
+		e, err := ep.ParseEnvironment()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", startLine, err)
+			hasError = true
+			continue
+		}
+
+		envCount++
+
+		// Print environment info
+		name := "(default)"
+		if !e.IsDefault() {
+			name = e.Name()
+		}
+		fmt.Printf("  Line %d: Environment %s\n", startLine, name)
+
+		// Print runtime
+		if e.HasRuntime() {
+			fmt.Printf("    .using: %s\n", e.RuntimeType())
+		}
+
+		// Print source
+		if e.HasSource() {
+			fmt.Printf("    .source: %s\n", e.Source())
+		}
+
+		// Print args
+		if e.HasArgs() {
+			fmt.Printf("    .args: %s\n", e.Args())
+		}
+
+		// Print requires
+		reqCount := e.RequiresCount()
+		if reqCount > 0 {
+			fmt.Printf("    .requires: ")
+			for i := 0; i < reqCount; i++ {
+				if i > 0 {
+					fmt.Print(", ")
+				}
+				fmt.Printf("%s@%s", e.RequirementName(i), e.RequirementVersion(i))
+			}
+			fmt.Println()
+		}
+	}
+
+	if envCount == 0 {
+		fmt.Println("  (no environment blocks found)")
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+// looksLikeEnvironment checks if a line looks like an environment block start.
+func looksLikeEnvironment(s string) bool {
+	return len(s) >= 13 && s[:13] == ".environment:"
 }

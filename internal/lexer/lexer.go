@@ -46,6 +46,11 @@ func New(file, input string) *Lexer {
 	}
 }
 
+// IndentTracker returns the lexer's indentation tracker.
+func (l *Lexer) IndentTracker() *IndentTracker {
+	return l.indent
+}
+
 // NextToken returns the next token from the input.
 func (l *Lexer) NextToken() Token {
 	// Handle end of input
@@ -336,12 +341,21 @@ func (l *Lexer) lexValue() Token {
 		return l.makeToken(LPAREN, "(")
 	}
 
-	// Check for function names
+	// Check for function names (only if followed by '(' to be a function call)
 	if isIdentStart(ch) {
-		// Peek ahead to see if it's a function
+		// Peek ahead to see if it's a function call
 		ident := l.peekIdentifier()
 		if tok := LookupKeyword(ident); tok.IsFunction() {
-			return l.lexIdentifier()
+			// Check if followed by (
+			peekPos := l.pos + len(ident)
+			// Skip whitespace
+			for peekPos < len(l.input) && l.input[peekPos] == ' ' {
+				peekPos++
+			}
+			if peekPos < len(l.input) && l.input[peekPos] == '(' {
+				return l.lexIdentifier()
+			}
+			// Not followed by (, treat as part of string
 		}
 	}
 

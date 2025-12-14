@@ -28,10 +28,14 @@ github.com/vinayprograms/build/
 │   └── parser/         # Syntactic analysis
 │       ├── directive.go    # Directive scope validation
 │       ├── directive_test.go
+│       ├── environment.go  # Environment block parsing
+│       ├── environment_test.go
 │       ├── errors.go       # Parse error types
 │       ├── errors_test.go
 │       ├── parser.go       # Parser with scope stack
 │       ├── parser_test.go
+│       ├── recipe.go       # Recipe parsing
+│       ├── recipe_test.go
 │       ├── scope.go        # Scope types and stack
 │       ├── scope_test.go
 │       ├── target.go       # Target parsing
@@ -68,8 +72,11 @@ cmd/build/
 | `DirectiveValidator` | Validates directive placement at scopes |
 | `Variable` | Represents a parsed variable definition |
 | `VariableParser` | Parses variable definitions |
-| `Target` | Represents a parsed target definition |
+| `Target` | Represents a parsed target definition with optional recipe |
 | `TargetParser` | Parses target definitions |
+| `Recipe` | Represents a parsed recipe with directives and commands |
+| `Environment` | Represents a parsed environment block |
+| `EnvironmentParser` | Parses environment blocks |
 
 **Design Rationale:**
 
@@ -120,6 +127,8 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-parse` | Dump parser scope validation |
 | `--debug-var` | Dump variable parsing (shows parsed variables) |
 | `--debug-target` | Dump target parsing (shows parsed targets) |
+| `--debug-recipe` | Dump recipe parsing (shows parsed recipes with commands) |
+| `--debug-env` | Dump environment parsing (shows parsed environment blocks) |
 
 ### Version Information
 
@@ -935,3 +944,207 @@ build/{name}.o:  # IsDirectory = false (ends with .o)
 3. **Space handling in dependencies**: The lexer skips spaces between tokens in value mode, so the parser detects dependency boundaries by checking for spaces within STRING tokens.
 
 4. **Phony name extraction**: For phony targets (`@name`), the parser strips the `@` prefix and stores just the name in the pattern.
+
+### Recipe Parsing (`recipe.go`)
+
+Parses recipe sections per DESIGN.md Section 3.2 grammar:
+```
+recipe = INDENT { recipe_line } DEDENT ;
+recipe_line = recipe_directive NEWLINE | block_stmt | command NEWLINE ;
+recipe_directive = ".shell:" value | ".after:" value | ".autodeps:" value | ".requires:" value ;
+block_stmt = "block:" NEWLINE INDENT { raw_line } DEDENT ;
+command = { command_part } ;
+command_part = STRING | interpolation ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `parseRecipe() (*ast.Recipe, *ParseError)` | Parses complete recipe section |
+| `parseRecipeDirective(recipe *ast.Recipe) *ParseError` | Routes directive parsing |
+| `parseRecipeShell(recipe *ast.Recipe) *ParseError` | Parses `.shell:` directive |
+| `parseRecipeAfter(recipe *ast.Recipe) *ParseError` | Parses `.after:` directive |
+| `parseRecipeAutodeps(recipe *ast.Recipe) *ParseError` | Parses `.autodeps:` directive |
+| `parseRecipeRequires(recipe *ast.Recipe) *ParseError` | Parses `.requires:` directive |
+| `parseRequirementsList() ([]ast.Requirement, *ParseError)` | Parses space-separated requirements |
+| `parseCommandLine() (*ast.LineCommand, *ParseError)` | Parses single command line |
+| `parseCommandInterpolation() (*ast.CommandInterpolation, *ParseError)` | Parses `{var}` or `{var:raw}` in commands |
+| `parseBlockCommand() (*ast.BlockCommand, *ParseError)` | Parses `block:` with nested lines |
+| `calculateIndentLevel(indent string) int` | Converts indent string to logical level |
+
+**Recipe Detection:**
+
+A recipe is detected when an INDENT token follows a target line:
+```
+build/app: src/main.c      # Target line
+    gcc -o {target} {deps}  # Recipe starts here (INDENT token)
+```
+
+The recipe ends when:
+- EOF is reached
+- A line with no indentation (level 0) is encountered
+- A line with indentation returns to recipe level after deeper nesting
+
+**Recipe Directives:**
+
+| Directive | Purpose | Example |
+|-----------|---------|---------|
+| `.shell:` | Override shell for this recipe | `.shell: bash` |
+| `.after:` | Order-only prerequisites | `.after: build/` |
+| `.autodeps:` | Auto-generated dependency file | `.autodeps: build/app.d` |
+| `.requires:` | Required binaries | `.requires: gcc@11 pkg-config@latest` |
+
+**Requirement Parsing:**
+
+Requirements are space-separated with optional version specs:
+```
+.requires: gcc@11 python3@3.10 pkg-config@latest cmake
+```
+
+Version formats:
+- `name` or `name@latest` → `VersionLatest`
+- `name@11` → `VersionMajor{Major: 11}`
+- `name@3.10` → `VersionMajorMinor{Major: 3, Minor: 10}`
+- `name@11.4.0` → `VersionExact{Major: 11, Minor: 4, Patch: 0}`
+
+**Command Parsing:**
+
+Commands are sequences of:
+- **Literal text**: The command text
+- **Interpolations**: `{var}` or `{var:raw}` for unquoted expansion
+
+```go
+type LineCommand struct {
+    Parts    []CommandPart
+    Location SourceLocation
+}
+```
+
+**Block Commands:**
+
+Block commands (`block:`) pass multiple lines as a single script:
+```
+build/app: src/main.c
+    block:
+        if [[ -f {target} ]]; then
+            rm {target}
+        fi
+        gcc -o {target} {deps}
+```
+
+Block content is at indentation level 2 (deeper than recipe level 1). Each line is parsed independently for interpolations:
+
+```go
+type BlockCommand struct {
+    Lines    [][]CommandPart
+    Location SourceLocation
+}
+```
+
+**Scope Management:**
+
+Recipe parsing manages scope transitions:
+1. Enter `ScopeRecipe` when recipe starts
+2. Enter `ScopeBlock` when `block:` encountered
+3. Exit `ScopeBlock` when dedenting from block
+4. Exit `ScopeRecipe` when dedenting from recipe
+
+**Design Decisions:**
+
+1. **Indent level via lexer tracker**: The parser uses the lexer's `IndentTracker` to calculate logical indent levels, ensuring consistent handling of spaces vs tabs.
+
+2. **Directive order flexibility**: Directives can appear anywhere in the recipe (interspersed with commands), though best practice is to place them first.
+
+3. **Block scope isolation**: Block commands have their own scope (`ScopeBlock`) to potentially enforce different directive rules (none currently allowed in blocks).
+
+4. **Version parsing tolerance**: Invalid version strings fall back to `VersionLatest` rather than erroring, for flexibility in `.requires:` specifications.
+
+5. **Space handling in commands**: The lexer's value mode skips leading spaces, so spaces between command tokens are not preserved in the AST. This is acceptable since command reconstruction for execution will properly quote interpolated values.
+
+### Environment Parsing (`environment.go`)
+
+Parses environment blocks per DESIGN.md Section 3.2 grammar:
+```
+environment_block = ".environment:" [ identifier ] NEWLINE
+                    INDENT { env_directive NEWLINE } DEDENT ;
+env_directive = ".using:" value | ".source:" value | ".args:" value | ".requires:" value ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ParseEnvironment() (*ast.Environment, *ParseError)` | Parses complete environment block |
+| `parseEnvironmentDirective(env *ast.Environment) *ParseError` | Routes directive parsing |
+| `parseEnvUsing(env *ast.Environment) *ParseError` | Parses `.using:` directive |
+| `parseEnvSource(env *ast.Environment) *ParseError` | Parses `.source:` directive |
+| `parseEnvArgs(env *ast.Environment) *ParseError` | Parses `.args:` directive |
+| `parseEnvRequires(env *ast.Environment) *ParseError` | Parses `.requires:` directive |
+| `parseRuntimeType() (ast.Runtime, *ParseError)` | Parses runtime type name |
+
+**Environment Detection:**
+
+An environment block is detected when `.environment:` is encountered at global scope:
+```
+.environment: ci              # Named environment "ci"
+    .using: docker
+    .source: Dockerfile.ci
+    .args: --platform linux/amd64
+    .requires: gcc@11
+
+.environment:                 # Default (unnamed) environment
+    .using: bare
+    .requires: python3@3.10
+```
+
+The environment block ends when:
+- EOF is reached
+- A line with no indentation (level 0) is encountered
+- The parser dedents back to global scope
+
+**Environment Directives:**
+
+| Directive | Purpose | Example |
+|-----------|---------|---------|
+| `.using:` | Specify runtime type | `.using: docker` |
+| `.source:` | Path to runtime configuration | `.source: Dockerfile.ci` |
+| `.args:` | Runtime-specific arguments | `.args: --platform linux/amd64` |
+| `.requires:` | Required binaries with versions | `.requires: gcc@11 python3@latest` |
+
+**Runtime Types:**
+
+| Type | AST Value | Description |
+|------|-----------|-------------|
+| `bare` | `RuntimeBare` | Host system directly |
+| `docker` | `RuntimeDocker` | Docker container |
+| `podman` | `RuntimePodman` | Podman container |
+| `devcontainer` | `RuntimeDevcontainer` | VS Code devcontainer |
+| `nix` | `RuntimeNix` | Nix shell environment |
+| `lima` | `RuntimeLima` | Lima VM (macOS) |
+
+**Scope Management:**
+
+Environment parsing manages scope transitions:
+1. Enter `ScopeEnvironment` when `.environment:` is parsed
+2. Validate that only environment-specific directives are used
+3. Exit `ScopeEnvironment` when dedenting back to global scope
+
+**Value Parsing in Directives:**
+
+Values in environment directives can contain:
+- Literal text: `Dockerfile.ci`
+- Interpolations: `{docker_dir}/Dockerfile`
+- Function calls: Not typically used but supported
+
+**Design Decisions:**
+
+1. **Optional name handling**: Default environments have `Name == nil`, named environments have a pointer to the name string.
+
+2. **Runtime as pointer**: `Runtime` is stored as a pointer to allow distinguishing between "not specified" (nil) and "explicitly set to bare".
+
+3. **Directive reuse**: The `.requires:` directive parsing is shared with recipe parsing via `parseRequirementsList()`.
+
+4. **Strict scope validation**: Invalid directives in environment scope (like `.shell:`) are rejected with clear error messages.
+
+5. **Comment handling**: Comments within environment blocks are skipped, allowing inline documentation.
