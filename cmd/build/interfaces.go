@@ -76,3 +76,38 @@ type DirectiveValidator interface {
 	// DirectiveName returns the display name for a directive token type (e.g., ".shell").
 	DirectiveName(tokenType string) string
 }
+
+// Variable represents a parsed variable definition from the AST.
+type Variable interface {
+	// Name returns the variable name.
+	Name() string
+
+	// IsLazy returns true if this is a lazy variable.
+	IsLazy() bool
+
+	// ValueParts returns the parts of the variable value.
+	// Each part is either a literal string, interpolation, or function call.
+	ValueParts() []ValuePart
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+}
+
+// ValuePart represents a part of a value (literal, interpolation, or function call).
+type ValuePart interface {
+	// PartType returns "literal", "interpolation", or "function".
+	PartType() string
+
+	// Text returns the text content (for literals) or name (for interpolations/functions).
+	Text() string
+
+	// IsRaw returns true for interpolations with :raw modifier.
+	IsRaw() bool
+}
+
+// VariableParser parses variable definitions.
+type VariableParser interface {
+	// ParseVariable parses a variable definition from the current position.
+	// Returns the variable and any error encountered.
+	ParseVariable() (Variable, error)
+}

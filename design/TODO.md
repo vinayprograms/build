@@ -80,11 +80,11 @@ The parser builds the AST with scope-aware directive validation.
   - [x] Validate directive placement based on current scope
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement variable parsing**
-  - [ ] Detect `=` before `:` to distinguish from targets
-  - [ ] Parse `lazy` keyword prefix
-  - [ ] Parse right-hand side as Value with interpolations and function calls
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement variable parsing**
+  - [x] Detect `=` before `:` to distinguish from targets
+  - [x] Parse `lazy` keyword prefix
+  - [x] Parse right-hand side as Value with interpolations and function calls
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement target parsing**
   - [ ] Parse target pattern (file path with `{name}` segments)

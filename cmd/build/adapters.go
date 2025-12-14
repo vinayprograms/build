@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
 	"github.com/vinayprograms/build/internal/parser"
 )
@@ -161,4 +162,95 @@ func tokenTypeFromString(s string) lexer.TokenType {
 	default:
 		return lexer.EOF
 	}
+}
+
+// ----------------------------------------------------------------------------
+// Variable Adapters
+// ----------------------------------------------------------------------------
+
+// valuePartAdapter wraps ast.ValuePart to implement the ValuePart interface.
+type valuePartAdapter struct {
+	part ast.ValuePart
+}
+
+func (v valuePartAdapter) PartType() string {
+	switch v.part.(type) {
+	case *ast.LiteralValue:
+		return "literal"
+	case *ast.Interpolation:
+		return "interpolation"
+	case *ast.FunctionCall:
+		return "function"
+	default:
+		return "unknown"
+	}
+}
+
+func (v valuePartAdapter) Text() string {
+	switch p := v.part.(type) {
+	case *ast.LiteralValue:
+		return p.Text
+	case *ast.Interpolation:
+		return p.Name
+	case *ast.FunctionCall:
+		return p.Name.String()
+	default:
+		return ""
+	}
+}
+
+func (v valuePartAdapter) IsRaw() bool {
+	if interp, ok := v.part.(*ast.Interpolation); ok {
+		return interp.Raw
+	}
+	return false
+}
+
+// variableAdapter wraps ast.Variable to implement the Variable interface.
+type variableAdapter struct {
+	v *ast.Variable
+}
+
+func (va variableAdapter) Name() string {
+	return va.v.Name
+}
+
+func (va variableAdapter) IsLazy() bool {
+	return va.v.Lazy
+}
+
+func (va variableAdapter) ValueParts() []ValuePart {
+	if va.v.Value == nil {
+		return nil
+	}
+	parts := make([]ValuePart, len(va.v.Value.Parts))
+	for i, p := range va.v.Value.Parts {
+		parts[i] = valuePartAdapter{part: p}
+	}
+	return parts
+}
+
+func (va variableAdapter) Location() string {
+	return va.v.Location.String()
+}
+
+// variableParserAdapter wraps parser.Parser to implement VariableParser.
+type variableParserAdapter struct {
+	p *parser.Parser
+}
+
+func (vp *variableParserAdapter) ParseVariable() (Variable, error) {
+	v, err := vp.p.ParseVariable()
+	if err != nil {
+		return nil, err
+	}
+	return variableAdapter{v: v}, nil
+}
+
+// NewVariableParser creates a VariableParser from a Parser.
+func NewVariableParser(p Parser) VariableParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &variableParserAdapter{p: pa.p}
+	}
+	panic("NewVariableParser requires a Parser created by NewParser")
 }

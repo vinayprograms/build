@@ -38,6 +38,7 @@ type flags struct {
 	showHelp    bool
 	debugLex    bool // Debug: dump lexer tokens
 	debugParse  bool // Debug: dump parser scope validation
+	debugVar    bool // Debug: dump variable parsing
 }
 
 func main() {
@@ -82,6 +83,11 @@ func run(args []string) int {
 		return debugParser(buildfile)
 	}
 
+	// Debug mode: dump variable parsing
+	if f.debugVar {
+		return debugVariables(buildfile)
+	}
+
 	// For now, just print what we would do
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -121,6 +127,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.showHelp, "h", false, "Show help (shorthand)")
 	fs.BoolVar(&f.debugLex, "debug-lex", false, "Debug: dump lexer tokens")
 	fs.BoolVar(&f.debugParse, "debug-parse", false, "Debug: dump parser scope validation")
+	fs.BoolVar(&f.debugVar, "debug-var", false, "Debug: dump variable parsing")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -151,6 +158,7 @@ Options:
 Debug Options:
   --debug-lex          Dump lexer tokens (for development)
   --debug-parse        Dump parser scope validation (for development)
+  --debug-var          Dump variable parsing (for development)
 
 Examples:
   build                Build default target
@@ -288,4 +296,132 @@ func debugParser(path string) int {
 	}
 
 	return exitSuccess
+}
+
+func debugVariables(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Variable Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse line by line looking for variable definitions
+	fmt.Println("Variable definitions found:")
+	lines := splitLines(string(content))
+	hasError := false
+
+	for lineNum, line := range lines {
+		// Skip empty lines and comments
+		trimmed := trimLeadingWhitespace(line)
+		if trimmed == "" || trimmed[0] == '#' {
+			continue
+		}
+
+		// Check if this looks like a variable (has = before :)
+		if !looksLikeVariable(trimmed) {
+			continue
+		}
+
+		// Try to parse as variable
+		l := NewLexer(path, line)
+		p := NewParser(l)
+		vp := NewVariableParser(p)
+
+		v, err := vp.ParseVariable()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", lineNum+1, err)
+			hasError = true
+			continue
+		}
+
+		// Print variable info
+		lazyStr := ""
+		if v.IsLazy() {
+			lazyStr = "lazy "
+		}
+		fmt.Printf("  Line %d: %s%s = ", lineNum+1, lazyStr, v.Name())
+
+		// Print value parts
+		parts := v.ValueParts()
+		if len(parts) == 0 {
+			fmt.Print("(empty)")
+		} else {
+			for i, part := range parts {
+				if i > 0 {
+					fmt.Print(" + ")
+				}
+				switch part.PartType() {
+				case "literal":
+					fmt.Printf("%q", part.Text())
+				case "interpolation":
+					if part.IsRaw() {
+						fmt.Printf("{%s:raw}", part.Text())
+					} else {
+						fmt.Printf("{%s}", part.Text())
+					}
+				case "function":
+					fmt.Printf("%s(...)", part.Text())
+				}
+			}
+		}
+		fmt.Println()
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+// splitLines splits a string into lines.
+func splitLines(s string) []string {
+	var lines []string
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
+}
+
+// trimLeadingWhitespace removes leading spaces and tabs.
+func trimLeadingWhitespace(s string) string {
+	for i := 0; i < len(s); i++ {
+		if s[i] != ' ' && s[i] != '\t' {
+			return s[i:]
+		}
+	}
+	return ""
+}
+
+// looksLikeVariable checks if a line looks like a variable definition.
+// A line is a variable if = appears before : (or : doesn't appear).
+func looksLikeVariable(s string) bool {
+	equalsPos := -1
+	colonPos := -1
+	for i := 0; i < len(s); i++ {
+		if s[i] == '=' && equalsPos < 0 {
+			equalsPos = i
+		}
+		if s[i] == ':' && colonPos < 0 {
+			colonPos = i
+		}
+	}
+	// Has equals, and either no colon or equals comes first
+	return equalsPos >= 0 && (colonPos < 0 || equalsPos < colonPos)
 }

@@ -9,7 +9,9 @@ github.com/vinayprograms/build/
 ├── cmd/
 │   └── build/          # CLI entry point
 │       ├── main.go
-│       └── main_test.go
+│       ├── main_test.go
+│       ├── interfaces.go   # Interface definitions
+│       └── adapters.go     # Adapters for internal packages
 ├── internal/
 │   ├── ast/            # Abstract Syntax Tree
 │   │   ├── ast.go          # AST node type definitions
@@ -31,7 +33,9 @@ github.com/vinayprograms/build/
 │       ├── parser.go       # Parser with scope stack
 │       ├── parser_test.go
 │       ├── scope.go        # Scope types and stack
-│       └── scope_test.go
+│       ├── scope_test.go
+│       ├── variable.go     # Variable parsing
+│       └── variable_test.go
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -108,6 +112,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 |------|-------------|
 | `--debug-lex` | Dump lexer analysis (indentation, interpolations) |
 | `--debug-parse` | Dump parser scope validation |
+| `--debug-var` | Dump variable parsing (shows parsed variables) |
 
 ### Version Information
 
@@ -772,3 +777,78 @@ Scopes map to expected indentation:
 3. **Error collection**: Parser collects multiple errors rather than failing on first error, enabling better developer experience.
 
 4. **Exported and unexported methods**: Internal methods are lowercase, with uppercase exported wrappers for CLI/testing access. This maintains encapsulation while enabling debug features.
+
+### Variable Parsing (`variable.go`)
+
+Parses variable definitions per DESIGN.md Section 3.2 grammar:
+```
+variable_def = [ "lazy" ] identifier "=" value NEWLINE ;
+value = { value_part } ;
+value_part = STRING | interpolation | function_call ;
+```
+
+**Key Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ParseVariable() (*ast.Variable, *ParseError)` | Parses a complete variable definition |
+| `ParseValue() *ast.Value` | Parses a value with interpolations and functions |
+| `parseInterpolation() *ast.Interpolation` | Parses `{name}` or `{name:raw}` |
+| `parseFunctionCall() *ast.FunctionCall` | Parses `shell(...)`, `glob(...)`, etc. |
+| `parseFunctionArg() *ast.Value` | Parses a function argument |
+
+**Variable Detection:**
+
+A line is classified as a variable definition if:
+1. It contains `=`
+2. The `=` appears before any `:` (or `:` doesn't appear)
+
+This distinguishes variables from targets:
+- `cc = gcc` → Variable (= before any :)
+- `build/app: deps` → Target (: first)
+- `path = /usr/bin:foo` → Variable (= at position 4, : at position 13)
+
+**Value Parsing:**
+
+Values are sequences of:
+- **Literal text**: String content
+- **Interpolations**: `{var}` or `{var:raw}` for raw (unquoted) output
+- **Function calls**: `shell(cmd)`, `glob(pattern)`, `basename(path)`, `dirname(path)`, `replace(str, from, to)`
+
+The parser stops value parsing at:
+- Newline
+- Comment (`#`)
+- End of file
+
+**Interpolation Parsing:**
+
+Handles:
+- Simple interpolation: `{varname}`
+- Dotted names: `{target.dir}` (for automatic variables)
+- Raw modifier: `{flags:raw}` (disables shell quoting)
+
+**Function Call Parsing:**
+
+Recognizes built-in functions:
+| Function | AST Type | Description |
+|----------|----------|-------------|
+| `shell(...)` | `FuncShell` | Execute shell command |
+| `glob(...)` | `FuncGlob` | File pattern matching |
+| `basename(...)` | `FuncBasename` | Extract filename |
+| `dirname(...)` | `FuncDirname` | Extract directory |
+| `replace(...)` | `FuncReplace` | String replacement |
+
+Function arguments can contain interpolations:
+```
+sources = shell(find {src_dir} -name *.c)
+```
+
+**Design Decisions:**
+
+1. **Lazy prefix as keyword**: The `lazy` keyword is recognized by the lexer as `LAZY` token, making lazy variable detection straightforward.
+
+2. **Value parts as interface**: `ast.ValuePart` interface allows mixing literals, interpolations, and function calls in any order.
+
+3. **Parentheses depth tracking**: Function argument parsing tracks parenthesis depth to handle nested parentheses in function arguments.
+
+4. **Error recovery**: On parse error, the parser records the error and allows continued parsing of subsequent tokens.
