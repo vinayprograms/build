@@ -3,6 +3,7 @@ package parser
 import (
 	"testing"
 
+	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
 )
 
@@ -220,5 +221,214 @@ func TestParser_CurrentIndentLevel(t *testing.T) {
 	p.enterScope(ScopeBlock)
 	if p.currentIndentLevel() != 2 {
 		t.Errorf("block indent level = %d, want 2", p.currentIndentLevel())
+	}
+}
+
+func TestParser_RecipeCommandSpaces(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		wantCmdText string
+	}{
+		{
+			name: "simple command with spaces",
+			input: `@clean:
+    rm -rf build`,
+			wantCmdText: "rm -rf build",
+		},
+		{
+			name: "command with multiple spaces",
+			input: `@test:
+    go test   -v   ./...`,
+			wantCmdText: "go test   -v   ./...",
+		},
+		{
+			name: "command with interpolation and spaces",
+			input: `@build:
+    gcc -o {target} {deps}`,
+			wantCmdText: "gcc -o {target} {deps}",
+		},
+		{
+			name: "command with spaces around interpolation",
+			input: `@cmd:
+    cmd {var} rest`,
+			wantCmdText: "cmd {var} rest",
+		},
+		{
+			name: "complex command with flags",
+			input: `@build:
+    go build -ldflags "-s -w" -o bin/app ./cmd/app`,
+			wantCmdText: "go build -ldflags \"-s -w\" -o bin/app ./cmd/app",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := lexer.New("test.build", tt.input)
+			p := New(l)
+			stmts, errs := p.ParseBuildfile()
+
+			if errs.HasErrors() {
+				t.Fatalf("parse errors: %v", errs.Error())
+			}
+
+			if len(stmts) != 1 {
+				t.Fatalf("expected 1 statement, got %d", len(stmts))
+			}
+
+			target, ok := stmts[0].(*ast.Target)
+			if !ok {
+				t.Fatalf("expected *ast.Target, got %T", stmts[0])
+			}
+
+			if target.Recipe == nil {
+				t.Fatal("target has no recipe")
+			}
+
+			if len(target.Recipe.Commands) != 1 {
+				t.Fatalf("expected 1 command, got %d", len(target.Recipe.Commands))
+			}
+
+			lineCmd, ok := target.Recipe.Commands[0].(*ast.LineCommand)
+			if !ok {
+				t.Fatalf("command is not LineCommand, got %T", target.Recipe.Commands[0])
+			}
+
+			// Reconstruct the command text
+			var cmdText string
+			for _, part := range lineCmd.Parts {
+				switch p := part.(type) {
+				case *ast.LiteralCommand:
+					cmdText += p.Text
+				case *ast.CommandInterpolation:
+					if p.Raw {
+						cmdText += "{" + p.Name + ":raw}"
+					} else {
+						cmdText += "{" + p.Name + "}"
+					}
+				}
+			}
+
+			if cmdText != tt.wantCmdText {
+				t.Errorf("command text = %q, want %q", cmdText, tt.wantCmdText)
+			}
+		})
+	}
+}
+
+func TestParser_BlockCommandSpaces(t *testing.T) {
+	input := `@build:
+    block:
+        echo "Building..."
+        go build -ldflags "-s -w" -o {target} ./cmd
+        echo "Done"`
+
+	l := lexer.New("test.build", input)
+	p := New(l)
+	stmts, errs := p.ParseBuildfile()
+
+	if errs.HasErrors() {
+		t.Fatalf("parse errors: %v", errs.Error())
+	}
+
+	if len(stmts) != 1 {
+		t.Fatalf("expected 1 statement, got %d", len(stmts))
+	}
+
+	target, ok := stmts[0].(*ast.Target)
+	if !ok {
+		t.Fatalf("expected *ast.Target, got %T", stmts[0])
+	}
+
+	if target.Recipe == nil {
+		t.Fatal("target has no recipe")
+	}
+
+	if len(target.Recipe.Commands) != 1 {
+		t.Fatalf("expected 1 command (block), got %d", len(target.Recipe.Commands))
+	}
+
+	blockCmd, ok := target.Recipe.Commands[0].(*ast.BlockCommand)
+	if !ok {
+		t.Fatalf("command is not BlockCommand, got %T", target.Recipe.Commands[0])
+	}
+
+	if len(blockCmd.Lines) != 3 {
+		t.Fatalf("expected 3 block lines, got %d", len(blockCmd.Lines))
+	}
+
+	// Check the second line (go build command)
+	var line2Text string
+	for _, part := range blockCmd.Lines[1] {
+		switch p := part.(type) {
+		case *ast.LiteralCommand:
+			line2Text += p.Text
+		case *ast.CommandInterpolation:
+			line2Text += "{" + p.Name + "}"
+		}
+	}
+
+	wantLine2 := "go build -ldflags \"-s -w\" -o {target} ./cmd"
+	if line2Text != wantLine2 {
+		t.Errorf("block line 2 = %q, want %q", line2Text, wantLine2)
+	}
+}
+
+func TestParser_RecipeDirectiveWithCommand(t *testing.T) {
+	// Test that directives are still parsed correctly alongside commands
+	input := `@build:
+    .after: clean
+    go build -o {target}`
+
+	l := lexer.New("test.build", input)
+	p := New(l)
+	stmts, errs := p.ParseBuildfile()
+
+	if errs.HasErrors() {
+		t.Fatalf("parse errors: %v", errs.Error())
+	}
+
+	if len(stmts) != 1 {
+		t.Fatalf("expected 1 statement, got %d", len(stmts))
+	}
+
+	target, ok := stmts[0].(*ast.Target)
+	if !ok {
+		t.Fatalf("expected *ast.Target, got %T", stmts[0])
+	}
+
+	if target.Recipe == nil {
+		t.Fatal("target has no recipe")
+	}
+
+	// Should have .after directive
+	if len(target.Recipe.Directives.After) != 1 {
+		t.Fatalf("expected 1 .after directive, got %d", len(target.Recipe.Directives.After))
+	}
+
+	// Should have 1 command
+	if len(target.Recipe.Commands) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(target.Recipe.Commands))
+	}
+
+	// Check command has proper spaces
+	lineCmd, ok := target.Recipe.Commands[0].(*ast.LineCommand)
+	if !ok {
+		t.Fatalf("command is not LineCommand, got %T", target.Recipe.Commands[0])
+	}
+
+	var cmdText string
+	for _, part := range lineCmd.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralCommand:
+			cmdText += p.Text
+		case *ast.CommandInterpolation:
+			cmdText += "{" + p.Name + "}"
+		}
+	}
+
+	wantCmd := "go build -o {target}"
+	if cmdText != wantCmd {
+		t.Errorf("command text = %q, want %q", cmdText, wantCmd)
 	}
 }

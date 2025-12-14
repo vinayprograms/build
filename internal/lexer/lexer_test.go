@@ -332,6 +332,16 @@ func TestLexerTargets(t *testing.T) {
 			want:  []TokenType{AT_IDENTIFIER, COLON, STRING, EOF},
 		},
 		{
+			name:  "phony target with hyphen",
+			input: "@test-cover: @test",
+			want:  []TokenType{AT_IDENTIFIER, COLON, STRING, EOF},
+		},
+		{
+			name:  "phony target with multiple hyphens",
+			input: "@debug-lex-tokens:",
+			want:  []TokenType{AT_IDENTIFIER, COLON, EOF},
+		},
+		{
 			name:  "pattern target",
 			input: "build/{name}.o: src/{name}.c",
 			want:  []TokenType{PATH, INTERP_START, IDENTIFIER, INTERP_END, PATH, COLON, STRING, INTERP_START, IDENTIFIER, INTERP_END, STRING, EOF},
@@ -917,5 +927,263 @@ func TestLexerIndentationErrors(t *testing.T) {
 				t.Errorf("expected an indentation error for input %q", tt.input)
 			}
 		})
+	}
+}
+
+func TestLexerCommandMode(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		wantTokens []struct {
+			typ TokenType
+			lit string
+		}
+	}{
+		{
+			name:  "command with spaces preserved",
+			input: "rm -rf build",
+			wantTokens: []struct {
+				typ TokenType
+				lit string
+			}{
+				{STRING, "rm -rf build"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "command with interpolation preserves spaces",
+			input: "gcc -o {target} {deps}",
+			wantTokens: []struct {
+				typ TokenType
+				lit string
+			}{
+				{STRING, "gcc -o "},
+				{INTERP_START, "{"},
+				{IDENTIFIER, "target"},
+				{INTERP_END, "}"},
+				{STRING, " "},
+				{INTERP_START, "{"},
+				{IDENTIFIER, "deps"},
+				{INTERP_END, "}"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "command with multiple spaces",
+			input: "echo    hello   world",
+			wantTokens: []struct {
+				typ TokenType
+				lit string
+			}{
+				{STRING, "echo    hello   world"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "command ending with interpolation",
+			input: "rm {file}",
+			wantTokens: []struct {
+				typ TokenType
+				lit string
+			}{
+				{STRING, "rm "},
+				{INTERP_START, "{"},
+				{IDENTIFIER, "file"},
+				{INTERP_END, "}"},
+				{EOF, ""},
+			},
+		},
+		{
+			name:  "command with escaped braces",
+			input: "echo {{literal}}",
+			wantTokens: []struct {
+				typ TokenType
+				lit string
+			}{
+				{STRING, "echo "},
+				{ESCAPE_LBRACE, "{{"},
+				{STRING, "literal"},
+				{ESCAPE_RBRACE, "}}"},
+				{EOF, ""},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New("test.build", tt.input)
+			l.SetCommandMode() // Explicitly set command mode
+
+			for i, want := range tt.wantTokens {
+				tok := l.NextToken()
+				if tok.Type != want.typ {
+					t.Errorf("token %d: got type %v, want %v", i, tok.Type, want.typ)
+				}
+				if want.lit != "" && tok.Literal != want.lit {
+					t.Errorf("token %d: got literal %q, want %q", i, tok.Literal, want.lit)
+				}
+			}
+		})
+	}
+}
+
+func TestLexerPeekMethods(t *testing.T) {
+	tests := []struct {
+		name              string
+		input             string
+		wantIsDotKeyword  bool
+		wantIsBlock       bool
+	}{
+		{
+			name:             "dot keyword",
+			input:            ".shell: bash",
+			wantIsDotKeyword: true,
+			wantIsBlock:      false,
+		},
+		{
+			name:             "dot keyword with leading spaces",
+			input:            "   .after: target",
+			wantIsDotKeyword: true,
+			wantIsBlock:      false,
+		},
+		{
+			name:             "block keyword",
+			input:            "block:",
+			wantIsDotKeyword: false,
+			wantIsBlock:      true,
+		},
+		{
+			name:             "block keyword with leading spaces",
+			input:            "    block:",
+			wantIsDotKeyword: false,
+			wantIsBlock:      true,
+		},
+		{
+			name:             "regular command",
+			input:            "rm -rf build",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+		{
+			name:             "command starting with identifier",
+			input:            "gcc -o target",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+		{
+			name:             "empty input",
+			input:            "",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+		{
+			name:             "only spaces",
+			input:            "   ",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New("test.build", tt.input)
+
+			if got := l.PeekNextIsDotKeyword(); got != tt.wantIsDotKeyword {
+				t.Errorf("PeekNextIsDotKeyword() = %v, want %v", got, tt.wantIsDotKeyword)
+			}
+			if got := l.PeekNextIsBlock(); got != tt.wantIsBlock {
+				t.Errorf("PeekNextIsBlock() = %v, want %v", got, tt.wantIsBlock)
+			}
+		})
+	}
+}
+
+func TestLexerCommandModeWithNewlines(t *testing.T) {
+	input := "rm -rf build\necho done"
+	l := New("test.build", input)
+	l.SetCommandMode()
+
+	// First command
+	tok := l.NextToken()
+	if tok.Type != STRING || tok.Literal != "rm -rf build" {
+		t.Errorf("got %v(%q), want STRING(\"rm -rf build\")", tok.Type, tok.Literal)
+	}
+
+	// Newline - should switch back to normal mode
+	tok = l.NextToken()
+	if tok.Type != NEWLINE {
+		t.Errorf("got %v, want NEWLINE", tok.Type)
+	}
+
+	// After newline, mode should be LineStart, then Normal
+	tok = l.NextToken()
+	// In normal mode, this would be IDENTIFIER
+	if tok.Type != IDENTIFIER || tok.Literal != "echo" {
+		t.Errorf("got %v(%q), want IDENTIFIER(\"echo\")", tok.Type, tok.Literal)
+	}
+}
+
+func TestLexerCommandModeInterpolationRestoresMode(t *testing.T) {
+	input := "cmd {var} rest"
+	l := New("test.build", input)
+	l.SetCommandMode()
+
+	// String before interpolation
+	tok := l.NextToken()
+	if tok.Type != STRING || tok.Literal != "cmd " {
+		t.Errorf("got %v(%q), want STRING(\"cmd \")", tok.Type, tok.Literal)
+	}
+
+	// Interpolation start
+	tok = l.NextToken()
+	if tok.Type != INTERP_START {
+		t.Errorf("got %v, want INTERP_START", tok.Type)
+	}
+
+	// Identifier inside interpolation
+	tok = l.NextToken()
+	if tok.Type != IDENTIFIER || tok.Literal != "var" {
+		t.Errorf("got %v(%q), want IDENTIFIER(\"var\")", tok.Type, tok.Literal)
+	}
+
+	// Interpolation end
+	tok = l.NextToken()
+	if tok.Type != INTERP_END {
+		t.Errorf("got %v, want INTERP_END", tok.Type)
+	}
+
+	// String after interpolation - should preserve spaces (back in command mode)
+	tok = l.NextToken()
+	if tok.Type != STRING || tok.Literal != " rest" {
+		t.Errorf("got %v(%q), want STRING(\" rest\")", tok.Type, tok.Literal)
+	}
+}
+
+func TestLexerSetModes(t *testing.T) {
+	input := "test value"
+	l := New("test.build", input)
+
+	// Default is ModeLineStart, then ModeNormal
+	l.SetValueMode()
+	tok := l.NextToken()
+	// In value mode, leading spaces are skipped by lexValue
+	if tok.Type != STRING {
+		t.Errorf("value mode: got %v, want STRING", tok.Type)
+	}
+
+	l = New("test.build", input)
+	l.SetCommandMode()
+	tok = l.NextToken()
+	// In command mode, the whole string is returned
+	if tok.Type != STRING || tok.Literal != "test value" {
+		t.Errorf("command mode: got %v(%q), want STRING(\"test value\")", tok.Type, tok.Literal)
+	}
+
+	l = New("test.build", input)
+	l.SetNormalMode()
+	tok = l.NextToken()
+	// In normal mode, identifiers are parsed
+	if tok.Type != IDENTIFIER || tok.Literal != "test" {
+		t.Errorf("normal mode: got %v(%q), want IDENTIFIER(\"test\")", tok.Type, tok.Literal)
 	}
 }
