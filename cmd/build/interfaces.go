@@ -233,3 +233,55 @@ type EnvironmentParser interface {
 	// Returns the environment and any error encountered.
 	ParseEnvironment() (Environment, error)
 }
+
+// Conditional represents a parsed conditional block from the AST.
+type Conditional interface {
+	// ConditionType returns "equals", "not_equals", "defined", or "not_defined".
+	ConditionType() string
+
+	// ConditionLeftText returns the left side of the condition.
+	ConditionLeftText() string
+
+	// ConditionRightText returns the right side of the condition (for == and !=).
+	ConditionRightText() string
+
+	// ConditionVarName returns the variable name for ifdef/ifndef.
+	ConditionVarName() string
+
+	// IfBodyCount returns the number of statements in the if body.
+	IfBodyCount() int
+
+	// ElifCount returns the number of elif branches.
+	ElifCount() int
+
+	// ElifConditionType returns the condition type for the i-th elif.
+	ElifConditionType(i int) string
+
+	// ElifConditionLeftText returns the left side of the i-th elif condition.
+	ElifConditionLeftText(i int) string
+
+	// ElifConditionRightText returns the right side of the i-th elif condition.
+	ElifConditionRightText(i int) string
+
+	// ElifBodyCount returns the number of statements in the i-th elif body.
+	ElifBodyCount(i int) int
+
+	// HasElse returns true if there is an else clause.
+	HasElse() bool
+
+	// ElseBodyCount returns the number of statements in the else body.
+	ElseBodyCount() int
+
+	// Location returns the source location as "file:line:column".
+	Location() string
+}
+
+// ConditionalParser parses conditional blocks.
+type ConditionalParser interface {
+	// ParseConditional parses a conditional block from the current position.
+	// Returns the conditional and any error encountered.
+	ParseConditional() (Conditional, error)
+
+	// IsConditionalLine returns true if the current line starts a conditional.
+	IsConditionalLine() bool
+}

@@ -42,6 +42,7 @@ type flags struct {
 	debugTarget bool // Debug: dump target parsing
 	debugRecipe bool // Debug: dump recipe parsing
 	debugEnv    bool // Debug: dump environment parsing
+	debugCond   bool // Debug: dump conditional parsing
 }
 
 func main() {
@@ -106,6 +107,11 @@ func run(args []string) int {
 		return debugEnvironments(buildfile)
 	}
 
+	// Debug mode: dump conditional parsing
+	if f.debugCond {
+		return debugConditionals(buildfile)
+	}
+
 	// For now, just print what we would do
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -149,6 +155,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugTarget, "debug-target", false, "Debug: dump target parsing")
 	fs.BoolVar(&f.debugRecipe, "debug-recipe", false, "Debug: dump recipe parsing")
 	fs.BoolVar(&f.debugEnv, "debug-env", false, "Debug: dump environment parsing")
+	fs.BoolVar(&f.debugCond, "debug-cond", false, "Debug: dump conditional parsing")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -183,6 +190,7 @@ Debug Options:
   --debug-target       Dump target parsing (for development)
   --debug-recipe       Dump recipe parsing (for development)
   --debug-env          Dump environment parsing (for development)
+  --debug-cond         Dump conditional parsing (for development)
 
 Examples:
   build                Build default target
@@ -796,4 +804,136 @@ func debugEnvironments(path string) int {
 // looksLikeEnvironment checks if a line looks like an environment block start.
 func looksLikeEnvironment(s string) bool {
 	return len(s) >= 13 && s[:13] == ".environment:"
+}
+
+// looksLikeConditional checks if a line looks like a conditional start.
+func looksLikeConditional(s string) bool {
+	// Check for if, ifdef, ifndef keywords at start of line
+	if len(s) >= 3 && s[:3] == "if " {
+		return true
+	}
+	if len(s) >= 6 && s[:6] == "ifdef " {
+		return true
+	}
+	if len(s) >= 7 && s[:7] == "ifndef " {
+		return true
+	}
+	return false
+}
+
+func debugConditionals(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Conditional Parsing Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse conditional blocks
+	fmt.Println("Conditional blocks found:")
+	hasError := false
+	condCount := 0
+
+	// Scan for conditional starts
+	lines := splitLines(string(content))
+	lineIdx := 0
+
+	for lineIdx < len(lines) {
+		line := lines[lineIdx]
+		trimmed := trimLeadingWhitespace(line)
+
+		// Look for conditional start
+		if !looksLikeConditional(trimmed) {
+			lineIdx++
+			continue
+		}
+
+		// Collect the conditional block (up to and including 'end')
+		condBlock := line + "\n"
+		startLine := lineIdx + 1 // 1-based
+		lineIdx++
+		depth := 1 // Track nesting for nested conditionals
+
+		for lineIdx < len(lines) && depth > 0 {
+			nextLine := lines[lineIdx]
+			nextTrimmed := trimLeadingWhitespace(nextLine)
+			condBlock += nextLine + "\n"
+
+			// Track nested conditionals
+			if looksLikeConditional(nextTrimmed) {
+				depth++
+			} else if nextTrimmed == "end" || (len(nextTrimmed) >= 4 && nextTrimmed[:3] == "end" && (nextTrimmed[3] == ' ' || nextTrimmed[3] == '\n' || nextTrimmed[3] == '\r')) {
+				depth--
+			}
+			lineIdx++
+		}
+
+		// Parse conditional block
+		l := NewLexer(path, condBlock)
+		p := NewParser(l)
+		cp := NewConditionalParser(p)
+
+		c, err := cp.ParseConditional()
+		if err != nil {
+			fmt.Printf("  Line %d: ERROR: %v\n", startLine, err)
+			hasError = true
+			continue
+		}
+
+		condCount++
+
+		// Print conditional info
+		condType := c.ConditionType()
+		fmt.Printf("  Line %d: ", startLine)
+
+		switch condType {
+		case "equals":
+			fmt.Printf("if %s == %s\n", c.ConditionLeftText(), c.ConditionRightText())
+		case "not_equals":
+			fmt.Printf("if %s != %s\n", c.ConditionLeftText(), c.ConditionRightText())
+		case "defined":
+			fmt.Printf("ifdef %s\n", c.ConditionVarName())
+		case "not_defined":
+			fmt.Printf("ifndef %s\n", c.ConditionVarName())
+		}
+
+		fmt.Printf("    if body: %d statement(s)\n", c.IfBodyCount())
+
+		// Print elif branches
+		elifCount := c.ElifCount()
+		for i := 0; i < elifCount; i++ {
+			elifType := c.ElifConditionType(i)
+			switch elifType {
+			case "equals":
+				fmt.Printf("    elif %s == %s: %d statement(s)\n",
+					c.ElifConditionLeftText(i), c.ElifConditionRightText(i), c.ElifBodyCount(i))
+			case "not_equals":
+				fmt.Printf("    elif %s != %s: %d statement(s)\n",
+					c.ElifConditionLeftText(i), c.ElifConditionRightText(i), c.ElifBodyCount(i))
+			}
+		}
+
+		// Print else
+		if c.HasElse() {
+			fmt.Printf("    else: %d statement(s)\n", c.ElseBodyCount())
+		}
+	}
+
+	if condCount == 0 {
+		fmt.Println("  (no conditional blocks found)")
+	}
+
+	if hasError {
+		return exitParseError
+	}
+	return exitSuccess
 }

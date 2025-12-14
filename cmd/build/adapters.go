@@ -581,3 +581,150 @@ func NewEnvironmentParser(p Parser) EnvironmentParser {
 	}
 	panic("NewEnvironmentParser requires a Parser created by NewParser")
 }
+
+// ----------------------------------------------------------------------------
+// Conditional Adapters
+// ----------------------------------------------------------------------------
+
+// conditionalAdapter wraps ast.Conditional to implement the Conditional interface.
+type conditionalAdapter struct {
+	c *ast.Conditional
+}
+
+func (ca conditionalAdapter) ConditionType() string {
+	return conditionTypeString(ca.c.IfBranch.Condition)
+}
+
+func (ca conditionalAdapter) ConditionLeftText() string {
+	switch c := ca.c.IfBranch.Condition.(type) {
+	case *ast.EqualsCondition:
+		return valueToText(c.Left)
+	case *ast.NotEqualsCondition:
+		return valueToText(c.Left)
+	}
+	return ""
+}
+
+func (ca conditionalAdapter) ConditionRightText() string {
+	switch c := ca.c.IfBranch.Condition.(type) {
+	case *ast.EqualsCondition:
+		return valueToText(c.Right)
+	case *ast.NotEqualsCondition:
+		return valueToText(c.Right)
+	}
+	return ""
+}
+
+func (ca conditionalAdapter) ConditionVarName() string {
+	switch c := ca.c.IfBranch.Condition.(type) {
+	case *ast.DefinedCondition:
+		return c.Name
+	case *ast.NotDefinedCondition:
+		return c.Name
+	}
+	return ""
+}
+
+func (ca conditionalAdapter) IfBodyCount() int {
+	return len(ca.c.IfBranch.Body)
+}
+
+func (ca conditionalAdapter) ElifCount() int {
+	return len(ca.c.ElifBranches)
+}
+
+func (ca conditionalAdapter) ElifConditionType(i int) string {
+	if i < 0 || i >= len(ca.c.ElifBranches) {
+		return ""
+	}
+	return conditionTypeString(ca.c.ElifBranches[i].Condition)
+}
+
+func (ca conditionalAdapter) ElifConditionLeftText(i int) string {
+	if i < 0 || i >= len(ca.c.ElifBranches) {
+		return ""
+	}
+	switch c := ca.c.ElifBranches[i].Condition.(type) {
+	case *ast.EqualsCondition:
+		return valueToText(c.Left)
+	case *ast.NotEqualsCondition:
+		return valueToText(c.Left)
+	}
+	return ""
+}
+
+func (ca conditionalAdapter) ElifConditionRightText(i int) string {
+	if i < 0 || i >= len(ca.c.ElifBranches) {
+		return ""
+	}
+	switch c := ca.c.ElifBranches[i].Condition.(type) {
+	case *ast.EqualsCondition:
+		return valueToText(c.Right)
+	case *ast.NotEqualsCondition:
+		return valueToText(c.Right)
+	}
+	return ""
+}
+
+func (ca conditionalAdapter) ElifBodyCount(i int) int {
+	if i < 0 || i >= len(ca.c.ElifBranches) {
+		return 0
+	}
+	return len(ca.c.ElifBranches[i].Body)
+}
+
+func (ca conditionalAdapter) HasElse() bool {
+	return ca.c.ElseBody != nil
+}
+
+func (ca conditionalAdapter) ElseBodyCount() int {
+	if ca.c.ElseBody == nil {
+		return 0
+	}
+	return len(ca.c.ElseBody)
+}
+
+func (ca conditionalAdapter) Location() string {
+	return ca.c.Location.String()
+}
+
+// conditionTypeString returns the type of a condition as a string.
+func conditionTypeString(c ast.Condition) string {
+	switch c.(type) {
+	case *ast.EqualsCondition:
+		return "equals"
+	case *ast.NotEqualsCondition:
+		return "not_equals"
+	case *ast.DefinedCondition:
+		return "defined"
+	case *ast.NotDefinedCondition:
+		return "not_defined"
+	default:
+		return "unknown"
+	}
+}
+
+// conditionalParserAdapter wraps parser.Parser to implement ConditionalParser.
+type conditionalParserAdapter struct {
+	p *parser.Parser
+}
+
+func (cp *conditionalParserAdapter) ParseConditional() (Conditional, error) {
+	c, err := cp.p.ParseConditional()
+	if err != nil {
+		return nil, err
+	}
+	return conditionalAdapter{c: c}, nil
+}
+
+func (cp *conditionalParserAdapter) IsConditionalLine() bool {
+	return cp.p.IsConditionalLine()
+}
+
+// NewConditionalParser creates a ConditionalParser from a Parser.
+func NewConditionalParser(p Parser) ConditionalParser {
+	if pa, ok := p.(*parserAdapter); ok {
+		return &conditionalParserAdapter{p: pa.p}
+	}
+	panic("NewConditionalParser requires a Parser created by NewParser")
+}
