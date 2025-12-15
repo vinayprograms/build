@@ -8,7 +8,7 @@
 # ====================
 
 .shell: /bin/bash
-.default: @all
+.default: all
 
 # ====================
 # Variables
@@ -53,7 +53,7 @@ commit = shell(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 @fmt:
     gofmt -w .
 
-@check: @lint @test
+@check: lint test
 
 # ====================
 # Build Targets
