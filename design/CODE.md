@@ -47,6 +47,8 @@ github.com/vinayprograms/build/
 │   │   ├── variable.go     # Variable parsing
 │   │   └── variable_test.go
 │   └── semantic/       # Semantic analysis
+│       ├── collector.go    # Pass 1: Symbol collection
+│       ├── collector_test.go
 │       ├── symbols.go      # Symbol table implementation
 │       └── symbols_test.go
 ├── Buildfile           # Build configuration for this project
@@ -1554,6 +1556,88 @@ Error format: `duplicate variable 'cc': first defined at Buildfile:1:1, redefine
 
 5. **Environment name handling**: The default (unnamed) environment uses empty string `""` as key. Named environments use their name as key.
 
+### Symbol Collection (`collector.go`)
+
+Pass 1 of semantic analysis: collects all symbol definitions and detects duplicates.
+
+#### Collect Function
+
+```go
+func Collect(stmts []ast.Statement) (*SymbolTable, []error)
+```
+
+The `Collect` function walks the AST and populates a symbol table with all definitions:
+- Variable definitions (immediate and lazy)
+- Target definitions (file, phony, directory, pattern)
+- Environment definitions (named and default)
+- Variables inside conditionals (tracked separately in `ConditionalVars`)
+
+#### Conditional Variable Handling
+
+Variables defined in conditional branches receive special handling:
+
+1. **ConditionalVars tracking**: All conditional variable definitions are tracked in `SymbolTable.ConditionalVars` for runtime evaluation to select the correct value.
+
+2. **Variables map**: Each variable name appears in `Variables` map only once (first definition), enabling reference validation without false duplicate errors between branches.
+
+Example:
+```
+if {os} == linux
+cc = gcc          # Added to ConditionalVars[cc] and Variables["cc"]
+elif {os} == darwin
+cc = clang        # Added to ConditionalVars[cc] only
+else
+cc = cc           # Added to ConditionalVars[cc] only
+end
+```
+
+#### ConditionalVarDef Structure
+
+```go
+type ConditionalVarDef struct {
+    Variable    *ast.Variable       // The variable definition
+    Conditional *ast.Conditional    // The containing conditional
+    BranchType  string              // "if", "elif", or "else"
+    BranchIndex int                 // For elif, the index (0-based); -1 for if/else
+}
+```
+
+#### Error Collection
+
+The collector continues processing after errors, collecting all duplicate definition errors:
+
+```go
+st, errs := Collect(stmts)
+if len(errs) > 0 {
+    // errs contains DuplicateDefinitionError instances
+}
+```
+
+#### Nested Conditional Support
+
+Nested conditionals are handled recursively. Each level maintains its own set of conditional variables to avoid false duplicate detection:
+
+```
+if {os} == linux
+    ifdef DEBUG
+        debug_flags = -g  # Nested conditional
+    end
+    cc = gcc
+end
+```
+
+#### Design Decisions
+
+1. **Error collection vs early exit**: All errors are collected to provide comprehensive feedback rather than stopping at the first error.
+
+2. **Conditional variable tracking**: Separate tracking allows runtime to evaluate conditions and select the correct definition without requiring re-parsing.
+
+3. **First-definition wins for Variables map**: For reference validation purposes, the first definition is stored in `Variables`. Runtime uses `ConditionalVars` to determine the actual value.
+
+4. **Nested conditional isolation**: Each conditional tracks its own variables to prevent interference between parent and child conditionals.
+
+5. **Targets and environments in conditionals**: Though less common, these are allowed and follow the same duplicate detection rules as top-level definitions.
+
 ## Test Coverage
 
 ### Parser Unit Tests
@@ -1637,6 +1721,8 @@ Each debug test includes:
 
 ### Semantic Unit Tests (`internal/semantic`)
 
+#### Symbol Table Tests (`symbols_test.go`)
+
 | Test | Description |
 |------|-------------|
 | `TestNewSymbolTable` | Symbol table initialization with automatic/built-in vars |
@@ -1656,3 +1742,26 @@ Each debug test includes:
 | `TestSymbolTable_IsDefined` | Definition check (user, automatic, built-in) |
 | `TestSymbolTable_TargetPatternString` | Pattern string generation |
 | `TestDuplicateDefinitionError_Error` | Error message format |
+
+#### Collector Tests (`collector_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestCollector_Basic` | Basic collection of variables, targets, environments |
+| `TestCollector_DuplicateVariable` | Duplicate variable detection |
+| `TestCollector_DuplicateTarget` | Duplicate target detection |
+| `TestCollector_DuplicateEnvironment` | Duplicate named environment detection |
+| `TestCollector_DuplicateDefaultEnvironment` | Duplicate default environment detection |
+| `TestCollector_ConditionalVariables` | Variables in if/elif/else branches |
+| `TestCollector_NestedConditionals` | Nested conditionals with variables |
+| `TestCollector_MultipleTargets` | Multiple target collection |
+| `TestCollector_PatternTargets` | Pattern targets with captures |
+| `TestCollector_MultipleErrors` | Multiple errors collected |
+| `TestCollector_LazyVariables` | Lazy variable collection |
+| `TestCollector_EmptyBuildfile` | Empty buildfile handling |
+| `TestCollector_CommentsAndBlanks` | Comments and blanks ignored |
+| `TestCollector_GlobalDirectives` | Directives don't add symbols |
+| `TestCollector_PreservesOrder` | Target order preserved |
+| `TestCollector_FileTargets` | File target collection |
+| `TestCollector_DirectoryTargets` | Directory target collection |
+| `TestCollector_MixedEnvironments` | Named and default environments |

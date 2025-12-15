@@ -155,12 +155,12 @@ Validates the AST and resolves ambiguous constructs.
   - [x] Populate built-in variable set (os, arch)
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Pass 1: Symbol Collection**
-  - [ ] Collect all variable definitions
-  - [ ] Collect all target definitions
-  - [ ] Collect all environment definitions
-  - [ ] Detect duplicate definitions with clear error messages
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Pass 1: Symbol Collection**
+  - [x] Collect all variable definitions
+  - [x] Collect all target definitions
+  - [x] Collect all environment definitions
+  - [x] Detect duplicate definitions with clear error messages
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 2: Capture Validation**
   - [ ] For each target pattern, identify `{name}` segments
