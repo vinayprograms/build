@@ -55,10 +55,10 @@ type SymbolTable struct {
 // ConditionalVarDef represents a variable definition within a conditional.
 // It tracks the conditional context so runtime can evaluate the condition.
 type ConditionalVarDef struct {
-	Variable    *ast.Variable       // The variable definition
-	Conditional *ast.Conditional    // The containing conditional
-	BranchType  string              // "if", "elif", or "else"
-	BranchIndex int                 // For elif, the index (0-based); -1 for if/else
+	Variable    *ast.Variable    // The variable definition
+	Conditional *ast.Conditional // The containing conditional
+	BranchType  string           // "if", "elif", or "else"
+	BranchIndex int              // For elif, the index (0-based); -1 for if/else
 }
 
 // NewSymbolTable creates an initialized symbol table with automatic
