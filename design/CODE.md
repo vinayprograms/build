@@ -47,6 +47,8 @@ github.com/vinayprograms/build/
 │   │   ├── variable.go     # Variable parsing
 │   │   └── variable_test.go
 │   └── semantic/       # Semantic analysis
+│       ├── capture.go      # Pass 2: Capture validation
+│       ├── capture_test.go
 │       ├── collector.go    # Pass 1: Symbol collection
 │       ├── collector_test.go
 │       ├── symbols.go      # Symbol table implementation
@@ -1638,6 +1640,88 @@ end
 
 5. **Targets and environments in conditionals**: Though less common, these are allowed and follow the same duplicate detection rules as top-level definitions.
 
+### Capture Validation (`capture.go`)
+
+Pass 2 of semantic analysis: resolves `BraceExpr` nodes in target patterns to either captures or interpolations.
+
+#### Resolution Rules
+
+For each `{name}` in a target pattern:
+
+1. If `name` is a defined variable (user, built-in, or conditional) → **Interpolation**
+2. If `name` is an automatic variable → **Error** (automatic variables are runtime-only)
+3. Otherwise → **Capture** (pattern matching variable)
+
+#### CaptureResult Structure
+
+```go
+type CaptureResult struct {
+    Captures       map[*ast.Target]*CaptureInfo       // Targets with captures
+    Interpolations map[*ast.Target]*InterpolationInfo // Targets with interpolations
+    Errors         []error                             // Validation errors
+}
+
+type CaptureInfo struct {
+    Names []string // Unique capture names in order of first appearance
+}
+
+type InterpolationInfo struct {
+    Names []string // Variable names used as interpolations
+}
+```
+
+#### Validation Rules
+
+1. **Automatic variables in patterns**: Using automatic variables like `{target}`, `{deps}`, `{in}`, etc. in a target pattern is an error. These are only available during recipe execution.
+
+2. **Capture mismatch**: If a `{name}` appears in a dependency but is not defined in the target pattern and is not a defined variable, it's an error. The capture value would be unknown.
+
+3. **Captures in target with literal dependencies**: A target pattern can have captures even if its dependencies are literal. This is valid for pattern targets.
+
+#### Error Types
+
+```go
+type AutomaticInPatternError struct {
+    Name     string             // The automatic variable name
+    Location ast.SourceLocation // Location of the usage
+}
+
+type CaptureMismatchError struct {
+    Name      string             // The capture name
+    InTarget  bool               // true if capture is in target but not deps
+    Location  ast.SourceLocation // Location of the problematic usage
+    TargetLoc ast.SourceLocation // Location of the target definition
+}
+```
+
+#### Example
+
+```
+base = build
+
+# {base} is an interpolation (defined variable)
+# {name} is a capture (undefined → pattern matching)
+{base}/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+```
+
+After capture validation:
+- Target `{base}/{name}.o` has:
+  - Interpolations: `[base]`
+  - Captures: `[name]`
+
+#### Design Decisions
+
+1. **Automatic variables are errors**: Using `{target}` or `{deps}` in a pattern doesn't make sense—they're computed during recipe execution, not pattern matching.
+
+2. **Built-in variables are interpolations**: Variables like `{os}` and `{arch}` can be used in patterns to create platform-specific targets.
+
+3. **Capture order preserved**: Captures are tracked in order of first appearance for deterministic pattern matching.
+
+4. **Dual tracking**: Both captures and interpolations are tracked per-target to enable proper pattern compilation and variable substitution during build planning.
+
+5. **Dependency validation**: Captures in dependencies must be defined in the target pattern. A dependency cannot introduce a new capture.
+
 ## Test Coverage
 
 ### Parser Unit Tests
@@ -1765,3 +1849,24 @@ Each debug test includes:
 | `TestCollector_FileTargets` | File target collection |
 | `TestCollector_DirectoryTargets` | Directory target collection |
 | `TestCollector_MixedEnvironments` | Named and default environments |
+
+#### Capture Validation Tests (`capture_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestValidateCaptures_NoBraceExprs` | Targets without brace expressions |
+| `TestValidateCaptures_SimpleCapture` | Simple capture pattern resolution |
+| `TestValidateCaptures_VariableInterpolation` | Defined variables become interpolations |
+| `TestValidateCaptures_AutomaticVariableError` | Automatic variables in patterns are errors |
+| `TestValidateCaptures_BuiltinInPattern` | Built-in variables (os, arch) in patterns |
+| `TestValidateCaptures_MultipleCaptures` | Multiple captures in same pattern |
+| `TestValidateCaptures_CaptureMismatch_MissingInDependency` | Pattern target with literal deps (valid) |
+| `TestValidateCaptures_CaptureMismatch_ExtraInDependency` | Capture in dep not in target (error) |
+| `TestValidateCaptures_CaptureAndInterpolationMixed` | Mix of captures and interpolations |
+| `TestValidateCaptures_PhonyTarget` | Phony targets without captures |
+| `TestValidateCaptures_PhonyTargetWithBraceExpr` | Phony targets with interpolation |
+| `TestValidateCaptures_PhonyTargetWithCapture` | Phony targets with capture |
+| `TestValidateCaptures_DuplicateCaptureInPattern` | Duplicate captures treated as single |
+| `TestValidateCaptures_ConditionalVariable` | Conditional variables recognized as interpolations |
+| `TestAutomaticInPatternError_Error` | Error message format |
+| `TestCaptureMismatchError_Error` | Error message format |

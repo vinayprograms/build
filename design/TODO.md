@@ -162,14 +162,14 @@ Validates the AST and resolves ambiguous constructs.
   - [x] Detect duplicate definitions with clear error messages
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Pass 2: Capture Validation**
-  - [ ] For each target pattern, identify `{name}` segments
-  - [ ] Check if `name` is a defined variable → treat as interpolation
-  - [ ] Check if `name` is an automatic variable → error
-  - [ ] Otherwise → treat as capture
-  - [ ] Verify capture consistency between target and dependencies
-  - [ ] Transform AST from BraceExpr to resolved Capture/Interpolation
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Pass 2: Capture Validation**
+  - [x] For each target pattern, identify `{name}` segments
+  - [x] Check if `name` is a defined variable → treat as interpolation
+  - [x] Check if `name` is an automatic variable → error
+  - [x] Otherwise → treat as capture
+  - [x] Verify capture consistency between target and dependencies
+  - [x] Transform AST from BraceExpr to resolved Capture/Interpolation
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 3: Reference Validation**
   - [ ] For each interpolation in values/commands, verify it references a defined symbol
