@@ -178,11 +178,11 @@ Validates the AST and resolves ambiguous constructs.
   - [x] Check built-in variables (os, arch)
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Pass 4: Dependency Graph Validation**
-  - [ ] Build dependency graph from targets
-  - [ ] Detect circular dependencies with cycle path reporting
-  - [ ] Validate all dependencies can be satisfied (by explicit target or pattern)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Pass 4: Dependency Graph Validation**
+  - [x] Build dependency graph from targets
+  - [x] Detect circular dependencies with cycle path reporting
+  - [x] Validate all dependencies can be satisfied (by explicit target or pattern)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Define semantic error types**
   - [ ] DuplicateVariable, DuplicateTarget, DuplicateEnvironment

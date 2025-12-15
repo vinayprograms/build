@@ -1797,6 +1797,87 @@ When capture information is provided, capture names are recognized as valid refe
 
 5. **Conditional variables recognized**: Variables defined inside conditionals are treated as defined for reference validation, even though their actual value depends on which branch executes at runtime.
 
+### Dependency Graph Validation (`depgraph.go`)
+
+Pass 4 of semantic analysis: builds the dependency graph and detects circular dependencies.
+
+#### DependencyGraph Structure
+
+```go
+type DependencyGraph struct {
+    Nodes map[string]bool    // All target names in the graph
+    Edges map[string][]string // Maps each target to its dependencies
+}
+```
+
+#### DependencyResult Structure
+
+```go
+type DependencyResult struct {
+    Graph           *DependencyGraph   // The constructed dependency graph
+    PatternTargets  []*ast.Target      // Targets with pattern captures (rules)
+    UnsatisfiedDeps map[string][]string // Dependencies not defined as targets
+    Errors          []error             // Validation errors (e.g., cycles)
+}
+```
+
+#### ValidateDependencies Function
+
+```go
+func ValidateDependencies(targets []*ast.Target) *DependencyResult
+```
+
+The function:
+1. Identifies pattern targets (targets with `BraceExpr` segments) and tracks them separately
+2. Builds a graph of concrete targets (non-pattern) and their dependencies
+3. Tracks unsatisfied dependencies (deps that aren't defined as targets)
+4. Detects circular dependencies using DFS-based cycle detection
+
+#### Cycle Detection Algorithm
+
+Uses depth-first search (DFS) with a recursion stack:
+
+```go
+func findCycle(g *DependencyGraph) []string
+func dfs(g *DependencyGraph, node string, visited, recStack map[string]bool, parent map[string]string) []string
+func reconstructCycle(parent map[string]string, end, cycleStart string) []string
+```
+
+When a cycle is found, it reconstructs the full cycle path for clear error reporting.
+
+#### Error Types
+
+```go
+type CircularDependencyError struct {
+    Cycle []string // e.g., ["a", "b", "c", "a"]
+}
+```
+
+Error format: `circular dependency detected: a -> b -> c -> a`
+
+#### Key Behaviors
+
+| Scenario | Result |
+|----------|--------|
+| Self-loop (`a: a`) | Circular dependency error |
+| Two-node cycle (`a: b`, `b: a`) | Circular dependency error |
+| Diamond dependency (`a: b c`, `b: d`, `c: d`, `d`) | Valid (no cycle) |
+| Pattern target | Stored in `PatternTargets`, not in graph |
+| Dependency not defined as target | Stored in `UnsatisfiedDeps` |
+| Phony targets | Participate in graph normally |
+
+#### Design Decisions
+
+1. **Pattern targets excluded from graph**: Pattern targets define rules, not concrete nodes. They're tracked separately for build planning to use during pattern matching.
+
+2. **Unsatisfied deps are not errors**: A dependency not defined as a target may be a source file or may be satisfiable by a pattern target. The build planner will resolve this later.
+
+3. **Single cycle reported**: When multiple cycles exist, only the first detected cycle is reported. This keeps error messages focused.
+
+4. **Cycle path includes start node twice**: The cycle path includes the starting node at both ends (e.g., `a -> b -> c -> a`) to clearly show where the cycle closes.
+
+5. **Only graph nodes checked for cycles**: Dependencies that aren't graph nodes (unsatisfied deps) are ignored during cycle detection—they can't form cycles.
+
 ## Test Coverage
 
 ### Parser Unit Tests
@@ -1974,3 +2055,28 @@ Each debug test includes:
 | `TestValidateReferences_MultipleErrors` | Multiple errors collected |
 | `TestUndefinedVariableError_Error` | Error message format |
 | `TestAutomaticOutsideRecipeError_Error` | Error message format |
+
+#### Dependency Graph Validation Tests (`depgraph_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestValidateDependencies_NoDependencies` | Targets with no dependencies |
+| `TestValidateDependencies_SimpleDependency` | A depends on B |
+| `TestValidateDependencies_ChainDependencies` | A -> B -> C -> D (linear chain) |
+| `TestValidateDependencies_DiamondDependencies` | Diamond dependency (A -> B, A -> C, B -> D, C -> D) |
+| `TestValidateDependencies_DirectCycle` | Self-loop detection (A -> A) |
+| `TestValidateDependencies_TwoNodeCycle` | Two-node cycle (A -> B -> A) |
+| `TestValidateDependencies_ThreeNodeCycle` | Three-node cycle (A -> B -> C -> A) |
+| `TestValidateDependencies_CycleInSubgraph` | Cycle in part of graph |
+| `TestValidateDependencies_UnsatisfiedDependency` | Dependency not defined as target |
+| `TestValidateDependencies_MultipleUnsatisfiedDependencies` | Multiple unsatisfied deps |
+| `TestValidateDependencies_PhonyTargets` | Phony targets in graph |
+| `TestValidateDependencies_PhonyCycle` | Cycle with phony targets |
+| `TestValidateDependencies_PatternTargets` | Pattern targets tracked separately |
+| `TestValidateDependencies_MixedPatternAndLiteral` | Mix of pattern and literal targets |
+| `TestCircularDependencyError_Error` | Error message format |
+| `TestDependencyResult_Graph` | Graph structure verification |
+| `TestValidateDependencies_EmptyTargets` | Empty target list handling |
+| `TestValidateDependencies_SingleTargetNoDeps` | Single target with no dependencies |
+| `TestValidateDependencies_MultipleCycles` | Multiple separate cycles |
+| `TestValidateDependencies_LongCycle` | Long cycle (6 nodes) |
