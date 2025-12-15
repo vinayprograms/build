@@ -1722,6 +1722,81 @@ After capture validation:
 
 5. **Dependency validation**: Captures in dependencies must be defined in the target pattern. A dependency cannot introduce a new capture.
 
+### Reference Validation (`reference.go`)
+
+Pass 3 of semantic analysis: validates that all variable references in the AST point to defined symbols.
+
+#### Validation Rules
+
+For each interpolation reference in values/commands:
+
+1. **Automatic variables**: `{target}`, `{deps}`, `{in}`, `{out}`, `{stem}`, `{target.dir}`, `{target.file}` are only valid inside recipe or block scope. Using them elsewhere is an error.
+
+2. **Captures**: Capture variables (like `{name}` in pattern targets) are only valid inside the recipe that defines them. They cannot be used in global variable values.
+
+3. **User-defined variables**: References to user-defined variables (immediate or lazy) must point to a defined variable.
+
+4. **Conditional variables**: Variables defined in conditionals are recognized as defined for reference validation purposes.
+
+5. **Built-in variables**: `{os}` and `{arch}` are always valid anywhere.
+
+#### ReferenceResult Structure
+
+```go
+type ReferenceResult struct {
+    Errors []error // Validation errors
+}
+```
+
+#### Error Types
+
+```go
+type UndefinedVariableError struct {
+    Name     string             // The undefined variable name
+    Location ast.SourceLocation // Location of the reference
+}
+
+type AutomaticOutsideRecipeError struct {
+    Name     string             // The automatic variable name
+    Location ast.SourceLocation // Location of the reference
+}
+```
+
+#### Validation Scope
+
+Reference validation checks:
+- Variable values (interpolations in RHS of `=`)
+- Directive values (`.default:`, `.shell:`, etc.)
+- Function arguments (`shell(...)`, `glob(...)`, etc.)
+- Conditional conditions (`if {var} == value`)
+- Conditional body statements
+- Environment directives (`.source:`, `.args:`)
+- Recipe directives (`.shell:`, `.after:`, `.autodeps:`)
+- Recipe commands (line and block)
+
+#### Options
+
+The `ValidateReferences` function accepts options to configure validation:
+
+```go
+// WithCaptures provides capture information from Pass 2
+func WithCaptures(captureResult *CaptureResult) ReferenceOption
+```
+
+When capture information is provided, capture names are recognized as valid references within their defining recipe.
+
+#### Design Decisions
+
+1. **Capture scope enforcement**: Captures are recipe-scoped. A pattern target's captures can only be used in that target's recipe, not in global variables or other recipes.
+
+2. **Automatic variable scope enforcement**: Automatic variables like `{target}` are only computed during recipe execution, so they cannot be used in variable definitions or directive values.
+
+3. **Error collection continues**: Like other passes, reference validation collects all errors rather than stopping at the first one.
+
+4. **Built-in always valid**: Built-in variables `os` and `arch` are valid everywhere, enabling platform-specific logic in any context.
+
+5. **Conditional variables recognized**: Variables defined inside conditionals are treated as defined for reference validation, even though their actual value depends on which branch executes at runtime.
+
 ## Test Coverage
 
 ### Parser Unit Tests
@@ -1870,3 +1945,32 @@ Each debug test includes:
 | `TestValidateCaptures_ConditionalVariable` | Conditional variables recognized as interpolations |
 | `TestAutomaticInPatternError_Error` | Error message format |
 | `TestCaptureMismatchError_Error` | Error message format |
+
+#### Reference Validation Tests (`reference_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestValidateReferences_DefinedVariable` | Defined variable references are valid |
+| `TestValidateReferences_UndefinedVariable` | Undefined variable references are errors |
+| `TestValidateReferences_BuiltinVariable` | Built-in variables (os, arch) are always valid |
+| `TestValidateReferences_ConditionalVariable` | Conditional variables are recognized |
+| `TestValidateReferences_AutomaticInVariableValue` | Automatic variables in variable values are errors |
+| `TestValidateReferences_AutomaticInRecipe` | Automatic variables in recipes are valid |
+| `TestValidateReferences_AllAutomaticVariables` | All automatic variables valid in recipe |
+| `TestValidateReferences_AutomaticOutsideRecipe_AllVars` | All automatic variables invalid outside recipe |
+| `TestValidateReferences_CaptureInRecipe` | Captures are valid in their defining recipe |
+| `TestValidateReferences_CaptureOutsideRecipe` | Captures outside recipe are undefined |
+| `TestValidateReferences_DirectiveValue` | References in directive values |
+| `TestValidateReferences_DirectiveUndefinedVariable` | Undefined in directive is error |
+| `TestValidateReferences_FunctionArgument` | References in function arguments |
+| `TestValidateReferences_FunctionUndefinedArgument` | Undefined in function arg is error |
+| `TestValidateReferences_ConditionalCondition` | References in condition expressions |
+| `TestValidateReferences_ConditionalUndefinedCondition` | Undefined in condition is error |
+| `TestValidateReferences_ConditionalBody` | References in conditional body |
+| `TestValidateReferences_EnvironmentSource` | References in environment source |
+| `TestValidateReferences_EnvironmentUndefinedSource` | Undefined in environment is error |
+| `TestValidateReferences_RecipeShellDirective` | References in recipe directives |
+| `TestValidateReferences_BlockCommand` | References in block commands |
+| `TestValidateReferences_MultipleErrors` | Multiple errors collected |
+| `TestUndefinedVariableError_Error` | Error message format |
+| `TestAutomaticOutsideRecipeError_Error` | Error message format |

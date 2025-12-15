@@ -171,12 +171,12 @@ Validates the AST and resolves ambiguous constructs.
   - [x] Transform AST from BraceExpr to resolved Capture/Interpolation
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Pass 3: Reference Validation**
-  - [ ] For each interpolation in values/commands, verify it references a defined symbol
-  - [ ] Check automatic variables are only used in recipe/block scope
-  - [ ] Check captures are only referenced in their target's recipe
-  - [ ] Check built-in variables (os, arch)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Pass 3: Reference Validation**
+  - [x] For each interpolation in values/commands, verify it references a defined symbol
+  - [x] Check automatic variables are only used in recipe/block scope
+  - [x] Check captures are only referenced in their target's recipe
+  - [x] Check built-in variables (os, arch)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 4: Dependency Graph Validation**
   - [ ] Build dependency graph from targets
