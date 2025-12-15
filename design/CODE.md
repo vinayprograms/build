@@ -25,27 +25,30 @@ github.com/vinayprograms/build/
 │   │   ├── lexer_test.go
 │   │   ├── token.go        # Token types and source location
 │   │   └── token_test.go
-│   └── parser/         # Syntactic analysis
-│       ├── conditional.go  # Conditional parsing
-│       ├── conditional_test.go
-│       ├── directive.go    # Directive scope validation
-│       ├── directive_test.go
-│       ├── environment.go  # Environment block parsing
-│       ├── environment_test.go
-│       ├── errors.go       # Parse error types
-│       ├── errors_test.go
-│       ├── include.go      # Include directive parsing
-│       ├── include_test.go
-│       ├── parser.go       # Parser with scope stack
-│       ├── parser_test.go
-│       ├── recipe.go       # Recipe parsing
-│       ├── recipe_test.go
-│       ├── scope.go        # Scope types and stack
-│       ├── scope_test.go
-│       ├── target.go       # Target parsing
-│       ├── target_test.go
-│       ├── variable.go     # Variable parsing
-│       └── variable_test.go
+│   ├── parser/         # Syntactic analysis
+│   │   ├── conditional.go  # Conditional parsing
+│   │   ├── conditional_test.go
+│   │   ├── directive.go    # Directive scope validation
+│   │   ├── directive_test.go
+│   │   ├── environment.go  # Environment block parsing
+│   │   ├── environment_test.go
+│   │   ├── errors.go       # Parse error types
+│   │   ├── errors_test.go
+│   │   ├── include.go      # Include directive parsing
+│   │   ├── include_test.go
+│   │   ├── parser.go       # Parser with scope stack
+│   │   ├── parser_test.go
+│   │   ├── recipe.go       # Recipe parsing
+│   │   ├── recipe_test.go
+│   │   ├── scope.go        # Scope types and stack
+│   │   ├── scope_test.go
+│   │   ├── target.go       # Target parsing
+│   │   ├── target_test.go
+│   │   ├── variable.go     # Variable parsing
+│   │   └── variable_test.go
+│   └── semantic/       # Semantic analysis
+│       ├── symbols.go      # Symbol table implementation
+│       └── symbols_test.go
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -142,6 +145,7 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-cond` | Dump conditional parsing (shows parsed conditionals) |
 | `--debug-include` | Dump include parsing (shows included files and statements) |
 | `--debug-ast` | Dump full AST with error recovery (shows all parsed statements and errors) |
+| `--debug-semantic` | Dump semantic analysis (shows symbol table) |
 
 ### Version Information
 
@@ -1454,6 +1458,102 @@ Buildfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only 
 
 5. **Indented line skipping**: During recovery, any indented lines (part of a block) are skipped until we reach a non-indented line.
 
+## Semantic Package (`internal/semantic`)
+
+The semantic package provides semantic analysis for Buildfiles. It validates the AST produced by the parser and resolves context-sensitive constructs.
+
+### Symbol Table (`symbols.go`)
+
+The symbol table tracks all defined symbols in a Buildfile for semantic validation.
+
+#### SymbolTable Structure
+
+```go
+type SymbolTable struct {
+    Variables      map[string]*ast.Variable     // User-defined variables
+    Targets        []*ast.Target                // All target definitions
+    Environments   map[string]*ast.Environment  // Named environments ("" = default)
+    automatic      map[string]bool              // Automatic variable names
+    builtin        map[string]bool              // Built-in variable names
+}
+```
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewSymbolTable()` | Creates initialized table with automatic/built-in vars |
+| `AddVariable(v)` | Adds variable, returns error on duplicate |
+| `AddTarget(t)` | Adds target, returns error on duplicate pattern |
+| `AddEnvironment(e)` | Adds environment, returns error on duplicate name |
+| `IsAutomatic(name)` | Returns true if name is an automatic variable |
+| `IsBuiltin(name)` | Returns true if name is a built-in variable |
+| `IsDefined(name)` | Returns true if name is defined (user, automatic, or built-in) |
+| `LookupVariable(name)` | Returns variable or nil if not found |
+
+#### Automatic Variables
+
+Per DESIGN.md Section 3.3.4, these are only valid inside recipe/block scope:
+
+| Variable | Description |
+|----------|-------------|
+| `target` | Target file path |
+| `deps` | All dependencies (space-separated) |
+| `in` | First dependency |
+| `out` | Alias for target |
+| `stem` | Pattern match stem (for pattern targets) |
+| `target.dir` | Directory part of target |
+| `target.file` | Filename part of target |
+
+#### Built-in Variables
+
+Always available, not user-defined:
+
+| Variable | Description |
+|----------|-------------|
+| `os` | Operating system name |
+| `arch` | Architecture name |
+
+#### PatternString Function
+
+Converts a target pattern to a string for duplicate detection:
+
+```go
+func PatternString(p *ast.TargetPattern) string
+```
+
+Examples:
+- `build/app` → `"build/app"`
+- `@clean` → `"@clean"` (phony)
+- `build/{name}.o` → `"build/{name}.o"` (pattern)
+
+#### DuplicateDefinitionError
+
+Returned when duplicate definitions are detected:
+
+```go
+type DuplicateDefinitionError struct {
+    Kind   string             // "variable", "target", or "environment"
+    Name   string             // The duplicated name
+    First  ast.SourceLocation // First definition location
+    Second ast.SourceLocation // Duplicate location
+}
+```
+
+Error format: `duplicate variable 'cc': first defined at Buildfile:1:1, redefined at Buildfile:5:1`
+
+### Design Decisions
+
+1. **Map for variables and environments**: O(1) lookup by name. Variables and environments have unique names within their respective namespaces.
+
+2. **Slice for targets**: Targets are stored in definition order. Pattern targets may have overlapping matches, so we need to preserve order for match priority.
+
+3. **Separate tracking for target patterns**: The `targetPatterns` map tracks seen patterns for duplicate detection without affecting target storage order.
+
+4. **Automatic vs built-in distinction**: Automatic variables (`target`, `deps`, etc.) are only valid in recipe scope, while built-in variables (`os`, `arch`) are available everywhere. The symbol table distinguishes these categories.
+
+5. **Environment name handling**: The default (unnamed) environment uses empty string `""` as key. Named environments use their name as key.
+
 ## Test Coverage
 
 ### Parser Unit Tests
@@ -1528,8 +1628,31 @@ All debug flags have corresponding tests:
 | `TestRunDebugEnv` | `--debug-env` |
 | `TestRunDebugCond` | `--debug-cond` |
 | `TestRunDebugAST` | `--debug-ast` |
+| `TestRunDebugSemantic` | `--debug-semantic` |
 
 Each debug test includes:
 - Success case with valid buildfile
 - Missing file error case
 - (Some) edge cases like empty files or files without target content
+
+### Semantic Unit Tests (`internal/semantic`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewSymbolTable` | Symbol table initialization with automatic/built-in vars |
+| `TestSymbolTable_AddVariable` | Adding variables to symbol table |
+| `TestSymbolTable_DuplicateVariable` | Duplicate variable detection |
+| `TestSymbolTable_AddTarget` | Adding targets to symbol table |
+| `TestSymbolTable_DuplicateTarget` | Duplicate target pattern detection |
+| `TestSymbolTable_AddPhonyTarget` | Adding phony targets |
+| `TestSymbolTable_DuplicatePhonyTarget` | Duplicate phony target detection |
+| `TestSymbolTable_PatternTargetsAllowed` | Different patterns don't conflict |
+| `TestSymbolTable_AddEnvironment` | Adding environments (default and named) |
+| `TestSymbolTable_DuplicateEnvironment` | Duplicate named environment detection |
+| `TestSymbolTable_DuplicateDefaultEnvironment` | Duplicate default environment detection |
+| `TestSymbolTable_IsAutomatic` | Automatic variable check |
+| `TestSymbolTable_IsBuiltin` | Built-in variable check |
+| `TestSymbolTable_LookupVariable` | Variable lookup |
+| `TestSymbolTable_IsDefined` | Definition check (user, automatic, built-in) |
+| `TestSymbolTable_TargetPatternString` | Pattern string generation |
+| `TestDuplicateDefinitionError_Error` | Error message format |

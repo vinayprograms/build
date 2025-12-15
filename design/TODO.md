@@ -149,11 +149,11 @@ The parser builds the AST with scope-aware directive validation.
 
 Validates the AST and resolves ambiguous constructs.
 
-- [ ] **Implement symbol table**
-  - [ ] Define SymbolTable structure (variables, targets, environments, automatic)
-  - [ ] Populate automatic variable set (target, deps, in, out, stem, target.dir, target.file)
-  - [ ] Populate built-in variable set (os, arch)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement symbol table**
+  - [x] Define SymbolTable structure (variables, targets, environments, automatic)
+  - [x] Populate automatic variable set (target, deps, in, out, stem, target.dir, target.file)
+  - [x] Populate built-in variable set (os, arch)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement Pass 1: Symbol Collection**
   - [ ] Collect all variable definitions
