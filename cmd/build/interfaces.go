@@ -507,3 +507,45 @@ type ReferenceResult interface {
 	// Errors returns all errors.
 	Errors() []error
 }
+
+// DependencyResult represents the result of Pass 4: Dependency Graph Validation.
+type DependencyResult interface {
+	// HasErrors returns true if any validation errors were found (e.g., circular dependencies).
+	HasErrors() bool
+
+	// ErrorCount returns the number of errors.
+	ErrorCount() int
+
+	// GetError returns the i-th error.
+	GetError(i int) error
+
+	// Errors returns all errors.
+	Errors() []error
+
+	// NodeCount returns the number of nodes in the dependency graph.
+	NodeCount() int
+
+	// NodeName returns the name of the i-th node.
+	NodeName(i int) string
+
+	// NodeEdgeCount returns the number of outgoing edges for the i-th node.
+	NodeEdgeCount(i int) int
+
+	// NodeEdge returns the j-th edge (dependency) for the i-th node.
+	NodeEdge(i, j int) string
+
+	// PatternTargetCount returns the number of pattern targets (not in the graph).
+	PatternTargetCount() int
+
+	// PatternTargetPattern returns the pattern of the i-th pattern target.
+	PatternTargetPattern(i int) string
+
+	// UnsatisfiedDepsCount returns the number of targets with unsatisfied dependencies.
+	UnsatisfiedDepsCount() int
+
+	// UnsatisfiedDepsTarget returns the target name for the i-th entry.
+	UnsatisfiedDepsTarget(i int) string
+
+	// UnsatisfiedDepsList returns the unsatisfied dependencies for the i-th entry.
+	UnsatisfiedDepsList(i int) []string
+}

@@ -1041,3 +1041,127 @@ platform = {os}-{arch}
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
+
+// ===========================================================================
+// Dependency Graph Validation Tests (Pass 4)
+// ===========================================================================
+
+func TestRunDebugSemanticDependencyGraph(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test dependency graph with valid dependencies
+	content := `# Buildfile with dependency graph
+build/app: build/main.o build/utils.o
+    gcc -o {target} {deps}
+
+build/main.o: src/main.c
+    gcc -c {in} -o {out}
+
+build/utils.o: src/utils.c
+    gcc -c {in} -o {out}
+
+@all: build/app
+
+@clean:
+    rm -rf build/
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugSemanticCircularDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test circular dependency detection
+	content := `# Buildfile with circular dependency
+dir/a.o: dir/b.o
+    echo a
+
+dir/b.o: dir/c.o
+    echo b
+
+dir/c.o: dir/a.o
+    echo c
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because of circular dependency
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticSelfLoop(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test self-loop detection
+	content := `# Buildfile with self-loop
+build/app.o: build/app.o
+    echo self
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because of self-loop
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticPatternTarget(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test pattern targets are tracked separately
+	content := `# Buildfile with pattern target
+build/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+
+@all: build/main.o
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugSemanticDiamondDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test diamond dependency (valid - no cycle)
+	content := `# Buildfile with diamond dependency
+build/app: build/a.o build/b.o
+    gcc -o {target} {deps}
+
+build/a.o: build/common.o src/a.c
+    gcc -c src/a.c -o {target}
+
+build/b.o: build/common.o src/b.c
+    gcc -c src/b.c -o {target}
+
+build/common.o: src/common.c
+    gcc -c {in} -o {out}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}

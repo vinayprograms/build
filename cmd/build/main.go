@@ -1610,6 +1610,69 @@ func debugSemantic(path string) int {
 	}
 
 	fmt.Println("No reference validation errors.")
+	fmt.Println()
+
+	// Dependency Graph Validation (Pass 4)
+	fmt.Println("Dependency Graph Validation (Pass 4):")
+	fmt.Println()
+
+	depResult := ValidateDependencies(collectResult)
+
+	// Print graph nodes
+	fmt.Println("Dependency Graph:")
+	if depResult.NodeCount() == 0 {
+		fmt.Println("  (no nodes)")
+	} else {
+		for i := 0; i < depResult.NodeCount(); i++ {
+			nodeName := depResult.NodeName(i)
+			edgeCount := depResult.NodeEdgeCount(i)
+			if edgeCount == 0 {
+				fmt.Printf("  %s → (no dependencies)\n", nodeName)
+			} else {
+				deps := make([]string, edgeCount)
+				for j := 0; j < edgeCount; j++ {
+					deps[j] = depResult.NodeEdge(i, j)
+				}
+				fmt.Printf("  %s → %v\n", nodeName, deps)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Print pattern targets
+	fmt.Println("Pattern Targets (rules, not concrete nodes):")
+	if depResult.PatternTargetCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < depResult.PatternTargetCount(); i++ {
+			fmt.Printf("  %s\n", depResult.PatternTargetPattern(i))
+		}
+	}
+	fmt.Println()
+
+	// Print unsatisfied dependencies
+	fmt.Println("Unsatisfied Dependencies (may be source files or pattern matches):")
+	if depResult.UnsatisfiedDepsCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < depResult.UnsatisfiedDepsCount(); i++ {
+			target := depResult.UnsatisfiedDepsTarget(i)
+			deps := depResult.UnsatisfiedDepsList(i)
+			fmt.Printf("  %s needs: %v\n", target, deps)
+		}
+	}
+	fmt.Println()
+
+	// Print dependency validation errors (if any)
+	if depResult.HasErrors() {
+		fmt.Printf("Dependency validation errors (%d):\n", depResult.ErrorCount())
+		for _, e := range depResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	fmt.Println("No dependency validation errors.")
 
 	if result.HasErrors() {
 		return exitParseError

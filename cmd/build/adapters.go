@@ -1571,3 +1571,131 @@ func ValidateReferences(collectResult CollectResult, stmts []ast.Statement, capt
 		rr: rr,
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Dependency Graph Validation Adapters
+// ----------------------------------------------------------------------------
+
+// dependencyResultAdapter wraps the result of semantic.ValidateDependencies.
+type dependencyResultAdapter struct {
+	dr        *semantic.DependencyResult
+	nodeOrder []string
+	unsatKeys []string
+}
+
+func (dra *dependencyResultAdapter) HasErrors() bool {
+	return dra.dr.HasErrors()
+}
+
+func (dra *dependencyResultAdapter) ErrorCount() int {
+	return len(dra.dr.Errors)
+}
+
+func (dra *dependencyResultAdapter) GetError(i int) error {
+	if i < 0 || i >= len(dra.dr.Errors) {
+		return nil
+	}
+	return dra.dr.Errors[i]
+}
+
+func (dra *dependencyResultAdapter) Errors() []error {
+	return dra.dr.Errors
+}
+
+func (dra *dependencyResultAdapter) NodeCount() int {
+	return len(dra.nodeOrder)
+}
+
+func (dra *dependencyResultAdapter) NodeName(i int) string {
+	if i < 0 || i >= len(dra.nodeOrder) {
+		return ""
+	}
+	return dra.nodeOrder[i]
+}
+
+func (dra *dependencyResultAdapter) NodeEdgeCount(i int) int {
+	if i < 0 || i >= len(dra.nodeOrder) {
+		return 0
+	}
+	name := dra.nodeOrder[i]
+	return len(dra.dr.Graph.Edges[name])
+}
+
+func (dra *dependencyResultAdapter) NodeEdge(i, j int) string {
+	if i < 0 || i >= len(dra.nodeOrder) {
+		return ""
+	}
+	name := dra.nodeOrder[i]
+	edges := dra.dr.Graph.Edges[name]
+	if j < 0 || j >= len(edges) {
+		return ""
+	}
+	return edges[j]
+}
+
+func (dra *dependencyResultAdapter) PatternTargetCount() int {
+	return len(dra.dr.PatternTargets)
+}
+
+func (dra *dependencyResultAdapter) PatternTargetPattern(i int) string {
+	if i < 0 || i >= len(dra.dr.PatternTargets) {
+		return ""
+	}
+	return semantic.PatternString(&dra.dr.PatternTargets[i].Pattern)
+}
+
+func (dra *dependencyResultAdapter) UnsatisfiedDepsCount() int {
+	return len(dra.unsatKeys)
+}
+
+func (dra *dependencyResultAdapter) UnsatisfiedDepsTarget(i int) string {
+	if i < 0 || i >= len(dra.unsatKeys) {
+		return ""
+	}
+	return dra.unsatKeys[i]
+}
+
+func (dra *dependencyResultAdapter) UnsatisfiedDepsList(i int) []string {
+	if i < 0 || i >= len(dra.unsatKeys) {
+		return nil
+	}
+	key := dra.unsatKeys[i]
+	return dra.dr.UnsatisfiedDeps[key]
+}
+
+// ValidateDependencies performs Pass 4: Dependency Graph Validation.
+// It builds the dependency graph and detects circular dependencies.
+func ValidateDependencies(collectResult CollectResult) DependencyResult {
+	// Extract the underlying semantic.SymbolTable from the adapter
+	var st *semantic.SymbolTable
+	if sta, ok := collectResult.SymbolTable().(*symbolTableAdapter); ok {
+		st = sta.st
+	} else {
+		// Shouldn't happen in normal use
+		return &dependencyResultAdapter{
+			dr:        &semantic.DependencyResult{},
+			nodeOrder: make([]string, 0),
+			unsatKeys: make([]string, 0),
+		}
+	}
+
+	dr := semantic.ValidateDependencies(st.Targets)
+
+	// Build stable order for nodes
+	nodeOrder := make([]string, 0, len(dr.Graph.Nodes))
+	for name := range dr.Graph.Nodes {
+		nodeOrder = append(nodeOrder, name)
+	}
+
+	// Build stable order for unsatisfied deps keys
+	unsatKeys := make([]string, 0, len(dr.UnsatisfiedDeps))
+	for key := range dr.UnsatisfiedDeps {
+		unsatKeys = append(unsatKeys, key)
+	}
+
+	return &dependencyResultAdapter{
+		dr:        dr,
+		nodeOrder: nodeOrder,
+		unsatKeys: unsatKeys,
+	}
+}
