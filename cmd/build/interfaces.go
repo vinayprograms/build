@@ -441,3 +441,21 @@ type SymbolTable interface {
 	// IsDefined returns true if name is defined.
 	IsDefined(name string) bool
 }
+
+// CollectResult represents the result of Pass 1: Symbol Collection.
+type CollectResult interface {
+	// SymbolTable returns the symbol table populated during collection.
+	SymbolTable() SymbolTable
+
+	// HasErrors returns true if any errors were encountered during collection.
+	HasErrors() bool
+
+	// ErrorCount returns the number of errors.
+	ErrorCount() int
+
+	// GetError returns the i-th error.
+	GetError(i int) error
+
+	// Errors returns all errors.
+	Errors() []error
+}

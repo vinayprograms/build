@@ -1326,3 +1326,71 @@ func NewSymbolTable() SymbolTable {
 		envOrder: make([]string, 0),
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Symbol Collection
+// ----------------------------------------------------------------------------
+
+// collectResultAdapter wraps the result of semantic.Collect.
+type collectResultAdapter struct {
+	st     *semantic.SymbolTable
+	errors []error
+}
+
+func (cr *collectResultAdapter) SymbolTable() SymbolTable {
+	// Build the varOrder and envOrder from the underlying symbol table
+	varOrder := make([]string, 0, len(cr.st.Variables))
+	for name := range cr.st.Variables {
+		varOrder = append(varOrder, name)
+	}
+
+	envOrder := make([]string, 0, len(cr.st.Environments))
+	for name := range cr.st.Environments {
+		envOrder = append(envOrder, name)
+	}
+
+	return &symbolTableAdapter{
+		st:       cr.st,
+		varOrder: varOrder,
+		envOrder: envOrder,
+	}
+}
+
+func (cr *collectResultAdapter) HasErrors() bool {
+	return len(cr.errors) > 0
+}
+
+func (cr *collectResultAdapter) ErrorCount() int {
+	return len(cr.errors)
+}
+
+func (cr *collectResultAdapter) GetError(i int) error {
+	if i < 0 || i >= len(cr.errors) {
+		return nil
+	}
+	return cr.errors[i]
+}
+
+func (cr *collectResultAdapter) Errors() []error {
+	return cr.errors
+}
+
+// CollectSymbols performs Pass 1: Symbol Collection on the parsed statements.
+// It returns a CollectResult that provides access to the symbol table and any errors.
+func CollectSymbols(result BuildfileResult) CollectResult {
+	// Extract the underlying ast.Statement slice from the result
+	stmts := make([]ast.Statement, 0)
+	for _, stmt := range result.Statements() {
+		if raw, ok := stmt.(interface{ Raw() interface{} }); ok {
+			if astStmt, ok := raw.Raw().(ast.Statement); ok {
+				stmts = append(stmts, astStmt)
+			}
+		}
+	}
+
+	st, errs := semantic.Collect(stmts)
+	return &collectResultAdapter{
+		st:     st,
+		errors: errs,
+	}
+}

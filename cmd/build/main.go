@@ -1443,20 +1443,12 @@ func debugSemantic(path string) int {
 		fmt.Println()
 	}
 
-	// Build symbol table
-	st := NewSymbolTable()
+	// Symbol Collection (Pass 1)
 	fmt.Println("Symbol Collection (Pass 1):")
 	fmt.Println()
 
-	// Collect symbols from parsed statements
-	var semanticErrors []string
-	for _, stmt := range result.Statements() {
-		if raw, ok := stmt.(interface{ Raw() interface{} }); ok {
-			if err := collectSymbol(st, raw.Raw()); err != nil {
-				semanticErrors = append(semanticErrors, err.Error())
-			}
-		}
-	}
+	collectResult := CollectSymbols(result)
+	st := collectResult.SymbolTable()
 
 	// Print variables
 	fmt.Println("Variables:")
@@ -1539,10 +1531,10 @@ func debugSemantic(path string) int {
 	fmt.Println()
 
 	// Print semantic errors (if any)
-	if len(semanticErrors) > 0 {
-		fmt.Printf("Semantic errors (%d):\n", len(semanticErrors))
-		for _, e := range semanticErrors {
-			fmt.Printf("  %s\n", e)
+	if collectResult.HasErrors() {
+		fmt.Printf("Semantic errors (%d):\n", collectResult.ErrorCount())
+		for _, e := range collectResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
 		}
 		return exitParseError
 	}
@@ -1553,88 +1545,4 @@ func debugSemantic(path string) int {
 		return exitParseError
 	}
 	return exitSuccess
-}
-
-// collectSymbol adds a statement to the symbol table if it defines a symbol.
-// For conditionals, variables defined in different branches are not duplicates
-// of each other (only one branch executes at runtime).
-func collectSymbol(st SymbolTable, node interface{}) error {
-	switch n := node.(type) {
-	case *ast.Variable:
-		return st.AddVariable(n)
-	case *ast.Target:
-		return st.AddTarget(n)
-	case *ast.Environment:
-		return st.AddEnvironment(n)
-	case *ast.Conditional:
-		// For conditionals, collect variables from all branches but track
-		// which variables are defined within this conditional to avoid
-		// false duplicate errors between branches.
-		return collectConditionalSymbols(st, n)
-	}
-	return nil
-}
-
-// collectConditionalSymbols handles symbol collection for conditional blocks.
-// Variables defined in different branches of the same conditional are not
-// duplicates - only one branch will execute at runtime.
-// All variable definitions are tracked in ConditionalVars for runtime evaluation.
-func collectConditionalSymbols(st SymbolTable, cond *ast.Conditional) error {
-	// Track variables defined in this conditional (across all branches)
-	// to avoid adding to Variables map multiple times
-	conditionalVars := make(map[string]bool)
-
-	// Helper to collect from a branch
-	collectBranch := func(stmts []ast.Statement, branchType string, branchIndex int) error {
-		for _, stmt := range stmts {
-			switch s := stmt.(type) {
-			case *ast.Variable:
-				// Always track in ConditionalVars for runtime evaluation
-				st.AddConditionalVariable(s, cond, branchType, branchIndex)
-
-				// Only add to main Variables map once (for reference validation)
-				if !conditionalVars[s.Name] {
-					// Don't return error for duplicates - it's OK if variable
-					// was defined outside conditional, runtime will handle precedence
-					_ = st.AddVariable(s)
-					conditionalVars[s.Name] = true
-				}
-			case *ast.Target:
-				if err := st.AddTarget(s); err != nil {
-					return err
-				}
-			case *ast.Environment:
-				if err := st.AddEnvironment(s); err != nil {
-					return err
-				}
-			case *ast.Conditional:
-				// Nested conditional
-				if err := collectConditionalSymbols(st, s); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-
-	// Collect from if branch
-	if err := collectBranch(cond.IfBranch.Body, "if", -1); err != nil {
-		return err
-	}
-
-	// Collect from elif branches
-	for i, elif := range cond.ElifBranches {
-		if err := collectBranch(elif.Body, "elif", i); err != nil {
-			return err
-		}
-	}
-
-	// Collect from else branch
-	if cond.ElseBody != nil {
-		if err := collectBranch(cond.ElseBody, "else", -1); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

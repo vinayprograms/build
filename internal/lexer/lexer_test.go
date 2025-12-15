@@ -1029,10 +1029,10 @@ func TestLexerCommandMode(t *testing.T) {
 
 func TestLexerPeekMethods(t *testing.T) {
 	tests := []struct {
-		name              string
-		input             string
-		wantIsDotKeyword  bool
-		wantIsBlock       bool
+		name             string
+		input            string
+		wantIsDotKeyword bool
+		wantIsBlock      bool
 	}{
 		{
 			name:             "dot keyword",
