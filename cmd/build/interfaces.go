@@ -366,3 +366,78 @@ type BuildfileParser interface {
 	// as many valid statements as possible.
 	ParseBuildfile() BuildfileResult
 }
+
+// SymbolTable tracks defined symbols (variables, targets, environments)
+// for semantic analysis.
+type SymbolTable interface {
+	// AddVariable adds a variable to the symbol table.
+	// Returns an error if a duplicate variable is detected.
+	AddVariable(v interface{}) error
+
+	// AddConditionalVariable adds a variable defined within a conditional.
+	// Unlike AddVariable, this allows multiple definitions for the same name
+	// (one per conditional branch) since only one branch executes at runtime.
+	AddConditionalVariable(varDef interface{}, cond interface{}, branchType string, branchIndex int)
+
+	// AddTarget adds a target to the symbol table.
+	// Returns an error if a duplicate target is detected.
+	AddTarget(t interface{}) error
+
+	// AddEnvironment adds an environment to the symbol table.
+	// Returns an error if a duplicate environment is detected.
+	AddEnvironment(e interface{}) error
+
+	// VariableCount returns the number of variables.
+	VariableCount() int
+
+	// VariableName returns the name of the i-th variable.
+	VariableName(i int) string
+
+	// VariableLocation returns the location of the i-th variable.
+	VariableLocation(i int) string
+
+	// VariableIsLazy returns true if the i-th variable is lazy.
+	VariableIsLazy(i int) bool
+
+	// ConditionalVarCount returns the number of conditional variable names.
+	ConditionalVarCount() int
+
+	// ConditionalVarName returns the name of the i-th conditional variable.
+	ConditionalVarName(i int) string
+
+	// ConditionalVarDefCount returns the number of definitions for the i-th conditional variable.
+	ConditionalVarDefCount(i int) int
+
+	// ConditionalVarDefLocation returns the location of the j-th definition of the i-th conditional variable.
+	ConditionalVarDefLocation(i, j int) string
+
+	// ConditionalVarDefBranch returns the branch info ("if", "elif[0]", "else") for the j-th definition.
+	ConditionalVarDefBranch(i, j int) string
+
+	// TargetCount returns the number of targets.
+	TargetCount() int
+
+	// TargetPattern returns the pattern of the i-th target.
+	TargetPattern(i int) string
+
+	// TargetLocation returns the location of the i-th target.
+	TargetLocation(i int) string
+
+	// EnvironmentCount returns the number of environments.
+	EnvironmentCount() int
+
+	// EnvironmentName returns the name of the i-th environment.
+	EnvironmentName(i int) string
+
+	// EnvironmentLocation returns the location of the i-th environment.
+	EnvironmentLocation(i int) string
+
+	// IsAutomatic returns true if name is an automatic variable.
+	IsAutomatic(name string) bool
+
+	// IsBuiltin returns true if name is a built-in variable.
+	IsBuiltin(name string) bool
+
+	// IsDefined returns true if name is defined.
+	IsDefined(name string) bool
+}

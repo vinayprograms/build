@@ -1,9 +1,12 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
 	"github.com/vinayprograms/build/internal/parser"
+	"github.com/vinayprograms/build/internal/semantic"
 )
 
 // ----------------------------------------------------------------------------
@@ -1091,4 +1094,235 @@ func NewBuildfileParser(p Parser) BuildfileParser {
 		return &buildfileParserAdapter{p: pa.p}
 	}
 	panic("NewBuildfileParser requires a Parser created by NewParser")
+}
+
+// ----------------------------------------------------------------------------
+// Symbol Table Adapters
+// ----------------------------------------------------------------------------
+
+// symbolTableAdapter wraps semantic.SymbolTable to implement the SymbolTable interface.
+type symbolTableAdapter struct {
+	st *semantic.SymbolTable
+	// We need to track variables and environments in order for iteration
+	varOrder []string
+	envOrder []string
+}
+
+func (sta *symbolTableAdapter) AddVariable(v interface{}) error {
+	astVar, ok := v.(*ast.Variable)
+	if !ok {
+		return nil // Skip non-variable nodes
+	}
+	if err := sta.st.AddVariable(astVar); err != nil {
+		return err
+	}
+	sta.varOrder = append(sta.varOrder, astVar.Name)
+	return nil
+}
+
+func (sta *symbolTableAdapter) AddTarget(t interface{}) error {
+	astTarget, ok := t.(*ast.Target)
+	if !ok {
+		return nil // Skip non-target nodes
+	}
+	return sta.st.AddTarget(astTarget)
+}
+
+func (sta *symbolTableAdapter) AddEnvironment(e interface{}) error {
+	astEnv, ok := e.(*ast.Environment)
+	if !ok {
+		return nil // Skip non-environment nodes
+	}
+	key := ""
+	if astEnv.Name != nil {
+		key = *astEnv.Name
+	}
+	if err := sta.st.AddEnvironment(astEnv); err != nil {
+		return err
+	}
+	sta.envOrder = append(sta.envOrder, key)
+	return nil
+}
+
+func (sta *symbolTableAdapter) VariableCount() int {
+	return len(sta.varOrder)
+}
+
+func (sta *symbolTableAdapter) VariableName(i int) string {
+	if i < 0 || i >= len(sta.varOrder) {
+		return ""
+	}
+	return sta.varOrder[i]
+}
+
+func (sta *symbolTableAdapter) VariableLocation(i int) string {
+	if i < 0 || i >= len(sta.varOrder) {
+		return ""
+	}
+	name := sta.varOrder[i]
+	if v := sta.st.LookupVariable(name); v != nil {
+		return v.Location.String()
+	}
+	return ""
+}
+
+func (sta *symbolTableAdapter) VariableIsLazy(i int) bool {
+	if i < 0 || i >= len(sta.varOrder) {
+		return false
+	}
+	name := sta.varOrder[i]
+	if v := sta.st.LookupVariable(name); v != nil {
+		return v.Lazy
+	}
+	return false
+}
+
+func (sta *symbolTableAdapter) AddConditionalVariable(varDef interface{}, cond interface{}, branchType string, branchIndex int) {
+	astVar, ok := varDef.(*ast.Variable)
+	if !ok {
+		return
+	}
+	astCond, ok := cond.(*ast.Conditional)
+	if !ok {
+		return
+	}
+	def := &semantic.ConditionalVarDef{
+		Variable:    astVar,
+		Conditional: astCond,
+		BranchType:  branchType,
+		BranchIndex: branchIndex,
+	}
+	sta.st.AddConditionalVariable(def)
+}
+
+// condVarOrder returns the list of conditional variable names in stable order.
+func (sta *symbolTableAdapter) condVarOrder() []string {
+	// Build a stable order by iterating the map
+	var names []string
+	seen := make(map[string]bool)
+	for name := range sta.st.ConditionalVars {
+		if !seen[name] {
+			names = append(names, name)
+			seen[name] = true
+		}
+	}
+	return names
+}
+
+func (sta *symbolTableAdapter) ConditionalVarCount() int {
+	return len(sta.st.ConditionalVars)
+}
+
+func (sta *symbolTableAdapter) ConditionalVarName(i int) string {
+	order := sta.condVarOrder()
+	if i < 0 || i >= len(order) {
+		return ""
+	}
+	return order[i]
+}
+
+func (sta *symbolTableAdapter) ConditionalVarDefCount(i int) int {
+	order := sta.condVarOrder()
+	if i < 0 || i >= len(order) {
+		return 0
+	}
+	name := order[i]
+	return len(sta.st.ConditionalVars[name])
+}
+
+func (sta *symbolTableAdapter) ConditionalVarDefLocation(i, j int) string {
+	order := sta.condVarOrder()
+	if i < 0 || i >= len(order) {
+		return ""
+	}
+	name := order[i]
+	defs := sta.st.ConditionalVars[name]
+	if j < 0 || j >= len(defs) {
+		return ""
+	}
+	return defs[j].Variable.Location.String()
+}
+
+func (sta *symbolTableAdapter) ConditionalVarDefBranch(i, j int) string {
+	order := sta.condVarOrder()
+	if i < 0 || i >= len(order) {
+		return ""
+	}
+	name := order[i]
+	defs := sta.st.ConditionalVars[name]
+	if j < 0 || j >= len(defs) {
+		return ""
+	}
+	def := defs[j]
+	switch def.BranchType {
+	case "if":
+		return "if"
+	case "elif":
+		return fmt.Sprintf("elif[%d]", def.BranchIndex)
+	case "else":
+		return "else"
+	default:
+		return def.BranchType
+	}
+}
+
+func (sta *symbolTableAdapter) TargetCount() int {
+	return len(sta.st.Targets)
+}
+
+func (sta *symbolTableAdapter) TargetPattern(i int) string {
+	if i < 0 || i >= len(sta.st.Targets) {
+		return ""
+	}
+	return semantic.PatternString(&sta.st.Targets[i].Pattern)
+}
+
+func (sta *symbolTableAdapter) TargetLocation(i int) string {
+	if i < 0 || i >= len(sta.st.Targets) {
+		return ""
+	}
+	return sta.st.Targets[i].Location.String()
+}
+
+func (sta *symbolTableAdapter) EnvironmentCount() int {
+	return len(sta.envOrder)
+}
+
+func (sta *symbolTableAdapter) EnvironmentName(i int) string {
+	if i < 0 || i >= len(sta.envOrder) {
+		return ""
+	}
+	return sta.envOrder[i]
+}
+
+func (sta *symbolTableAdapter) EnvironmentLocation(i int) string {
+	if i < 0 || i >= len(sta.envOrder) {
+		return ""
+	}
+	key := sta.envOrder[i]
+	if e, ok := sta.st.Environments[key]; ok {
+		return e.Location.String()
+	}
+	return ""
+}
+
+func (sta *symbolTableAdapter) IsAutomatic(name string) bool {
+	return sta.st.IsAutomatic(name)
+}
+
+func (sta *symbolTableAdapter) IsBuiltin(name string) bool {
+	return sta.st.IsBuiltin(name)
+}
+
+func (sta *symbolTableAdapter) IsDefined(name string) bool {
+	return sta.st.IsDefined(name)
+}
+
+// NewSymbolTable creates a new SymbolTable.
+func NewSymbolTable() SymbolTable {
+	return &symbolTableAdapter{
+		st:       semantic.NewSymbolTable(),
+		varOrder: make([]string, 0),
+		envOrder: make([]string, 0),
+	}
 }

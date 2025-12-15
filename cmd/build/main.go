@@ -26,27 +26,28 @@ const (
 
 // CLI flags.
 type flags struct {
-	file        string
-	env         string
-	jobs        int
-	dryRun      bool
-	verbose     bool
-	checkEnv    bool
-	showInstall bool
-	listEnv     bool
-	shell       bool
-	keep        bool
-	showVersion bool
-	showHelp    bool
-	debugLex    bool // Debug: dump lexer tokens
-	debugParse  bool // Debug: dump parser scope validation
-	debugVar    bool // Debug: dump variable parsing
-	debugTarget bool // Debug: dump target parsing
-	debugRecipe bool // Debug: dump recipe parsing
-	debugEnv    bool // Debug: dump environment parsing
-	debugCond   bool // Debug: dump conditional parsing
-	debugIncl   bool // Debug: dump include parsing
-	debugAST    bool // Debug: dump full AST with error recovery
+	file          string
+	env           string
+	jobs          int
+	dryRun        bool
+	verbose       bool
+	checkEnv      bool
+	showInstall   bool
+	listEnv       bool
+	shell         bool
+	keep          bool
+	showVersion   bool
+	showHelp      bool
+	debugLex      bool // Debug: dump lexer tokens
+	debugParse    bool // Debug: dump parser scope validation
+	debugVar      bool // Debug: dump variable parsing
+	debugTarget   bool // Debug: dump target parsing
+	debugRecipe   bool // Debug: dump recipe parsing
+	debugEnv      bool // Debug: dump environment parsing
+	debugCond     bool // Debug: dump conditional parsing
+	debugIncl     bool // Debug: dump include parsing
+	debugAST      bool // Debug: dump full AST with error recovery
+	debugSemantic bool // Debug: dump semantic analysis (symbol table)
 }
 
 func main() {
@@ -124,6 +125,11 @@ func run(args []string) int {
 	// Debug mode: dump full AST with error recovery
 	if f.debugAST {
 		return debugAST(buildfile)
+	}
+
+	// Debug mode: dump semantic analysis (symbol table)
+	if f.debugSemantic {
+		return debugSemantic(buildfile)
 	}
 
 	// Parse the buildfile
@@ -209,6 +215,7 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugCond, "debug-cond", false, "Debug: dump conditional parsing")
 	fs.BoolVar(&f.debugIncl, "debug-include", false, "Debug: dump include parsing")
 	fs.BoolVar(&f.debugAST, "debug-ast", false, "Debug: dump full AST with error recovery")
+	fs.BoolVar(&f.debugSemantic, "debug-semantic", false, "Debug: dump semantic analysis")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -246,6 +253,7 @@ Debug Options:
   --debug-cond         Dump conditional parsing (for development)
   --debug-include      Dump include parsing (for development)
   --debug-ast          Dump full AST with error recovery (for development)
+  --debug-semantic     Dump semantic analysis (for development)
 
 Examples:
   build                Build default target
@@ -419,8 +427,8 @@ func debugVariables(path string) int {
 			continue
 		}
 
-		// Try to parse as variable
-		l := NewLexer(path, line)
+		// Try to parse as variable (use trimmed line to avoid indent issues)
+		l := NewLexer(path, trimmed)
 		p := NewParser(l)
 		vp := NewVariableParser(p)
 
@@ -498,11 +506,31 @@ func trimLeadingWhitespace(s string) string {
 
 // looksLikeVariable checks if a line looks like a variable definition.
 // A line is a variable if = appears before : (or : doesn't appear).
+// Excludes conditionals (if, elif, else, end, ifdef, ifndef) and directives.
 func looksLikeVariable(s string) bool {
+	// Skip empty lines
+	if len(s) == 0 {
+		return false
+	}
+	// Skip directives (start with .)
+	if s[0] == '.' {
+		return false
+	}
+	// Skip conditional keywords
+	if startsWithKeyword(s, "if ") || startsWithKeyword(s, "elif ") ||
+		startsWithKeyword(s, "else") || startsWithKeyword(s, "end") ||
+		startsWithKeyword(s, "ifdef ") || startsWithKeyword(s, "ifndef ") {
+		return false
+	}
 	equalsPos := -1
 	colonPos := -1
 	for i := 0; i < len(s); i++ {
 		if s[i] == '=' && equalsPos < 0 {
+			// Skip == (comparison operator)
+			if i+1 < len(s) && s[i+1] == '=' {
+				i++ // skip the second =
+				continue
+			}
 			equalsPos = i
 		}
 		if s[i] == ':' && colonPos < 0 {
@@ -513,11 +541,28 @@ func looksLikeVariable(s string) bool {
 	return equalsPos >= 0 && (colonPos < 0 || equalsPos < colonPos)
 }
 
+// startsWithKeyword checks if s starts with the given keyword.
+func startsWithKeyword(s, keyword string) bool {
+	if len(s) < len(keyword) {
+		return false
+	}
+	return s[:len(keyword)] == keyword
+}
+
 // looksLikeTarget checks if a line looks like a target definition.
 // A line is a target if : appears before = (or = doesn't appear).
+// Excludes directives (starting with .) and indented lines.
 func looksLikeTarget(s string) bool {
+	// Skip empty lines
+	if len(s) == 0 {
+		return false
+	}
+	// Skip directives (start with .)
+	if s[0] == '.' {
+		return false
+	}
 	// Phony targets start with @
-	if len(s) > 0 && s[0] == '@' {
+	if s[0] == '@' {
 		return true
 	}
 	equalsPos := -1
@@ -557,6 +602,11 @@ func debugTargets(path string) int {
 	hasError := false
 
 	for lineNum, line := range lines {
+		// Skip indented lines (not at level 0)
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			continue
+		}
+
 		// Skip empty lines and comments
 		trimmed := trimLeadingWhitespace(line)
 		if trimmed == "" || trimmed[0] == '#' {
@@ -1336,9 +1386,6 @@ func printCommandParts(parts []ast.CommandPart) {
 
 func patternStr(p *ast.TargetPattern) string {
 	var s string
-	if p.IsPhony {
-		s = "@"
-	}
 	for _, seg := range p.Segments {
 		switch sg := seg.(type) {
 		case *ast.LiteralSegment:
@@ -1361,4 +1408,233 @@ func depStr(d *ast.Dependency) string {
 		}
 	}
 	return s
+}
+
+func debugSemantic(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Semantic Analysis Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse the buildfile first
+	l := NewLexer(path, string(content))
+	p := NewParser(l)
+	bp := NewBuildfileParser(p)
+	result := bp.ParseBuildfile()
+
+	// Report parse errors
+	if result.HasErrors() {
+		fmt.Printf("Parse errors (%d):\n", result.ErrorCount())
+		for i := 0; i < result.ErrorCount(); i++ {
+			e := result.GetError(i)
+			fmt.Printf("  %s\n", e.Error())
+		}
+		fmt.Println()
+	}
+
+	// Build symbol table
+	st := NewSymbolTable()
+	fmt.Println("Symbol Collection (Pass 1):")
+	fmt.Println()
+
+	// Collect symbols from parsed statements
+	var semanticErrors []string
+	for _, stmt := range result.Statements() {
+		if raw, ok := stmt.(interface{ Raw() interface{} }); ok {
+			if err := collectSymbol(st, raw.Raw()); err != nil {
+				semanticErrors = append(semanticErrors, err.Error())
+			}
+		}
+	}
+
+	// Print variables
+	fmt.Println("Variables:")
+	if st.VariableCount() == 0 && st.ConditionalVarCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		// Print unconditional variables
+		for i := 0; i < st.VariableCount(); i++ {
+			name := st.VariableName(i)
+			loc := st.VariableLocation(i)
+			lazy := st.VariableIsLazy(i)
+			lazyStr := ""
+			if lazy {
+				lazyStr = " (lazy)"
+			}
+			fmt.Printf("  %s%s at %s\n", name, lazyStr, loc)
+		}
+	}
+	fmt.Println()
+
+	// Print conditional variables (variables defined in if/elif/else branches)
+	fmt.Println("Conditional Variables:")
+	if st.ConditionalVarCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < st.ConditionalVarCount(); i++ {
+			name := st.ConditionalVarName(i)
+			defCount := st.ConditionalVarDefCount(i)
+			fmt.Printf("  %s (%d definitions):\n", name, defCount)
+			for j := 0; j < defCount; j++ {
+				loc := st.ConditionalVarDefLocation(i, j)
+				branch := st.ConditionalVarDefBranch(i, j)
+				fmt.Printf("    [%s] at %s\n", branch, loc)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Print targets
+	fmt.Println("Targets:")
+	if st.TargetCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < st.TargetCount(); i++ {
+			pattern := st.TargetPattern(i)
+			loc := st.TargetLocation(i)
+			fmt.Printf("  %s at %s\n", pattern, loc)
+		}
+	}
+	fmt.Println()
+
+	// Print environments
+	fmt.Println("Environments:")
+	if st.EnvironmentCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < st.EnvironmentCount(); i++ {
+			name := st.EnvironmentName(i)
+			loc := st.EnvironmentLocation(i)
+			if name == "" {
+				name = "(default)"
+			}
+			fmt.Printf("  %s at %s\n", name, loc)
+		}
+	}
+	fmt.Println()
+
+	// Print automatic variables
+	fmt.Println("Automatic Variables (built-in):")
+	for _, v := range []string{"target", "deps", "in", "out", "stem", "target.dir", "target.file"} {
+		fmt.Printf("  %s\n", v)
+	}
+	fmt.Println()
+
+	// Print built-in variables
+	fmt.Println("Built-in Variables:")
+	for _, v := range []string{"os", "arch"} {
+		fmt.Printf("  %s\n", v)
+	}
+	fmt.Println()
+
+	// Print semantic errors (if any)
+	if len(semanticErrors) > 0 {
+		fmt.Printf("Semantic errors (%d):\n", len(semanticErrors))
+		for _, e := range semanticErrors {
+			fmt.Printf("  %s\n", e)
+		}
+		return exitParseError
+	}
+
+	fmt.Println("No semantic errors (symbol collection).")
+
+	if result.HasErrors() {
+		return exitParseError
+	}
+	return exitSuccess
+}
+
+// collectSymbol adds a statement to the symbol table if it defines a symbol.
+// For conditionals, variables defined in different branches are not duplicates
+// of each other (only one branch executes at runtime).
+func collectSymbol(st SymbolTable, node interface{}) error {
+	switch n := node.(type) {
+	case *ast.Variable:
+		return st.AddVariable(n)
+	case *ast.Target:
+		return st.AddTarget(n)
+	case *ast.Environment:
+		return st.AddEnvironment(n)
+	case *ast.Conditional:
+		// For conditionals, collect variables from all branches but track
+		// which variables are defined within this conditional to avoid
+		// false duplicate errors between branches.
+		return collectConditionalSymbols(st, n)
+	}
+	return nil
+}
+
+// collectConditionalSymbols handles symbol collection for conditional blocks.
+// Variables defined in different branches of the same conditional are not
+// duplicates - only one branch will execute at runtime.
+// All variable definitions are tracked in ConditionalVars for runtime evaluation.
+func collectConditionalSymbols(st SymbolTable, cond *ast.Conditional) error {
+	// Track variables defined in this conditional (across all branches)
+	// to avoid adding to Variables map multiple times
+	conditionalVars := make(map[string]bool)
+
+	// Helper to collect from a branch
+	collectBranch := func(stmts []ast.Statement, branchType string, branchIndex int) error {
+		for _, stmt := range stmts {
+			switch s := stmt.(type) {
+			case *ast.Variable:
+				// Always track in ConditionalVars for runtime evaluation
+				st.AddConditionalVariable(s, cond, branchType, branchIndex)
+
+				// Only add to main Variables map once (for reference validation)
+				if !conditionalVars[s.Name] {
+					// Don't return error for duplicates - it's OK if variable
+					// was defined outside conditional, runtime will handle precedence
+					_ = st.AddVariable(s)
+					conditionalVars[s.Name] = true
+				}
+			case *ast.Target:
+				if err := st.AddTarget(s); err != nil {
+					return err
+				}
+			case *ast.Environment:
+				if err := st.AddEnvironment(s); err != nil {
+					return err
+				}
+			case *ast.Conditional:
+				// Nested conditional
+				if err := collectConditionalSymbols(st, s); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Collect from if branch
+	if err := collectBranch(cond.IfBranch.Body, "if", -1); err != nil {
+		return err
+	}
+
+	// Collect from elif branches
+	for i, elif := range cond.ElifBranches {
+		if err := collectBranch(elif.Body, "elif", i); err != nil {
+			return err
+		}
+	}
+
+	// Collect from else branch
+	if cond.ElseBody != nil {
+		if err := collectBranch(cond.ElseBody, "else", -1); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

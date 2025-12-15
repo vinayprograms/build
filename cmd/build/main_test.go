@@ -826,3 +826,81 @@ func TestPrintUsageIncludesDebugAST(t *testing.T) {
 		t.Error("usage output should include --debug-ast")
 	}
 }
+
+func TestRunDebugSemantic(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Test buildfile for semantic analysis
+cc = gcc
+lazy cflags = -Wall
+
+.environment:
+    .using: bare
+    .requires: gcc
+
+.environment: ci
+    .using: docker
+    .source: Dockerfile.ci
+
+@clean:
+    rm -rf build/
+
+build/app: src/main.c
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugSemanticMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-semantic"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticDuplicates(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# Buildfile with duplicate definitions
+cc = gcc
+cc = clang
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because there are semantic errors (duplicate variable)
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticEmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := ``
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestPrintUsageIncludesDebugSemantic(t *testing.T) {
+	output := captureOutput(printUsage)
+
+	if !strings.Contains(output, "--debug-semantic") {
+		t.Error("usage output should include --debug-semantic")
+	}
+}
