@@ -963,3 +963,81 @@ build/app: src/{name}.c
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
 }
+
+func TestRunDebugSemanticReferenceValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test reference validation with all variable types
+	content := `# Buildfile with various variable references
+cc = gcc
+cflags = -Wall
+
+# Use defined variables and automatic variables in recipe
+build/app: src/main.c
+    {cc} {cflags} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugSemanticReferenceUndefined(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test reference validation with undefined variable
+	content := `# Buildfile with undefined variable
+cc = gcc
+
+build/app: src/main.c
+    {cc} {undefined_flags} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because undefined_flags is not defined
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticReferenceAutomaticOutsideRecipe(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test reference validation with automatic variable outside recipe
+	content := `# Buildfile with automatic variable outside recipe
+output = {target}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because {target} is only valid in recipe
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticReferenceBuiltin(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test reference validation with built-in variables
+	content := `# Buildfile with built-in variables
+platform = {os}-{arch}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}

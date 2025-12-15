@@ -1584,6 +1584,32 @@ func debugSemantic(path string) int {
 	}
 
 	fmt.Println("No capture validation errors.")
+	fmt.Println()
+
+	// Reference Validation (Pass 3)
+	fmt.Println("Reference Validation (Pass 3):")
+	fmt.Println()
+
+	// Convert Statement interface slice to ast.Statement slice
+	astStmts := make([]ast.Statement, len(result.Statements()))
+	for i, stmt := range result.Statements() {
+		if sa, ok := stmt.(statementAdapter); ok {
+			astStmts[i] = sa.s
+		}
+	}
+
+	refResult := ValidateReferences(collectResult, astStmts, captureResult)
+
+	// Print reference validation errors (if any)
+	if refResult.HasErrors() {
+		fmt.Printf("Reference validation errors (%d):\n", refResult.ErrorCount())
+		for _, e := range refResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	fmt.Println("No reference validation errors.")
 
 	if result.HasErrors() {
 		return exitParseError

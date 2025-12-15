@@ -492,3 +492,18 @@ type CaptureResult interface {
 	// InterpolationNames returns the interpolation names for the i-th target.
 	InterpolationNames(i int) []string
 }
+
+// ReferenceResult represents the result of Pass 3: Reference Validation.
+type ReferenceResult interface {
+	// HasErrors returns true if any validation errors were found.
+	HasErrors() bool
+
+	// ErrorCount returns the number of errors.
+	ErrorCount() int
+
+	// GetError returns the i-th error.
+	GetError(i int) error
+
+	// Errors returns all errors.
+	Errors() []error
+}

@@ -1509,3 +1509,65 @@ func ValidateCaptures(collectResult CollectResult) CaptureResult {
 		interpOrder: interpOrder,
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Reference Validation Adapters
+// ----------------------------------------------------------------------------
+
+// referenceResultAdapter wraps the result of semantic.ValidateReferences.
+type referenceResultAdapter struct {
+	rr *semantic.ReferenceResult
+}
+
+func (rra *referenceResultAdapter) HasErrors() bool {
+	return rra.rr.HasErrors()
+}
+
+func (rra *referenceResultAdapter) ErrorCount() int {
+	return len(rra.rr.Errors)
+}
+
+func (rra *referenceResultAdapter) GetError(i int) error {
+	if i < 0 || i >= len(rra.rr.Errors) {
+		return nil
+	}
+	return rra.rr.Errors[i]
+}
+
+func (rra *referenceResultAdapter) Errors() []error {
+	return rra.rr.Errors
+}
+
+// ValidateReferences performs Pass 3: Reference Validation on the AST.
+// It verifies that all variable references point to defined symbols.
+// The captureResult from Pass 2 is needed to recognize captures as valid references.
+func ValidateReferences(collectResult CollectResult, stmts []ast.Statement, captureResult CaptureResult) ReferenceResult {
+	// Extract the underlying semantic.SymbolTable from the adapter
+	var st *semantic.SymbolTable
+	if sta, ok := collectResult.SymbolTable().(*symbolTableAdapter); ok {
+		st = sta.st
+	} else {
+		// Shouldn't happen in normal use
+		return &referenceResultAdapter{
+			rr: &semantic.ReferenceResult{},
+		}
+	}
+
+	// Extract the underlying semantic.CaptureResult from the adapter
+	var cr *semantic.CaptureResult
+	if cra, ok := captureResult.(*captureResultAdapter); ok {
+		cr = cra.cr
+	}
+
+	// Build options
+	var opts []semantic.ReferenceOption
+	if cr != nil {
+		opts = append(opts, semantic.WithCaptures(cr))
+	}
+
+	rr := semantic.ValidateReferences(st, stmts, opts...)
+
+	return &referenceResultAdapter{
+		rr: rr,
+	}
+}
