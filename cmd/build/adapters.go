@@ -1394,3 +1394,118 @@ func CollectSymbols(result BuildfileResult) CollectResult {
 		errors: errs,
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Capture Validation Adapters
+// ----------------------------------------------------------------------------
+
+// captureResultAdapter wraps the result of semantic.ValidateCaptures.
+type captureResultAdapter struct {
+	cr          *semantic.CaptureResult
+	targetOrder []*ast.Target
+	interpOrder []*ast.Target
+}
+
+func (cra *captureResultAdapter) HasErrors() bool {
+	return cra.cr.HasErrors()
+}
+
+func (cra *captureResultAdapter) ErrorCount() int {
+	return len(cra.cr.Errors)
+}
+
+func (cra *captureResultAdapter) GetError(i int) error {
+	if i < 0 || i >= len(cra.cr.Errors) {
+		return nil
+	}
+	return cra.cr.Errors[i]
+}
+
+func (cra *captureResultAdapter) Errors() []error {
+	return cra.cr.Errors
+}
+
+func (cra *captureResultAdapter) CaptureCount() int {
+	return len(cra.targetOrder)
+}
+
+func (cra *captureResultAdapter) TargetPattern(i int) string {
+	if i < 0 || i >= len(cra.targetOrder) {
+		return ""
+	}
+	return semantic.PatternString(&cra.targetOrder[i].Pattern)
+}
+
+func (cra *captureResultAdapter) CaptureNames(i int) []string {
+	if i < 0 || i >= len(cra.targetOrder) {
+		return nil
+	}
+	target := cra.targetOrder[i]
+	if info, ok := cra.cr.Captures[target]; ok {
+		return info.Names
+	}
+	return nil
+}
+
+func (cra *captureResultAdapter) InterpolationCount() int {
+	return len(cra.interpOrder)
+}
+
+func (cra *captureResultAdapter) InterpolationTargetPattern(i int) string {
+	if i < 0 || i >= len(cra.interpOrder) {
+		return ""
+	}
+	return semantic.PatternString(&cra.interpOrder[i].Pattern)
+}
+
+func (cra *captureResultAdapter) InterpolationNames(i int) []string {
+	if i < 0 || i >= len(cra.interpOrder) {
+		return nil
+	}
+	target := cra.interpOrder[i]
+	if info, ok := cra.cr.Interpolations[target]; ok {
+		return info.Names
+	}
+	return nil
+}
+
+// ValidateCaptures performs Pass 2: Capture Validation on the symbol table.
+// It returns a CaptureResult that provides access to captures, interpolations, and errors.
+func ValidateCaptures(collectResult CollectResult) CaptureResult {
+	// Extract the underlying semantic.SymbolTable from the adapter
+	var st *semantic.SymbolTable
+	if sta, ok := collectResult.SymbolTable().(*symbolTableAdapter); ok {
+		st = sta.st
+	} else {
+		// Shouldn't happen in normal use
+		return &captureResultAdapter{
+			cr:          &semantic.CaptureResult{},
+			targetOrder: make([]*ast.Target, 0),
+			interpOrder: make([]*ast.Target, 0),
+		}
+	}
+
+	cr := semantic.ValidateCaptures(st)
+
+	// Build stable order for targets with captures
+	targetOrder := make([]*ast.Target, 0, len(cr.Captures))
+	for _, target := range st.Targets {
+		if _, ok := cr.Captures[target]; ok {
+			targetOrder = append(targetOrder, target)
+		}
+	}
+
+	// Build stable order for targets with interpolations
+	interpOrder := make([]*ast.Target, 0, len(cr.Interpolations))
+	for _, target := range st.Targets {
+		if _, ok := cr.Interpolations[target]; ok {
+			interpOrder = append(interpOrder, target)
+		}
+	}
+
+	return &captureResultAdapter{
+		cr:          cr,
+		targetOrder: targetOrder,
+		interpOrder: interpOrder,
+	}
+}

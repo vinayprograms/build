@@ -1540,6 +1540,50 @@ func debugSemantic(path string) int {
 	}
 
 	fmt.Println("No semantic errors (symbol collection).")
+	fmt.Println()
+
+	// Capture Validation (Pass 2)
+	fmt.Println("Capture Validation (Pass 2):")
+	fmt.Println()
+
+	captureResult := ValidateCaptures(collectResult)
+
+	// Print captures
+	fmt.Println("Pattern Targets with Captures:")
+	if captureResult.CaptureCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < captureResult.CaptureCount(); i++ {
+			pattern := captureResult.TargetPattern(i)
+			names := captureResult.CaptureNames(i)
+			fmt.Printf("  %s → captures: %v\n", pattern, names)
+		}
+	}
+	fmt.Println()
+
+	// Print interpolations
+	fmt.Println("Targets with Variable Interpolations in Patterns:")
+	if captureResult.InterpolationCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < captureResult.InterpolationCount(); i++ {
+			pattern := captureResult.InterpolationTargetPattern(i)
+			names := captureResult.InterpolationNames(i)
+			fmt.Printf("  %s → interpolations: %v\n", pattern, names)
+		}
+	}
+	fmt.Println()
+
+	// Print capture validation errors (if any)
+	if captureResult.HasErrors() {
+		fmt.Printf("Capture validation errors (%d):\n", captureResult.ErrorCount())
+		for _, e := range captureResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	fmt.Println("No capture validation errors.")
 
 	if result.HasErrors() {
 		return exitParseError

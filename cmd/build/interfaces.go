@@ -459,3 +459,36 @@ type CollectResult interface {
 	// Errors returns all errors.
 	Errors() []error
 }
+
+// CaptureResult represents the result of Pass 2: Capture Validation.
+type CaptureResult interface {
+	// HasErrors returns true if any validation errors were found.
+	HasErrors() bool
+
+	// ErrorCount returns the number of errors.
+	ErrorCount() int
+
+	// GetError returns the i-th error.
+	GetError(i int) error
+
+	// Errors returns all errors.
+	Errors() []error
+
+	// CaptureCount returns the number of targets with captures.
+	CaptureCount() int
+
+	// TargetPattern returns the pattern of the i-th target with captures.
+	TargetPattern(i int) string
+
+	// CaptureNames returns the capture names for the i-th target.
+	CaptureNames(i int) []string
+
+	// InterpolationCount returns the number of targets with interpolations.
+	InterpolationCount() int
+
+	// InterpolationTargetPattern returns the pattern of the i-th target with interpolations.
+	InterpolationTargetPattern(i int) string
+
+	// InterpolationNames returns the interpolation names for the i-th target.
+	InterpolationNames(i int) []string
+}

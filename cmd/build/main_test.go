@@ -904,3 +904,62 @@ func TestPrintUsageIncludesDebugSemantic(t *testing.T) {
 		t.Error("usage output should include --debug-semantic")
 	}
 }
+
+func TestRunDebugSemanticCaptureValidation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test capture validation with pattern targets
+	content := `# Buildfile with pattern targets
+base = build
+
+# Pattern target: {name} is a capture
+{base}/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugSemanticCaptureValidationError(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test capture validation with automatic variable in pattern (error)
+	content := `# Buildfile with invalid pattern
+build/{target}.o: src/main.c
+    gcc -c {in} -o {out}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because {target} is an automatic variable
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugSemanticCaptureMismatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test capture validation with capture mismatch (capture in dep but not in target)
+	content := `# Buildfile with capture mismatch
+build/app: src/{name}.c
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	// Should return exitParseError because {name} is in dependency but not in target
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
