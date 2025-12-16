@@ -215,16 +215,16 @@ Variable evaluation, function execution, and conditional logic.
   - [x] Store os and arch built-in values
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement immediate variable evaluation**
-  - [ ] Evaluate variables in definition order
-  - [ ] Handle forward references (error if immediate var references later immediate var)
-  - [ ] Allow lazy variables to reference any other variable
+- [x] **Implement immediate variable evaluation**
+  - [x] Evaluate variables in definition order
+  - [x] Handle forward references (error if immediate var references later immediate var)
+  - [x] Allow lazy variables to reference any other variable
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement value interpolation**
-  - [ ] Substitute `{var}` with evaluated value
-  - [ ] Handle `:raw` modifier (affects command execution, not evaluation)
-  - [ ] Handle missing variable with clear error
+- [x] **Implement value interpolation**
+  - [x] Substitute `{var}` with evaluated value
+  - [x] Handle `:raw` modifier (affects command execution, not evaluation)
+  - [x] Handle missing variable with clear error
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement lazy variable on-demand evaluation**
