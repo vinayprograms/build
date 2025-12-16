@@ -1,9 +1,6 @@
 package semantic
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/vinayprograms/build/internal/ast"
 )
 
@@ -56,16 +53,6 @@ type DependencyResult struct {
 // HasErrors returns true if there are any validation errors.
 func (r *DependencyResult) HasErrors() bool {
 	return len(r.Errors) > 0
-}
-
-// CircularDependencyError is returned when a circular dependency is detected.
-type CircularDependencyError struct {
-	// Cycle contains the targets in the cycle, e.g., ["a", "b", "c", "a"]
-	Cycle []string
-}
-
-func (e *CircularDependencyError) Error() string {
-	return fmt.Sprintf("circular dependency detected: %s", strings.Join(e.Cycle, " -> "))
 }
 
 // ValidateDependencies performs Pass 4 of semantic analysis:

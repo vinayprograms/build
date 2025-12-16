@@ -184,14 +184,14 @@ Validates the AST and resolves ambiguous constructs.
   - [x] Validate all dependencies can be satisfied (by explicit target or pattern)
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Define semantic error types**
-  - [ ] DuplicateVariable, DuplicateTarget, DuplicateEnvironment
-  - [ ] CaptureConflictsWithVariable, CaptureConflictsWithAutomatic
-  - [ ] CaptureMismatch between target and dependencies
-  - [ ] UndefinedVariable, AutomaticOutsideRecipe
-  - [ ] CircularDependency with cycle path
-  - [ ] InvalidDirectiveScope
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Define semantic error types**
+  - [x] DuplicateVariable, DuplicateTarget, DuplicateEnvironment
+  - [x] CaptureConflictsWithVariable, CaptureConflictsWithAutomatic
+  - [x] CaptureMismatch between target and dependencies
+  - [x] UndefinedVariable, AutomaticOutsideRecipe
+  - [x] CircularDependency with cycle path
+  - [x] InvalidDirectiveScope
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Write semantic analysis tests**
   - [ ] Test symbol collection and duplicate detection

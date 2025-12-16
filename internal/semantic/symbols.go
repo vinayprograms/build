@@ -11,7 +11,6 @@
 package semantic
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -233,17 +232,4 @@ func SegmentsToString(segments []ast.PatternSegment) string {
 // Note: Phony targets are stored without the @ prefix; use IsPhony flag to check.
 func PatternString(p *ast.TargetPattern) string {
 	return SegmentsToString(p.Segments)
-}
-
-// DuplicateDefinitionError is returned when a duplicate definition is detected.
-type DuplicateDefinitionError struct {
-	Kind   string             // "variable", "target", or "environment"
-	Name   string             // The name that was duplicated
-	First  ast.SourceLocation // Location of first definition
-	Second ast.SourceLocation // Location of duplicate definition
-}
-
-func (e *DuplicateDefinitionError) Error() string {
-	return fmt.Sprintf("duplicate %s '%s': first defined at %s, redefined at %s",
-		e.Kind, e.Name, e.First.String(), e.Second.String())
 }

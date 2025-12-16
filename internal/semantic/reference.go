@@ -9,8 +9,6 @@
 package semantic
 
 import (
-	"fmt"
-
 	"github.com/vinayprograms/build/internal/ast"
 )
 
@@ -23,27 +21,6 @@ type ReferenceResult struct {
 // HasErrors returns true if any validation errors were found.
 func (r *ReferenceResult) HasErrors() bool {
 	return len(r.Errors) > 0
-}
-
-// UndefinedVariableError is returned when a reference to an undefined variable is found.
-type UndefinedVariableError struct {
-	Name     string             // The undefined variable name
-	Location ast.SourceLocation // Location of the reference
-}
-
-func (e *UndefinedVariableError) Error() string {
-	return fmt.Sprintf("undefined variable '%s' at %s", e.Name, e.Location.String())
-}
-
-// AutomaticOutsideRecipeError is returned when an automatic variable is used outside a recipe.
-type AutomaticOutsideRecipeError struct {
-	Name     string             // The automatic variable name
-	Location ast.SourceLocation // Location of the reference
-}
-
-func (e *AutomaticOutsideRecipeError) Error() string {
-	return fmt.Sprintf("automatic variable '%s' is only valid inside recipe or block scope at %s",
-		e.Name, e.Location.String())
 }
 
 // ReferenceOption configures reference validation.

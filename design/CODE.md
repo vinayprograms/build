@@ -1589,6 +1589,104 @@ Buildfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only 
 
 The semantic package provides semantic analysis for Buildfiles. It validates the AST produced by the parser and resolves context-sensitive constructs.
 
+### Semantic Error Types (`errors.go`)
+
+All semantic error types are consolidated in `errors.go` for maintainability. Each error type corresponds to a specific validation pass:
+
+| Error Type | Pass | Description |
+|------------|------|-------------|
+| `DuplicateDefinitionError` | Pass 1 | Symbol defined multiple times |
+| `AutomaticInPatternError` | Pass 2 | Automatic variable used in target pattern |
+| `CaptureMismatchError` | Pass 2 | Capture in dependency not defined in target |
+| `UndefinedVariableError` | Pass 3 | Reference to undefined variable |
+| `AutomaticOutsideRecipeError` | Pass 3 | Automatic variable used outside recipe |
+| `CircularDependencyError` | Pass 4 | Circular dependency in target graph |
+
+#### DuplicateDefinitionError
+
+Returned by Pass 1 (Symbol Collection) when a variable, target, or environment is defined multiple times:
+
+```go
+type DuplicateDefinitionError struct {
+    Kind   string             // "variable", "target", or "environment"
+    Name   string             // The duplicated name
+    First  ast.SourceLocation // First definition location
+    Second ast.SourceLocation // Duplicate location
+}
+```
+
+Error format: `duplicate variable 'cc': first defined at Buildfile:1:1, redefined at Buildfile:5:1`
+
+#### AutomaticInPatternError
+
+Returned by Pass 2 (Capture Validation) when an automatic variable is used in a target pattern:
+
+```go
+type AutomaticInPatternError struct {
+    Name     string             // The automatic variable name
+    Location ast.SourceLocation // Location of the usage
+}
+```
+
+Error format: `automatic variable 'target' cannot be used as capture in target pattern at Buildfile:5:10`
+
+Automatic variables (`target`, `deps`, `in`, `out`, `stem`, `target.dir`, `target.file`) are only available during recipe execution.
+
+#### CaptureMismatchError
+
+Returned by Pass 2 when a capture appears in a dependency but not in the target pattern:
+
+```go
+type CaptureMismatchError struct {
+    Name      string             // The capture name
+    InTarget  bool               // true if capture is in target (allowed)
+    Location  ast.SourceLocation // Location of the problematic usage
+    TargetLoc ast.SourceLocation // Location of the target definition
+}
+```
+
+Error format: `capture '{name}' in dependency but not defined in target pattern at Buildfile:3:20 (target at Buildfile:3:1)`
+
+#### UndefinedVariableError
+
+Returned by Pass 3 (Reference Validation) when a reference points to an undefined variable:
+
+```go
+type UndefinedVariableError struct {
+    Name     string             // The undefined variable name
+    Location ast.SourceLocation // Location of the reference
+}
+```
+
+Error format: `undefined variable 'foo' at Buildfile:7:15`
+
+#### AutomaticOutsideRecipeError
+
+Returned by Pass 3 when an automatic variable is used outside a recipe or block:
+
+```go
+type AutomaticOutsideRecipeError struct {
+    Name     string             // The automatic variable name
+    Location ast.SourceLocation // Location of the reference
+}
+```
+
+Error format: `automatic variable 'target' is only valid inside recipe or block scope at Buildfile:2:10`
+
+#### CircularDependencyError
+
+Returned by Pass 4 (Dependency Graph Validation) when a circular dependency is detected:
+
+```go
+type CircularDependencyError struct {
+    Cycle []string // e.g., ["a", "b", "c", "a"]
+}
+```
+
+Error format: `circular dependency detected: a -> b -> c -> a`
+
+The cycle path includes the starting node at both ends to show where the cycle closes.
+
 ### Symbol Table (`symbols.go`)
 
 The symbol table tracks all defined symbols in a Buildfile for semantic validation.
@@ -1653,21 +1751,6 @@ Examples:
 - `build/app` → `"build/app"`
 - `@clean` → `"@clean"` (phony)
 - `build/{name}.o` → `"build/{name}.o"` (pattern)
-
-#### DuplicateDefinitionError
-
-Returned when duplicate definitions are detected:
-
-```go
-type DuplicateDefinitionError struct {
-    Kind   string             // "variable", "target", or "environment"
-    Name   string             // The duplicated name
-    First  ast.SourceLocation // First definition location
-    Second ast.SourceLocation // Duplicate location
-}
-```
-
-Error format: `duplicate variable 'cc': first defined at Buildfile:1:1, redefined at Buildfile:5:1`
 
 ### Design Decisions
 
@@ -2083,6 +2166,26 @@ Each debug test includes:
 - (Some) edge cases like empty files or files without target content
 
 ### Semantic Unit Tests (`internal/semantic`)
+
+#### Error Type Tests (`errors_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestDuplicateDefinitionError_Variable` | Variable duplicate error message |
+| `TestDuplicateDefinitionError_Target` | Target duplicate error message |
+| `TestDuplicateDefinitionError_Environment` | Environment duplicate error message |
+| `TestAutomaticInPatternError_Target` | Automatic variable in pattern error |
+| `TestAutomaticInPatternError_AllAutomaticVars` | All automatic variables in pattern |
+| `TestCaptureMismatchError_ExtraInDependency` | Capture in dependency not in target |
+| `TestUndefinedVariableError_Basic` | Basic undefined variable error |
+| `TestUndefinedVariableError_DottedName` | Dotted name undefined error |
+| `TestAutomaticOutsideRecipeError_InVariable` | Automatic variable in variable value |
+| `TestAutomaticOutsideRecipeError_AllAutomaticVars` | All automatic variables outside recipe |
+| `TestCircularDependencyError_SelfLoop` | Self-loop cycle error |
+| `TestCircularDependencyError_TwoNodes` | Two-node cycle error |
+| `TestCircularDependencyError_LongCycle` | Long cycle error |
+| `TestAllErrorsImplementError` | All error types implement error interface |
+| `TestErrorsIncludeLocation` | All errors include source location |
 
 #### Symbol Table Tests (`symbols_test.go`)
 

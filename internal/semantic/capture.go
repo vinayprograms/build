@@ -11,8 +11,6 @@
 package semantic
 
 import (
-	"fmt"
-
 	"github.com/vinayprograms/build/internal/ast"
 )
 
@@ -43,32 +41,6 @@ type CaptureResult struct {
 // HasErrors returns true if any validation errors were found.
 func (r *CaptureResult) HasErrors() bool {
 	return len(r.Errors) > 0
-}
-
-// AutomaticInPatternError is returned when an automatic variable is used in a target pattern.
-// Automatic variables (target, deps, in, out, stem, etc.) are only available during
-// recipe execution and cannot be used as capture patterns.
-type AutomaticInPatternError struct {
-	Name     string             // The automatic variable name
-	Location ast.SourceLocation // Location of the usage
-}
-
-func (e *AutomaticInPatternError) Error() string {
-	return fmt.Sprintf("automatic variable '%s' cannot be used as capture in target pattern at %s",
-		e.Name, e.Location.String())
-}
-
-// CaptureMismatchError is returned when a capture appears in dependencies but not in the target.
-type CaptureMismatchError struct {
-	Name      string             // The capture name
-	InTarget  bool               // true if capture is in target but not deps (this is allowed)
-	Location  ast.SourceLocation // Location of the problematic usage
-	TargetLoc ast.SourceLocation // Location of the target definition
-}
-
-func (e *CaptureMismatchError) Error() string {
-	return fmt.Sprintf("capture '{%s}' in dependency but not defined in target pattern at %s (target at %s)",
-		e.Name, e.Location.String(), e.TargetLoc.String())
 }
 
 // ValidateCaptures performs Pass 2: Capture Validation on the symbol table.
