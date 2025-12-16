@@ -235,40 +235,40 @@ Variable evaluation, function execution, and conditional logic.
 
 ### 2.2 Built-in Functions
 
-- [ ] **Implement `shell()` function**
-  - [ ] Execute shell command with default shell
-  - [ ] Capture stdout, trim trailing newline
-  - [ ] Handle command failure with error message
+- [x] **Implement `shell()` function**
+  - [x] Execute shell command with default shell
+  - [x] Capture stdout, trim trailing newline
+  - [x] Handle command failure with error message
   - [ ] Apply shell quoting for interpolated values (default) vs raw
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `glob()` function**
-  - [ ] Parse glob pattern
-  - [ ] Match files in filesystem
-  - [ ] Return space-separated list of matches
-  - [ ] Handle no matches (empty string or error?)
+- [x] **Implement `glob()` function**
+  - [x] Parse glob pattern
+  - [x] Match files in filesystem
+  - [x] Return space-separated list of matches
+  - [x] Handle no matches (empty string or error?)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `basename()` function**
-  - [ ] Extract filename without directory
-  - [ ] Handle edge cases (trailing slash, no directory)
+- [x] **Implement `basename()` function**
+  - [x] Extract filename without directory
+  - [x] Handle edge cases (trailing slash, no directory)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `dirname()` function**
-  - [ ] Extract directory part of path
-  - [ ] Handle edge cases (no directory, root)
+- [x] **Implement `dirname()` function**
+  - [x] Extract directory part of path
+  - [x] Handle edge cases (no directory, root)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `replace()` function**
-  - [ ] Parse three arguments (input, from, to)
-  - [ ] Replace all occurrences of `from` with `to`
-  - [ ] Handle special characters in patterns
+- [x] **Implement `replace()` function**
+  - [x] Parse three arguments (input, from, to)
+  - [x] Replace all occurrences of `from` with `to`
+  - [x] Handle special characters in patterns
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write function unit tests**
-  - [ ] Test each function independently
-  - [ ] Test function composition in values
-  - [ ] Test error cases (shell failure, bad args)
+- [x] **Write function unit tests**
+  - [x] Test each function independently
+  - [x] Test function composition in values
+  - [x] Test error cases (shell failure, bad args)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.3 Conditional Evaluation

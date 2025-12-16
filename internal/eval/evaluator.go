@@ -95,13 +95,6 @@ func (e *Evaluator) evaluateLazyVariable(name string, loc ast.SourceLocation) (s
 	return result, nil
 }
 
-// evaluateFunction evaluates a function call.
-func (e *Evaluator) evaluateFunction(call *ast.FunctionCall) (string, error) {
-	// TODO: Implement function evaluation
-	// For now, return empty string
-	return "", nil
-}
-
 // ----------------------------------------------------------------------------
 // Error Types
 // ----------------------------------------------------------------------------
