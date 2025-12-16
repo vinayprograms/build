@@ -683,6 +683,238 @@ func TestBuildfileWithStatements(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------------------
+// String() method tests for debugging
+// ----------------------------------------------------------------------------
+
+func TestDirectiveString(t *testing.T) {
+	dir := &ast.Directive{
+		Kind: ast.DirectiveShell,
+		Value: &ast.Value{
+			Parts: []ast.ValuePart{&ast.LiteralValue{Text: "bash"}},
+		},
+		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+	}
+
+	got := dir.String()
+	if got != ".shell: bash" {
+		t.Errorf("Directive.String() = %q, want %q", got, ".shell: bash")
+	}
+}
+
+func TestEnvironmentString(t *testing.T) {
+	tests := []struct {
+		name string
+		env  *ast.Environment
+		want string
+	}{
+		{
+			name: "named environment",
+			env: &ast.Environment{
+				Name:    stringPtr("ci"),
+				Runtime: runtimePtr(ast.RuntimeDocker),
+			},
+			want: ".environment: ci (docker)",
+		},
+		{
+			name: "default environment",
+			env: &ast.Environment{
+				Name:    nil,
+				Runtime: runtimePtr(ast.RuntimeBare),
+			},
+			want: ".environment: (default) (bare)",
+		},
+		{
+			name: "no runtime",
+			env: &ast.Environment{
+				Name:    stringPtr("dev"),
+				Runtime: nil,
+			},
+			want: ".environment: dev",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.env.String(); got != tt.want {
+				t.Errorf("Environment.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVariableString(t *testing.T) {
+	tests := []struct {
+		name string
+		v    *ast.Variable
+		want string
+	}{
+		{
+			name: "immediate variable",
+			v: &ast.Variable{
+				Name:  "cc",
+				Value: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "gcc"}}},
+				Lazy:  false,
+			},
+			want: "cc = gcc",
+		},
+		{
+			name: "lazy variable",
+			v: &ast.Variable{
+				Name:  "flags",
+				Value: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "-Wall"}}},
+				Lazy:  true,
+			},
+			want: "lazy flags = -Wall",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.v.String(); got != tt.want {
+				t.Errorf("Variable.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTargetString(t *testing.T) {
+	tests := []struct {
+		name   string
+		target *ast.Target
+		want   string
+	}{
+		{
+			name: "simple target",
+			target: &ast.Target{
+				Pattern: ast.TargetPattern{
+					Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "build/app"}},
+				},
+				Dependencies: []ast.Dependency{
+					{Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "main.o"}}},
+				},
+			},
+			want: "build/app: main.o",
+		},
+		{
+			name: "phony target",
+			target: &ast.Target{
+				Pattern: ast.TargetPattern{
+					Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "all"}},
+					IsPhony:  true,
+				},
+				Dependencies: []ast.Dependency{},
+			},
+			want: "@all:",
+		},
+		{
+			name: "pattern target",
+			target: &ast.Target{
+				Pattern: ast.TargetPattern{
+					Segments: []ast.PatternSegment{
+						&ast.LiteralSegment{Text: "build/"},
+						&ast.BraceExpr{Identifier: "name"},
+						&ast.LiteralSegment{Text: ".o"},
+					},
+				},
+				Dependencies: []ast.Dependency{
+					{Segments: []ast.PatternSegment{
+						&ast.LiteralSegment{Text: "src/"},
+						&ast.BraceExpr{Identifier: "name"},
+						&ast.LiteralSegment{Text: ".c"},
+					}},
+				},
+			},
+			want: "build/{name}.o: src/{name}.c",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.target.String(); got != tt.want {
+				t.Errorf("Target.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRecipeString(t *testing.T) {
+	recipe := &ast.Recipe{
+		Commands: []ast.Command{
+			&ast.LineCommand{Parts: []ast.CommandPart{
+				&ast.LiteralCommand{Text: "gcc -o target deps"},
+			}},
+			&ast.LineCommand{Parts: []ast.CommandPart{
+				&ast.LiteralCommand{Text: "echo done"},
+			}},
+		},
+	}
+
+	got := recipe.String()
+	want := "Recipe(2 commands)"
+	if got != want {
+		t.Errorf("Recipe.String() = %q, want %q", got, want)
+	}
+}
+
+func TestValueString(t *testing.T) {
+	tests := []struct {
+		name  string
+		value *ast.Value
+		want  string
+	}{
+		{
+			name: "literal only",
+			value: &ast.Value{
+				Parts: []ast.ValuePart{&ast.LiteralValue{Text: "hello"}},
+			},
+			want: "hello",
+		},
+		{
+			name: "with interpolation",
+			value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.LiteralValue{Text: "prefix-"},
+					&ast.Interpolation{Name: "var"},
+					&ast.LiteralValue{Text: "-suffix"},
+				},
+			},
+			want: "prefix-{var}-suffix",
+		},
+		{
+			name: "with raw interpolation",
+			value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.Interpolation{Name: "flags", Raw: true},
+				},
+			},
+			want: "{flags:raw}",
+		},
+		{
+			name: "with function call",
+			value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.FunctionCall{
+						Name: ast.FuncShell,
+						Args: []*ast.Value{
+							{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "ls"}}},
+						},
+					},
+				},
+			},
+			want: "shell(ls)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.value.String(); got != tt.want {
+				t.Errorf("Value.String() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // Helper functions
 
 func stringPtr(s string) *string {
