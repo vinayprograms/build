@@ -183,9 +183,6 @@ type TargetParser interface {
 	// ParseTarget parses a target definition from the current position.
 	// Returns the target and any error encountered.
 	ParseTarget() (Target, error)
-
-	// IsTargetLine returns true if the current line is a target definition.
-	IsTargetLine() bool
 }
 
 // Environment represents a parsed environment block from the AST.
