@@ -193,13 +193,13 @@ Validates the AST and resolves ambiguous constructs.
   - [x] InvalidDirectiveScope
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write semantic analysis tests**
-  - [ ] Test symbol collection and duplicate detection
-  - [ ] Test capture vs interpolation resolution
-  - [ ] Test automatic variable scope enforcement
-  - [ ] Test circular dependency detection
-  - [ ] Test comprehensive error messages
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Write semantic analysis tests**
+  - [x] Test symbol collection and duplicate detection
+  - [x] Test capture vs interpolation resolution
+  - [x] Test automatic variable scope enforcement
+  - [x] Test circular dependency detection
+  - [x] Test comprehensive error messages
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
