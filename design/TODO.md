@@ -209,10 +209,10 @@ Variable evaluation, function execution, and conditional logic.
 
 ### 2.1 Variable Evaluation
 
-- [ ] **Implement evaluation context**
-  - [ ] Store evaluated immediate variables
-  - [ ] Store unevaluated lazy variable ASTs
-  - [ ] Store os and arch built-in values
+- [x] **Implement evaluation context**
+  - [x] Store evaluated immediate variables
+  - [x] Store unevaluated lazy variable ASTs
+  - [x] Store os and arch built-in values
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement immediate variable evaluation**

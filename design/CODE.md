@@ -64,7 +64,7 @@ github.com/vinayprograms/build/
 │   │   ├── variable.go     # Variable parsing
 │   │   ├── variable_test.go
 │   │   └── version.go      # Version spec parsing
-│   └── semantic/       # Semantic analysis
+│   ├── semantic/       # Semantic analysis
 │       ├── doc.go         # Package documentation
 │       ├── capture.go      # Pass 2: Capture validation
 │       ├── capture_test.go
@@ -72,10 +72,18 @@ github.com/vinayprograms/build/
 │       ├── collector_test.go
 │       ├── depgraph.go     # Pass 4: Dependency graph validation
 │       ├── depgraph_test.go
+│       ├── errors.go       # All semantic error types
+│       ├── errors_test.go
 │       ├── reference.go    # Pass 3: Reference validation
 │       ├── reference_test.go
 │       ├── symbols.go      # Symbol table implementation
 │       └── symbols_test.go
+│   └── eval/           # Variable evaluation
+│       ├── doc.go         # Package documentation
+│       ├── context.go      # Evaluation context
+│       ├── context_test.go
+│       ├── evaluator.go    # Value evaluator
+│       └── evaluator_test.go
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -2306,3 +2314,99 @@ Each debug test includes:
 | `TestValidateDependencies_SingleTargetNoDeps` | Single target with no dependencies |
 | `TestValidateDependencies_MultipleCycles` | Multiple separate cycles |
 | `TestValidateDependencies_LongCycle` | Long cycle (6 nodes) |
+
+
+## Eval Package (`internal/eval`)
+
+The eval package provides variable evaluation for Buildfiles. It evaluates variables after semantic analysis and before build planning.
+
+### Context (`context.go`)
+
+The evaluation context stores all variable values during evaluation.
+
+#### Context Structure
+
+```go
+type Context struct {
+    variables     map[string]string  // Evaluated variable values
+    lazyVariables map[string]string  // Unevaluated lazy variables
+    builtins      map[string]string  // Read-only built-in variables
+}
+```
+
+#### Built-in Variables
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `os` | `runtime.GOOS` | Operating system name |
+| `arch` | `runtime.GOARCH` | Architecture name |
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewContext()` | Creates context with built-ins initialized |
+| `Get(name)` | Returns variable value (built-ins first) |
+| `Set(name, value)` | Sets a variable (built-ins protected) |
+| `IsDefined(name)` | Returns true if variable is defined |
+| `SetLazy(name, value)` | Stores a lazy variable |
+| `GetLazy(name)` | Gets a lazy variable's unevaluated value |
+| `IsLazy(name)` | Returns true if variable is lazy |
+| `Variables()` | Returns all evaluated variables |
+| `LazyVariables()` | Returns all lazy variables |
+
+### Evaluator (`evaluator.go`)
+
+The evaluator evaluates AST values using the context.
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewEvaluator(ctx)` | Creates evaluator with context |
+| `EvaluateValue(val)` | Evaluates AST Value to string |
+
+#### Value Evaluation
+
+Values are evaluated by processing each part:
+- `LiteralValue`: Appended directly
+- `Interpolation`: Variable resolved from context
+- `FunctionCall`: Function executed (TODO)
+
+### Error Types
+
+| Error | Description |
+|-------|-------------|
+| `UndefinedVariableError` | Variable reference could not be resolved |
+
+### Eval Unit Tests
+
+#### Context Tests (`context_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewContext` | Context initialization with built-ins |
+| `TestContext_SetAndGet` | Variable set/get |
+| `TestContext_GetUndefined` | Undefined variable returns ok=false |
+| `TestContext_IsDefined` | Definition check for all variable types |
+| `TestContext_SetLazy` | Lazy variable storage |
+| `TestContext_IsLazy` | Lazy variable detection |
+| `TestContext_Overwrite` | Variable overwrite |
+| `TestContext_BuiltinsAreReadOnly` | Built-in protection |
+| `TestContext_Variables` | Variables() returns all variables |
+| `TestContext_LazyVariables` | LazyVariables() returns lazy vars |
+
+#### Evaluator Tests (`evaluator_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestEvaluateValue_Literal` | Simple literal value |
+| `TestEvaluateValue_MultipleLiterals` | Multiple literal parts |
+| `TestEvaluateValue_Interpolation` | Variable interpolation |
+| `TestEvaluateValue_BuiltinInterpolation` | Built-in variable reference |
+| `TestEvaluateValue_UndefinedVariable` | Error for undefined variable |
+| `TestEvaluateValue_MixedLiteralsAndInterpolations` | Combined parts |
+| `TestEvaluateValue_NilValue` | Nil value returns empty string |
+| `TestEvaluateValue_EmptyValue` | Empty value returns empty string |
+| `TestEvaluateValue_RawModifier` | Raw modifier handling |
+| `TestUndefinedVariableError_Error` | Error message format |
