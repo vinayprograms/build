@@ -90,7 +90,7 @@ func ValidateDependencies(targets []*ast.Target) *DependencyResult {
 			continue
 		}
 
-		name := targetPatternToString(&t.Pattern)
+		name := PatternString(&t.Pattern)
 		targetNames[name] = true
 		result.Graph.AddNode(name)
 	}
@@ -102,7 +102,7 @@ func ValidateDependencies(targets []*ast.Target) *DependencyResult {
 			continue
 		}
 
-		targetName := targetPatternToString(&t.Pattern)
+		targetName := PatternString(&t.Pattern)
 
 		for _, dep := range t.Dependencies {
 			depName := dependencyToString(&dep)
@@ -140,40 +140,9 @@ func isPatternTarget(t *ast.Target) bool {
 	return false
 }
 
-// targetPatternToString converts a target pattern to a string.
-// For phony targets, it returns the name without the @ prefix
-// (since IsPhony flag indicates phony status).
-func targetPatternToString(p *ast.TargetPattern) string {
-	var sb strings.Builder
-	for _, seg := range p.Segments {
-		switch s := seg.(type) {
-		case *ast.LiteralSegment:
-			sb.WriteString(s.Text)
-		case *ast.BraceExpr:
-			// This shouldn't happen for non-pattern targets,
-			// but handle it for completeness
-			sb.WriteString("{")
-			sb.WriteString(s.Identifier)
-			sb.WriteString("}")
-		}
-	}
-	return sb.String()
-}
-
 // dependencyToString converts a dependency to a string.
 func dependencyToString(d *ast.Dependency) string {
-	var sb strings.Builder
-	for _, seg := range d.Segments {
-		switch s := seg.(type) {
-		case *ast.LiteralSegment:
-			sb.WriteString(s.Text)
-		case *ast.BraceExpr:
-			sb.WriteString("{")
-			sb.WriteString(s.Identifier)
-			sb.WriteString("}")
-		}
-	}
-	return sb.String()
+	return SegmentsToString(d.Segments)
 }
 
 // findCycle uses DFS to detect cycles in the graph.
@@ -225,18 +194,27 @@ func dfs(g *DependencyGraph, node string, visited, recStack map[string]bool, par
 
 // reconstructCycle builds the cycle path from parent map.
 func reconstructCycle(parent map[string]string, end, cycleStart string) []string {
-	// Build path from cycleStart back to cycleStart
-	cycle := []string{cycleStart}
+	// Build path from end back to cycleStart (in reverse order)
+	var reversePath []string
 	current := end
 
 	// Walk back through parents until we reach cycleStart
 	for current != cycleStart {
-		cycle = append([]string{current}, cycle...)
+		reversePath = append(reversePath, current)
 		current = parent[current]
 	}
 
-	// Add the starting node again to show the complete cycle
-	cycle = append([]string{cycleStart}, cycle...)
+	// Build final cycle: cycleStart -> ... -> end -> cycleStart
+	cycle := make([]string, 0, len(reversePath)+2)
+	cycle = append(cycle, cycleStart)
+
+	// Reverse the path and append
+	for i := len(reversePath) - 1; i >= 0; i-- {
+		cycle = append(cycle, reversePath[i])
+	}
+
+	// Add cycleStart again to show the complete cycle
+	cycle = append(cycle, cycleStart)
 
 	return cycle
 }

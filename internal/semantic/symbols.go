@@ -211,13 +211,11 @@ func (st *SymbolTable) IsDefined(name string) bool {
 	return false
 }
 
-// PatternString converts a target pattern to a string representation
-// for duplicate detection and display purposes.
-// Note: Phony targets are stored without the @ prefix; use IsPhony flag to check.
-func PatternString(p *ast.TargetPattern) string {
+// SegmentsToString converts a slice of pattern segments to a string representation.
+// This is the underlying implementation used by PatternString and for dependency formatting.
+func SegmentsToString(segments []ast.PatternSegment) string {
 	var sb strings.Builder
-
-	for _, seg := range p.Segments {
+	for _, seg := range segments {
 		switch s := seg.(type) {
 		case *ast.LiteralSegment:
 			sb.WriteString(s.Text)
@@ -227,8 +225,14 @@ func PatternString(p *ast.TargetPattern) string {
 			sb.WriteString("}")
 		}
 	}
-
 	return sb.String()
+}
+
+// PatternString converts a target pattern to a string representation
+// for duplicate detection and display purposes.
+// Note: Phony targets are stored without the @ prefix; use IsPhony flag to check.
+func PatternString(p *ast.TargetPattern) string {
+	return SegmentsToString(p.Segments)
 }
 
 // DuplicateDefinitionError is returned when a duplicate definition is detected.

@@ -36,7 +36,8 @@ cflags = -Wall
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -74,7 +75,8 @@ cc = clang
 `
 	stmts := parseBuildfile(t, content)
 
-	_, errs := Collect(stmts)
+	result := Collect(stmts)
+	errs := result.Errors
 	if len(errs) != 1 {
 		t.Fatalf("Expected 1 error, got %d", len(errs))
 	}
@@ -102,7 +104,8 @@ func TestCollector_DuplicateTarget(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	_, errs := Collect(stmts)
+	result := Collect(stmts)
+	errs := result.Errors
 	if len(errs) != 1 {
 		t.Fatalf("Expected 1 error, got %d: %v", len(errs), errs)
 	}
@@ -127,7 +130,8 @@ func TestCollector_DuplicateEnvironment(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	_, errs := Collect(stmts)
+	result := Collect(stmts)
+	errs := result.Errors
 	if len(errs) != 1 {
 		t.Fatalf("Expected 1 error, got %d: %v", len(errs), errs)
 	}
@@ -155,7 +159,8 @@ func TestCollector_DuplicateDefaultEnvironment(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	_, errs := Collect(stmts)
+	result := Collect(stmts)
+	errs := result.Errors
 	if len(errs) != 1 {
 		t.Fatalf("Expected 1 error, got %d: %v", len(errs), errs)
 	}
@@ -185,7 +190,8 @@ end
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -232,7 +238,8 @@ end
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -259,7 +266,8 @@ func TestCollector_MultipleTargets(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -279,7 +287,8 @@ build/{name}.a: build/{name}.o
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -302,7 +311,8 @@ cc = clang
 `
 	stmts := parseBuildfile(t, content)
 
-	_, errs := Collect(stmts)
+	result := Collect(stmts)
+	errs := result.Errors
 	if len(errs) != 2 {
 		t.Fatalf("Expected 2 errors, got %d: %v", len(errs), errs)
 	}
@@ -315,7 +325,8 @@ objects = {sources}
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -336,7 +347,8 @@ func TestCollector_EmptyBuildfile(t *testing.T) {
 	content := ``
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -363,7 +375,8 @@ cflags = -Wall
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -385,7 +398,8 @@ cc = gcc
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -412,7 +426,8 @@ func TestCollector_PreservesOrder(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -440,7 +455,8 @@ build/main.o: src/main.c
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -457,7 +473,8 @@ func TestCollector_DirectoryTargets(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}
@@ -484,7 +501,8 @@ func TestCollector_MixedEnvironments(t *testing.T) {
 `
 	stmts := parseBuildfile(t, content)
 
-	st, errs := Collect(stmts)
+	result := Collect(stmts)
+	st, errs := result.SymbolTable, result.Errors
 	if len(errs) > 0 {
 		t.Fatalf("Unexpected errors: %v", errs)
 	}

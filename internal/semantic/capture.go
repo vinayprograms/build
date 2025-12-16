@@ -111,11 +111,28 @@ type captureValidator struct {
 
 // validateTarget validates captures and interpolations for a single target.
 func (v *captureValidator) validateTarget(target *ast.Target) {
-	// First, collect and classify BraceExprs in the target pattern
-	targetCaptures := make(map[string]bool)       // capture names in target
-	targetInterpolations := make(map[string]bool) // interpolation names in target
-	captureOrder := make([]string, 0)             // preserve order
-	interpOrder := make([]string, 0)              // preserve order
+	// Classify BraceExprs in target pattern
+	targetCaptures, captureNames, targetInterpolations, interpolationNames := v.classifyPatternSegments(target)
+
+	// Validate dependencies - captures must be defined in target
+	v.validateDependencies(target, targetCaptures, targetInterpolations, &interpolationNames)
+
+	// Store results
+	v.storeResults(target, captureNames, interpolationNames)
+}
+
+// classifyPatternSegments classifies BraceExprs in the target pattern.
+// Returns maps and ordered lists for captures and interpolations.
+func (v *captureValidator) classifyPatternSegments(target *ast.Target) (
+	targetCaptures map[string]bool,
+	captureNames []string,
+	targetInterpolations map[string]bool,
+	interpolationNames []string,
+) {
+	targetCaptures = make(map[string]bool)
+	targetInterpolations = make(map[string]bool)
+	captureNames = make([]string, 0)
+	interpolationNames = make([]string, 0)
 
 	for _, seg := range target.Pattern.Segments {
 		if be, ok := seg.(*ast.BraceExpr); ok {
@@ -129,18 +146,27 @@ func (v *captureValidator) validateTarget(target *ast.Target) {
 			case braceCapture:
 				if !targetCaptures[be.Identifier] {
 					targetCaptures[be.Identifier] = true
-					captureOrder = append(captureOrder, be.Identifier)
+					captureNames = append(captureNames, be.Identifier)
 				}
 			case braceInterpolation:
 				if !targetInterpolations[be.Identifier] {
 					targetInterpolations[be.Identifier] = true
-					interpOrder = append(interpOrder, be.Identifier)
+					interpolationNames = append(interpolationNames, be.Identifier)
 				}
 			}
 		}
 	}
+	return
+}
 
-	// Now validate dependencies - captures there must be defined in target
+// validateDependencies validates BraceExprs in dependencies.
+// Captures in dependencies must be defined in the target pattern.
+func (v *captureValidator) validateDependencies(
+	target *ast.Target,
+	targetCaptures map[string]bool,
+	targetInterpolations map[string]bool,
+	interpolationNames *[]string,
+) {
 	for _, dep := range target.Dependencies {
 		for _, seg := range dep.Segments {
 			if be, ok := seg.(*ast.BraceExpr); ok {
@@ -166,19 +192,21 @@ func (v *captureValidator) validateTarget(target *ast.Target) {
 					// Track them if not already tracked from target
 					if !targetInterpolations[be.Identifier] {
 						targetInterpolations[be.Identifier] = true
-						interpOrder = append(interpOrder, be.Identifier)
+						*interpolationNames = append(*interpolationNames, be.Identifier)
 					}
 				}
 			}
 		}
 	}
+}
 
-	// Store results
-	if len(captureOrder) > 0 {
-		v.captures[target] = &CaptureInfo{Names: captureOrder}
+// storeResults stores the capture and interpolation info for a target.
+func (v *captureValidator) storeResults(target *ast.Target, captureNames, interpolationNames []string) {
+	if len(captureNames) > 0 {
+		v.captures[target] = &CaptureInfo{Names: captureNames}
 	}
-	if len(interpOrder) > 0 {
-		v.interpolations[target] = &InterpolationInfo{Names: interpOrder}
+	if len(interpolationNames) > 0 {
+		v.interpolations[target] = &InterpolationInfo{Names: interpolationNames}
 	}
 }
 

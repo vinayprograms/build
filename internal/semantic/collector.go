@@ -1,8 +1,3 @@
-// Package semantic provides semantic analysis for Buildfiles.
-//
-// This file implements Pass 1: Symbol Collection.
-// The collector walks the AST and populates the symbol table with all
-// variable, target, and environment definitions while detecting duplicates.
 package semantic
 
 import (
@@ -11,14 +6,14 @@ import (
 
 // Collect performs Pass 1: Symbol Collection on the given statements.
 // It walks the AST and populates a symbol table with all definitions.
-// Returns the symbol table and any errors encountered (duplicate definitions).
+// Returns a CollectResult containing the symbol table and any errors (duplicate definitions).
 //
 // Collect handles:
 //   - Variable definitions (immediate and lazy)
 //   - Target definitions (file, phony, directory, pattern)
 //   - Environment definitions (named and default)
 //   - Variables inside conditionals (tracked separately)
-func Collect(stmts []ast.Statement) (*SymbolTable, []error) {
+func Collect(stmts []ast.Statement) *CollectResult {
 	c := &collector{
 		st:     NewSymbolTable(),
 		errors: make([]error, 0),
@@ -28,7 +23,10 @@ func Collect(stmts []ast.Statement) (*SymbolTable, []error) {
 		c.collectStatement(stmt)
 	}
 
-	return c.st, c.errors
+	return &CollectResult{
+		SymbolTable: c.st,
+		Errors:      c.errors,
+	}
 }
 
 // collector holds the state for symbol collection.

@@ -92,6 +92,23 @@ type referenceValidator struct {
 	errors        []error
 }
 
+// isCaptureForTarget returns true if name is a capture defined in the given target.
+func (v *referenceValidator) isCaptureForTarget(target *ast.Target, name string) bool {
+	if v.captureResult == nil || target == nil {
+		return false
+	}
+	captureInfo, ok := v.captureResult.Captures[target]
+	if !ok {
+		return false
+	}
+	for _, captureName := range captureInfo.Names {
+		if captureName == name {
+			return true
+		}
+	}
+	return false
+}
+
 // validateStatement validates references in a statement.
 // currentTarget is set when inside a target's recipe to allow capture references.
 func (v *referenceValidator) validateStatement(stmt ast.Statement, currentTarget *ast.Target) {
@@ -175,14 +192,8 @@ func (v *referenceValidator) validateCommandInterpolation(interp *ast.CommandInt
 	}
 
 	// Check if it's a capture for this target
-	if v.captureResult != nil && target != nil {
-		if captureInfo, ok := v.captureResult.Captures[target]; ok {
-			for _, captureName := range captureInfo.Names {
-				if captureName == name {
-					return // Valid capture reference
-				}
-			}
-		}
+	if v.isCaptureForTarget(target, name) {
+		return
 	}
 
 	// Check if it's a defined variable
@@ -233,14 +244,8 @@ func (v *referenceValidator) validateInterpolation(interp *ast.Interpolation, in
 	}
 
 	// Check if it's a capture for this target (only in recipe scope)
-	if inRecipe && v.captureResult != nil && target != nil {
-		if captureInfo, ok := v.captureResult.Captures[target]; ok {
-			for _, captureName := range captureInfo.Names {
-				if captureName == name {
-					return // Valid capture reference
-				}
-			}
-		}
+	if inRecipe && v.isCaptureForTarget(target, name) {
+		return
 	}
 
 	// Check if it's a defined variable (user, conditional, or built-in)
