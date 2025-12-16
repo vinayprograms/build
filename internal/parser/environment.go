@@ -53,8 +53,8 @@ func (p *Parser) ParseEnvironment() (*ast.Environment, *ParseError) {
 	}
 
 	// Enter environment scope
-	p.enterScope(ScopeEnvironment)
-	defer p.exitScope()
+	p.EnterScope(ScopeEnvironment)
+	defer p.ExitScope()
 
 	// Parse environment directives until we dedent
 	for {
@@ -137,16 +137,9 @@ func (p *Parser) parseEnvironmentDirective(env *ast.Environment) *ParseError {
 
 // parseEnvUsing parses .using: directive in environment.
 func (p *Parser) parseEnvUsing(env *ast.Environment) *ParseError {
-	p.nextToken() // consume .using
-
-	// Expect colon
-	if p.current.Type != lexer.COLON {
-		return &ParseError{
-			Message:  "expected ':' after .using",
-			Location: p.current.Location,
-		}
+	if err := p.expectColon(".using"); err != nil {
+		return err
 	}
-	p.nextToken() // consume :
 
 	// Parse runtime type
 	runtime, err := p.parseRuntimeType()
@@ -155,11 +148,7 @@ func (p *Parser) parseEnvUsing(env *ast.Environment) *ParseError {
 	}
 	env.Runtime = &runtime
 
-	// Consume newline
-	if p.current.Type == lexer.NEWLINE {
-		p.nextToken()
-	}
-
+	p.consumeNewline()
 	return nil
 }
 
@@ -201,78 +190,38 @@ func (p *Parser) parseRuntimeType() (ast.Runtime, *ParseError) {
 
 // parseEnvSource parses .source: directive in environment.
 func (p *Parser) parseEnvSource(env *ast.Environment) *ParseError {
-	p.nextToken() // consume .source
-
-	// Expect colon
-	if p.current.Type != lexer.COLON {
-		return &ParseError{
-			Message:  "expected ':' after .source",
-			Location: p.current.Location,
-		}
-	}
-	p.nextToken() // consume :
-
-	// Parse value
-	value := p.ParseValue()
-	env.Source = value
-
-	// Consume newline
-	if p.current.Type == lexer.NEWLINE {
-		p.nextToken()
+	if err := p.expectColon(".source"); err != nil {
+		return err
 	}
 
+	env.Source = p.ParseValue()
+	p.consumeNewline()
 	return nil
 }
 
 // parseEnvArgs parses .args: directive in environment.
 func (p *Parser) parseEnvArgs(env *ast.Environment) *ParseError {
-	p.nextToken() // consume .args
-
-	// Expect colon
-	if p.current.Type != lexer.COLON {
-		return &ParseError{
-			Message:  "expected ':' after .args",
-			Location: p.current.Location,
-		}
-	}
-	p.nextToken() // consume :
-
-	// Parse value
-	value := p.ParseValue()
-	env.Args = value
-
-	// Consume newline
-	if p.current.Type == lexer.NEWLINE {
-		p.nextToken()
+	if err := p.expectColon(".args"); err != nil {
+		return err
 	}
 
+	env.Args = p.ParseValue()
+	p.consumeNewline()
 	return nil
 }
 
 // parseEnvRequires parses .requires: directive in environment.
 func (p *Parser) parseEnvRequires(env *ast.Environment) *ParseError {
-	p.nextToken() // consume .requires
-
-	// Expect colon
-	if p.current.Type != lexer.COLON {
-		return &ParseError{
-			Message:  "expected ':' after .requires",
-			Location: p.current.Location,
-		}
+	if err := p.expectColon(".requires"); err != nil {
+		return err
 	}
-	p.nextToken() // consume :
 
-	// Parse requirements list (reuse the function from recipe.go)
 	reqs, err := p.parseRequirementsList()
 	if err != nil {
 		return err
 	}
 	env.Requires = append(env.Requires, reqs...)
 
-	// Consume newline
-	if p.current.Type == lexer.NEWLINE {
-		p.nextToken()
-	}
-
+	p.consumeNewline()
 	return nil
 }

@@ -1,0 +1,241 @@
+package parser
+
+import (
+	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/lexer"
+)
+
+// parseCommandLine parses a single command line.
+// Grammar: command = { command_part } ;
+// Grammar: command_part = STRING | interpolation ;
+func (p *Parser) parseCommandLine() (*ast.LineCommand, *ParseError) {
+	loc := ast.SourceLocationFromToken(p.current)
+	var parts []ast.CommandPart
+
+	// Parse command parts until newline
+	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF && p.current.Type != lexer.COMMENT {
+		switch p.current.Type {
+		case lexer.STRING:
+			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
+			p.nextToken()
+
+		case lexer.INTERP_START:
+			interp, err := p.parseCommandInterpolation()
+			if err != nil {
+				return nil, err
+			}
+			if interp != nil {
+				parts = append(parts, interp)
+			}
+
+		case lexer.ESCAPE_LBRACE:
+			parts = append(parts, &ast.LiteralCommand{Text: "{"})
+			p.nextToken()
+
+		case lexer.ESCAPE_RBRACE:
+			parts = append(parts, &ast.LiteralCommand{Text: "}"})
+			p.nextToken()
+
+		case lexer.PATH, lexer.IDENTIFIER:
+			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
+			p.nextToken()
+
+		default:
+			// Other tokens as literal text
+			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
+			p.nextToken()
+		}
+	}
+
+	// Consume newline
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
+	if len(parts) == 0 {
+		return nil, nil
+	}
+
+	return &ast.LineCommand{
+		Parts:    parts,
+		Location: loc,
+	}, nil
+}
+
+// parseCommandInterpolation parses an interpolation in a command ({var} or {var:raw}).
+func (p *Parser) parseCommandInterpolation() (*ast.CommandInterpolation, *ParseError) {
+	if p.current.Type != lexer.INTERP_START {
+		return nil, nil
+	}
+	loc := ast.SourceLocationFromToken(p.current)
+	p.nextToken() // consume {
+
+	// Expect identifier
+	if p.current.Type != lexer.IDENTIFIER {
+		return nil, &ParseError{
+			Message:  "expected identifier in interpolation",
+			Location: p.current.Location,
+		}
+	}
+
+	name := p.current.Literal
+	p.nextToken()
+
+	// Check for :raw modifier
+	raw := false
+	if p.current.Type == lexer.INTERP_MOD {
+		if p.current.Literal == ":raw" {
+			raw = true
+		}
+		p.nextToken()
+	}
+
+	// Expect close brace
+	if p.current.Type != lexer.INTERP_END {
+		return nil, &ParseError{
+			Message:  "expected '}' to close interpolation",
+			Location: p.current.Location,
+		}
+	}
+	p.nextToken() // consume }
+
+	return &ast.CommandInterpolation{
+		Name:     name,
+		Raw:      raw,
+		Location: loc,
+	}, nil
+}
+
+// parseBlockCommand parses a block: statement with nested lines.
+// Grammar: block_stmt = "block:" NEWLINE INDENT { raw_line } DEDENT ;
+func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
+	loc := ast.SourceLocationFromToken(p.current)
+
+	if p.current.Type != lexer.BLOCK {
+		return nil, &ParseError{
+			Message:  "expected 'block:' keyword",
+			Location: p.current.Location,
+		}
+	}
+	p.nextToken() // consume block
+
+	// May have a colon after block (block: or block)
+	if p.current.Type == lexer.COLON {
+		p.nextToken() // consume :
+	}
+
+	// Consume newline
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
+	// Enter block scope
+	p.EnterScope(ScopeBlock)
+	defer p.ExitScope()
+
+	var lines [][]ast.CommandPart
+
+	// Parse block lines until dedent
+	for {
+		if p.current.Type == lexer.EOF {
+			break
+		}
+
+		// Check for indent
+		if p.current.Type != lexer.INDENT {
+			break
+		}
+
+		// Check indent level - block content should be at level 2
+		indentLevel := p.calculateIndentLevel(p.current.Literal)
+		if indentLevel < 2 {
+			// Back to recipe level - end of block
+			break
+		}
+
+		// Block content is always command lines - switch to command mode
+		p.lexer.SetCommandMode()
+		p.nextToken() // consume INDENT
+
+		// Empty line in block
+		if p.current.Type == lexer.NEWLINE {
+			p.nextToken()
+			continue
+		}
+
+		// Comment line in block
+		if p.current.Type == lexer.COMMENT {
+			p.nextToken()
+			if p.current.Type == lexer.NEWLINE {
+				p.nextToken()
+			}
+			continue
+		}
+
+		// Parse block line
+		lineParts, err := p.parseBlockLine()
+		if err != nil {
+			return nil, err
+		}
+		if len(lineParts) > 0 {
+			lines = append(lines, lineParts)
+		}
+	}
+
+	return &ast.BlockCommand{
+		Lines:    lines,
+		Location: loc,
+	}, nil
+}
+
+// parseBlockLine parses a single line in a block.
+func (p *Parser) parseBlockLine() ([]ast.CommandPart, *ParseError) {
+	var parts []ast.CommandPart
+
+	// Parse parts until newline
+	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF && p.current.Type != lexer.COMMENT {
+		switch p.current.Type {
+		case lexer.STRING:
+			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
+			p.nextToken()
+
+		case lexer.INTERP_START:
+			interp, err := p.parseCommandInterpolation()
+			if err != nil {
+				return nil, err
+			}
+			if interp != nil {
+				parts = append(parts, interp)
+			}
+
+		case lexer.ESCAPE_LBRACE:
+			parts = append(parts, &ast.LiteralCommand{Text: "{"})
+			p.nextToken()
+
+		case lexer.ESCAPE_RBRACE:
+			parts = append(parts, &ast.LiteralCommand{Text: "}"})
+			p.nextToken()
+
+		default:
+			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
+			p.nextToken()
+		}
+	}
+
+	// Consume newline
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
+	return parts, nil
+}
+
+// skipToNewline advances past the current line.
+func (p *Parser) skipToNewline() {
+	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+		p.nextToken()
+	}
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+}

@@ -350,15 +350,8 @@ func (p *Parser) parseBodyStatement() (ast.Statement, *ParseError) {
 		return nil, nil
 
 	case lexer.COMMENT:
-		comment := &ast.Comment{
-			Text:     p.current.Literal,
-			Location: ast.SourceLocationFromToken(p.current),
-		}
-		p.nextToken()
-		// Consume newline if present
-		if p.current.Type == lexer.NEWLINE {
-			p.nextToken()
-		}
+		comment := p.parseComment()
+		p.consumeNewline()
 		return comment, nil
 
 	case lexer.LAZY:

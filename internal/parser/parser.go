@@ -31,44 +31,24 @@ func (p *Parser) nextToken() lexer.Token {
 	return p.current
 }
 
-// currentToken returns the current token.
-func (p *Parser) currentToken() lexer.Token {
+// CurrentToken returns the current token.
+func (p *Parser) CurrentToken() lexer.Token {
 	return p.current
 }
 
-// CurrentToken is the exported version of currentToken for external use.
-func (p *Parser) CurrentToken() lexer.Token {
-	return p.currentToken()
-}
-
-// enterScope pushes a new scope onto the stack.
-func (p *Parser) enterScope(scope Scope) {
+// EnterScope pushes a new scope onto the stack.
+func (p *Parser) EnterScope(scope Scope) {
 	p.scope.Push(scope)
 }
 
-// EnterScope is the exported version of enterScope for external use.
-func (p *Parser) EnterScope(scope Scope) {
-	p.enterScope(scope)
-}
-
-// exitScope pops the current scope from the stack.
-func (p *Parser) exitScope() Scope {
+// ExitScope pops the current scope from the stack.
+func (p *Parser) ExitScope() Scope {
 	return p.scope.Pop()
 }
 
-// ExitScope is the exported version of exitScope for external use.
-func (p *Parser) ExitScope() Scope {
-	return p.exitScope()
-}
-
-// currentScope returns the current parsing scope.
-func (p *Parser) currentScope() Scope {
-	return p.scope.Current()
-}
-
-// CurrentScope is the exported version of currentScope for external use.
+// CurrentScope returns the current parsing scope.
 func (p *Parser) CurrentScope() Scope {
-	return p.currentScope()
+	return p.scope.Current()
 }
 
 // validateDirectiveScope checks if a directive token is valid at the current scope.
@@ -78,17 +58,17 @@ func (p *Parser) validateDirectiveScope(tok lexer.Token) *ParseError {
 		return nil // Not a directive
 	}
 
-	if IsDirectiveValidAtScope(tok.Type, p.currentScope()) {
+	if IsDirectiveValidAtScope(tok.Type, p.CurrentScope()) {
 		return nil // Valid at current scope
 	}
 
-	return NewScopeError(tok.Type, p.currentScope(), tok.Location)
+	return NewScopeError(tok.Type, p.CurrentScope(), tok.Location)
 }
 
-// currentIndentLevel returns the expected indentation level for the current scope.
+// CurrentIndentLevel returns the expected indentation level for the current scope.
 // Level 0 = global, Level 1 = environment/recipe, Level 2 = block.
-func (p *Parser) currentIndentLevel() int {
-	switch p.currentScope() {
+func (p *Parser) CurrentIndentLevel() int {
+	switch p.CurrentScope() {
 	case ScopeGlobal:
 		return 0
 	case ScopeEnvironment, ScopeRecipe:
@@ -98,11 +78,6 @@ func (p *Parser) currentIndentLevel() int {
 	default:
 		return 0
 	}
-}
-
-// CurrentIndentLevel is the exported version of currentIndentLevel for external use.
-func (p *Parser) CurrentIndentLevel() int {
-	return p.currentIndentLevel()
 }
 
 // addError adds a parse error to the error collection.
@@ -118,6 +93,48 @@ func (p *Parser) Errors() *ParseErrors {
 // HasErrors returns true if any parse errors were encountered.
 func (p *Parser) HasErrors() bool {
 	return p.errors.HasErrors()
+}
+
+// expectColon consumes the current token (directive keyword) and expects a colon.
+// Returns an error if the colon is missing.
+// This is a helper for the common directive parsing pattern:
+//
+//	p.nextToken()  // consume directive
+//	if p.current.Type != lexer.COLON { return error }
+//	p.nextToken()  // consume colon
+func (p *Parser) expectColon(directiveName string) *ParseError {
+	p.nextToken() // consume directive keyword
+
+	if p.current.Type != lexer.COLON {
+		return &ParseError{
+			Message:  "expected ':' after " + directiveName,
+			Location: p.current.Location,
+		}
+	}
+	p.nextToken() // consume :
+
+	return nil
+}
+
+// consumeNewline advances past a newline if present.
+func (p *Parser) consumeNewline() {
+	if p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+}
+
+// parseComment creates a Comment AST node from the current COMMENT token.
+// Returns nil if current token is not a comment.
+func (p *Parser) parseComment() *ast.Comment {
+	if p.current.Type != lexer.COMMENT {
+		return nil
+	}
+	comment := &ast.Comment{
+		Text:     p.current.Literal,
+		Location: ast.SourceLocationFromToken(p.current),
+	}
+	p.nextToken()
+	return comment
 }
 
 // maxErrors is the maximum number of errors to collect before giving up.
@@ -168,12 +185,7 @@ func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
 
 	// Handle comments
 	if p.current.Type == lexer.COMMENT {
-		stmt := &ast.Comment{
-			Text:     p.current.Literal,
-			Location: ast.SourceLocationFromToken(p.current),
-		}
-		p.nextToken()
-		return stmt, nil
+		return p.parseComment(), nil
 	}
 
 	// Handle directives
@@ -246,7 +258,7 @@ func (p *Parser) parseTopLevelDirective() (ast.Statement, *ParseError) {
 		return p.ParseEnvironment()
 	default:
 		// Other directives invalid at global scope
-		return nil, NewScopeError(p.current.Type, p.currentScope(), p.current.Location)
+		return nil, NewScopeError(p.current.Type, p.CurrentScope(), p.current.Location)
 	}
 }
 
@@ -283,9 +295,7 @@ func (p *Parser) recoverToLevel0() {
 
 // looksLikeVariableLine checks if the current position looks like a variable definition.
 // Returns true if `=` appears before `:` (or there's no `:` at all).
+// Uses the lexer's peek function to determine this without consuming tokens.
 func (p *Parser) looksLikeVariableLine() bool {
-	// For now, use a simple heuristic: identifiers followed by = are variables
-	// This is called after we've verified the current token is IDENTIFIER
-	// A more robust check would peek ahead, but for now trust the lexer's mode handling
-	return true
+	return p.lexer.PeekIsVariableLine()
 }

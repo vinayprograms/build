@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -594,6 +595,55 @@ func TestParser_ParseRecipe_VersionParsing(t *testing.T) {
 			}
 			if req.Version.String() != tt.wantVersion {
 				t.Errorf("version = %q, want %q", req.Version.String(), tt.wantVersion)
+			}
+		})
+	}
+}
+
+// TestParser_ParseRecipe_InvalidVersion tests that invalid version specs produce errors.
+func TestParser_ParseRecipe_InvalidVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		requirement string
+		wantErr     string
+	}{
+		{
+			name:        "non-numeric major",
+			requirement: "gcc@abc",
+			wantErr:     "invalid major version",
+		},
+		{
+			name:        "non-numeric minor",
+			requirement: "gcc@11.x",
+			wantErr:     "invalid minor version",
+		},
+		{
+			name:        "non-numeric patch",
+			requirement: "gcc@11.4.x",
+			wantErr:     "invalid patch version",
+		},
+		{
+			name:        "too many version parts",
+			requirement: "gcc@1.2.3.4",
+			wantErr:     "invalid version format",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := "@test:\n    .requires: " + tt.requirement + "\n    echo test\n"
+			l := lexer.New("test.build", input)
+			p := New(l)
+
+			_, errs := p.ParseBuildfile()
+			if !errs.HasErrors() {
+				t.Fatalf("expected error for %q, got none", tt.requirement)
+			}
+
+			// Check error message contains expected text
+			errMsg := errs.Errors[0].Message
+			if !strings.Contains(errMsg, tt.wantErr) {
+				t.Errorf("error = %q, want to contain %q", errMsg, tt.wantErr)
 			}
 		})
 	}

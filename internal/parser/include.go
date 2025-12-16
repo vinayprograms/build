@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
@@ -147,13 +148,7 @@ func (p *Parser) parseIncludedFile(path, content string, stack *includeStack) ([
 
 		// Skip comments
 		if includedParser.current.Type == lexer.COMMENT {
-			// Optionally preserve comments in AST
-			stmt := &ast.Comment{
-				Text:     includedParser.current.Literal,
-				Location: ast.SourceLocationFromToken(includedParser.current),
-			}
-			statements = append(statements, stmt)
-			includedParser.nextToken()
+			statements = append(statements, includedParser.parseComment())
 			continue
 		}
 
@@ -197,12 +192,7 @@ func (p *Parser) parseStatement() (ast.Statement, *ParseError) {
 		return nil, nil
 
 	case lexer.COMMENT:
-		stmt := &ast.Comment{
-			Text:     p.current.Literal,
-			Location: ast.SourceLocationFromToken(p.current),
-		}
-		p.nextToken()
-		return stmt, nil
+		return p.parseComment(), nil
 
 	case lexer.DOT_SHELL, lexer.DOT_PARALLEL, lexer.DOT_DEFAULT:
 		return p.parseGlobalDirective()
@@ -323,20 +313,5 @@ func extractLiteralPath(v *ast.Value) string {
 	}
 
 	// Trim whitespace
-	return trimWhitespace(path)
-}
-
-// trimWhitespace removes leading and trailing whitespace.
-func trimWhitespace(s string) string {
-	start := 0
-	end := len(s)
-
-	for start < end && (s[start] == ' ' || s[start] == '\t') {
-		start++
-	}
-	for end > start && (s[end-1] == ' ' || s[end-1] == '\t') {
-		end--
-	}
-
-	return s[start:end]
+	return strings.TrimSpace(path)
 }

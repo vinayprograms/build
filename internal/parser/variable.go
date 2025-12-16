@@ -5,30 +5,8 @@ import (
 	"github.com/vinayprograms/build/internal/lexer"
 )
 
-// parseVariable parses a variable definition.
+// ParseVariable parses a variable definition.
 // Grammar: variable_def = [ "lazy" ] identifier "=" value NEWLINE ;
-func (p *Parser) parseVariable(isLazy bool) *ast.Variable {
-	// Placeholder - will be implemented after tests pass
-	return nil
-}
-
-// parseValue parses a value (string with interpolations and function calls).
-// Grammar: value = { value_part } ;
-// Grammar: value_part = STRING | interpolation | function_call ;
-func (p *Parser) parseValue() *ast.Value {
-	// Placeholder - will be implemented after tests pass
-	return nil
-}
-
-// isVariableLine checks if the current position starts a variable definition.
-// A line is a variable if `=` appears before `:`.
-func (p *Parser) isVariableLine() bool {
-	// Placeholder - will be implemented after tests pass
-	return false
-}
-
-// ParseVariable is the exported method for parsing a variable.
-// It is called when the parser encounters a line that looks like a variable definition.
 func (p *Parser) ParseVariable() (*ast.Variable, *ParseError) {
 	// Check if we're at a lazy keyword
 	isLazy := false

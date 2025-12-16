@@ -78,37 +78,37 @@ func TestParser_ScopeTransitions(t *testing.T) {
 	}
 
 	// Enter environment
-	p.enterScope(ScopeEnvironment)
+	p.EnterScope(ScopeEnvironment)
 	if p.scope.Current() != ScopeEnvironment {
 		t.Errorf("after entering environment, scope = %v, want ScopeEnvironment", p.scope.Current())
 	}
 
 	// Exit environment
-	p.exitScope()
+	p.ExitScope()
 	if p.scope.Current() != ScopeGlobal {
 		t.Errorf("after exiting environment, scope = %v, want ScopeGlobal", p.scope.Current())
 	}
 
 	// Enter recipe
-	p.enterScope(ScopeRecipe)
+	p.EnterScope(ScopeRecipe)
 	if p.scope.Current() != ScopeRecipe {
 		t.Errorf("after entering recipe, scope = %v, want ScopeRecipe", p.scope.Current())
 	}
 
 	// Enter block inside recipe
-	p.enterScope(ScopeBlock)
+	p.EnterScope(ScopeBlock)
 	if p.scope.Current() != ScopeBlock {
 		t.Errorf("after entering block, scope = %v, want ScopeBlock", p.scope.Current())
 	}
 
 	// Exit block
-	p.exitScope()
+	p.ExitScope()
 	if p.scope.Current() != ScopeRecipe {
 		t.Errorf("after exiting block, scope = %v, want ScopeRecipe", p.scope.Current())
 	}
 
 	// Exit recipe
-	p.exitScope()
+	p.ExitScope()
 	if p.scope.Current() != ScopeGlobal {
 		t.Errorf("after exiting recipe, scope = %v, want ScopeGlobal", p.scope.Current())
 	}
@@ -135,7 +135,7 @@ func TestParser_DirectiveInEnvironmentScope(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := lexer.New("test.build", "")
 			p := New(l)
-			p.enterScope(ScopeEnvironment)
+			p.EnterScope(ScopeEnvironment)
 
 			tok := lexer.Token{
 				Type:     tt.directive,
@@ -175,7 +175,7 @@ func TestParser_DirectiveInRecipeScope(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			l := lexer.New("test.build", "")
 			p := New(l)
-			p.enterScope(ScopeRecipe)
+			p.EnterScope(ScopeRecipe)
 
 			tok := lexer.Token{
 				Type:     tt.directive,
@@ -199,28 +199,28 @@ func TestParser_CurrentIndentLevel(t *testing.T) {
 	p := New(l)
 
 	// Global starts at level 0
-	if p.currentIndentLevel() != 0 {
-		t.Errorf("global indent level = %d, want 0", p.currentIndentLevel())
+	if p.CurrentIndentLevel() != 0 {
+		t.Errorf("global indent level = %d, want 0", p.CurrentIndentLevel())
 	}
 
 	// Environment is at level 1
-	p.enterScope(ScopeEnvironment)
-	if p.currentIndentLevel() != 1 {
-		t.Errorf("environment indent level = %d, want 1", p.currentIndentLevel())
+	p.EnterScope(ScopeEnvironment)
+	if p.CurrentIndentLevel() != 1 {
+		t.Errorf("environment indent level = %d, want 1", p.CurrentIndentLevel())
 	}
 
-	p.exitScope()
+	p.ExitScope()
 
 	// Recipe is at level 1
-	p.enterScope(ScopeRecipe)
-	if p.currentIndentLevel() != 1 {
-		t.Errorf("recipe indent level = %d, want 1", p.currentIndentLevel())
+	p.EnterScope(ScopeRecipe)
+	if p.CurrentIndentLevel() != 1 {
+		t.Errorf("recipe indent level = %d, want 1", p.CurrentIndentLevel())
 	}
 
 	// Block inside recipe is at level 2
-	p.enterScope(ScopeBlock)
-	if p.currentIndentLevel() != 2 {
-		t.Errorf("block indent level = %d, want 2", p.currentIndentLevel())
+	p.EnterScope(ScopeBlock)
+	if p.CurrentIndentLevel() != 2 {
+		t.Errorf("block indent level = %d, want 2", p.CurrentIndentLevel())
 	}
 }
 

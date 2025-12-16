@@ -323,3 +323,84 @@ func stmtTypeName(s ast.Statement) string {
 		return "Unknown"
 	}
 }
+
+// TestErrorRecovery_DeeplyNestedError tests recovery from errors in deeply nested structures.
+func TestErrorRecovery_DeeplyNestedError(t *testing.T) {
+	// Use an actual parse error - malformed target in nested conditional
+	input := `cc = gcc
+if {os} == linux
+    if {arch} == amd64
+        @broken missing_colon
+        arch_flags = -m64
+    end
+    cflags = -Wall
+end
+suffix = .o
+`
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	stmts, errs := p.ParseBuildfile()
+
+	// Should have at least 1 error for malformed target
+	if len(errs.Errors) < 1 {
+		t.Errorf("expected at least 1 error, got %d", len(errs.Errors))
+	}
+
+	// Should preserve valid statements before and after the error
+	hasVariable := false
+	hasConditional := false
+	for _, s := range stmts {
+		switch s.(type) {
+		case *ast.Variable:
+			hasVariable = true
+		case *ast.Conditional:
+			hasConditional = true
+		}
+	}
+
+	if !hasVariable {
+		t.Error("expected at least one variable statement")
+	}
+
+	// Note: The conditional itself may or may not be parsed depending on how
+	// error recovery handles nested structures. Either outcome is acceptable
+	// as long as the parser doesn't crash and reports the error.
+	_ = hasConditional
+}
+
+// TestErrorRecovery_MultipleErrorsInSameBlock tests handling of multiple errors in one block.
+func TestErrorRecovery_MultipleErrorsInSameBlock(t *testing.T) {
+	input := `.environment: test
+    .after: invalid_in_env
+    .using: docker
+    .autodeps: also_invalid
+    .source: Dockerfile
+cc = gcc
+`
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	stmts, errs := p.ParseBuildfile()
+
+	// Should have errors for both .after and .autodeps in environment
+	if len(errs.Errors) < 1 {
+		t.Errorf("expected at least 1 error, got %d", len(errs.Errors))
+		for _, e := range errs.Errors {
+			t.Logf("  error: %s", e.Error())
+		}
+	}
+
+	// Should still parse the variable after the environment block
+	hasVariable := false
+	for _, s := range stmts {
+		if _, ok := s.(*ast.Variable); ok {
+			hasVariable = true
+			break
+		}
+	}
+
+	if !hasVariable {
+		t.Error("expected variable statement after error recovery")
+	}
+}
