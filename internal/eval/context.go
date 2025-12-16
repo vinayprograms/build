@@ -3,6 +3,8 @@ package eval
 import (
 	"runtime"
 	"sync"
+
+	"github.com/vinayprograms/build/internal/ast"
 )
 
 // Context holds the evaluation context for a Buildfile.
@@ -14,10 +16,13 @@ type Context struct {
 	// Keys are variable names, values are the evaluated string values.
 	variables map[string]string
 
-	// lazyVariables holds unevaluated lazy variable values.
-	// These are stored as strings for now (the AST representation).
-	// They will be evaluated on-demand when referenced.
-	lazyVariables map[string]string
+	// lazyVariables holds unevaluated lazy variable AST values.
+	// These are evaluated on-demand when first referenced.
+	lazyVariables map[string]*ast.Value
+
+	// lazyCache holds cached evaluations of lazy variables.
+	// Once a lazy variable is evaluated, the result is cached here.
+	lazyCache map[string]string
 
 	// builtins holds read-only built-in variables (os, arch).
 	builtins map[string]string
@@ -27,7 +32,8 @@ type Context struct {
 func NewContext() *Context {
 	return &Context{
 		variables:     make(map[string]string),
-		lazyVariables: make(map[string]string),
+		lazyVariables: make(map[string]*ast.Value),
+		lazyCache:     make(map[string]string),
 		builtins: map[string]string{
 			"os":   runtime.GOOS,
 			"arch": runtime.GOARCH,
@@ -38,6 +44,7 @@ func NewContext() *Context {
 // Get retrieves the value of a variable.
 // It returns the value and true if the variable is defined, or ("", false) otherwise.
 // Built-in variables take precedence over user-defined variables.
+// Note: For lazy variables, use GetOrEvaluateLazy with an evaluator.
 func (c *Context) Get(name string) (string, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -49,6 +56,11 @@ func (c *Context) Get(name string) (string, bool) {
 
 	// Check user-defined variables
 	if val, ok := c.variables[name]; ok {
+		return val, true
+	}
+
+	// Check lazy cache
+	if val, ok := c.lazyCache[name]; ok {
 		return val, true
 	}
 
@@ -83,21 +95,38 @@ func (c *Context) IsDefined(name string) bool {
 	if _, ok := c.lazyVariables[name]; ok {
 		return true
 	}
+	if _, ok := c.lazyCache[name]; ok {
+		return true
+	}
 	return false
 }
 
-// SetLazy stores a lazy variable for on-demand evaluation.
+// SetLazyValue stores a lazy variable's AST value for on-demand evaluation.
 // The value is stored unevaluated and will be evaluated when first referenced.
+func (c *Context) SetLazyValue(name string, value *ast.Value) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.lazyVariables[name] = value
+}
+
+// SetLazy stores a lazy variable for on-demand evaluation (legacy string version).
+// Deprecated: Use SetLazyValue for full AST support.
 func (c *Context) SetLazy(name, unevaluatedValue string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.lazyVariables[name] = unevaluatedValue
+	// For backward compatibility, create a simple literal value
+	c.lazyVariables[name] = &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.LiteralValue{Text: unevaluatedValue},
+		},
+	}
 }
 
-// GetLazy retrieves a lazy variable's unevaluated value.
-// Returns the value and true if it's a lazy variable, or ("", false) otherwise.
-func (c *Context) GetLazy(name string) (string, bool) {
+// GetLazyValue retrieves a lazy variable's AST value.
+// Returns the value and true if it's a lazy variable, or (nil, false) otherwise.
+func (c *Context) GetLazyValue(name string) (*ast.Value, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -105,7 +134,19 @@ func (c *Context) GetLazy(name string) (string, bool) {
 	return val, ok
 }
 
-// IsLazy returns true if the variable is a lazy variable.
+// GetLazy retrieves a lazy variable's unevaluated value (legacy string version).
+// For lazy variables stored with SetLazyValue, returns "__lazy__" as a marker.
+func (c *Context) GetLazy(name string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if _, ok := c.lazyVariables[name]; ok {
+		return "__lazy__", true
+	}
+	return "", false
+}
+
+// IsLazy returns true if the variable is a lazy variable (not yet evaluated).
 func (c *Context) IsLazy(name string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -114,34 +155,57 @@ func (c *Context) IsLazy(name string) bool {
 	return ok
 }
 
+// CacheLazyResult caches the result of a lazy variable evaluation.
+func (c *Context) CacheLazyResult(name, value string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.lazyCache[name] = value
+}
+
+// GetLazyCache retrieves a cached lazy variable result.
+// Returns the value and true if cached, or ("", false) otherwise.
+func (c *Context) GetLazyCache(name string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	val, ok := c.lazyCache[name]
+	return val, ok
+}
+
 // Variables returns a copy of all evaluated variables (including built-ins).
 func (c *Context) Variables() map[string]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	result := make(map[string]string, len(c.variables)+len(c.builtins))
+	result := make(map[string]string, len(c.variables)+len(c.builtins)+len(c.lazyCache))
 
 	// Copy built-ins
 	for k, v := range c.builtins {
 		result[k] = v
 	}
 
-	// Copy user variables (may shadow built-ins in the returned map, but Get() protects them)
+	// Copy user variables
 	for k, v := range c.variables {
+		result[k] = v
+	}
+
+	// Copy cached lazy values
+	for k, v := range c.lazyCache {
 		result[k] = v
 	}
 
 	return result
 }
 
-// LazyVariables returns a copy of all lazy variable definitions.
+// LazyVariables returns a copy of all lazy variable names.
 func (c *Context) LazyVariables() map[string]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	result := make(map[string]string, len(c.lazyVariables))
-	for k, v := range c.lazyVariables {
-		result[k] = v
+	for k := range c.lazyVariables {
+		result[k] = "__lazy__"
 	}
 	return result
 }

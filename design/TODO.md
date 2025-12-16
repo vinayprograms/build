@@ -227,10 +227,10 @@ Variable evaluation, function execution, and conditional logic.
   - [x] Handle missing variable with clear error
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement lazy variable on-demand evaluation**
-  - [ ] Detect when lazy variable is referenced
-  - [ ] Evaluate at point of use with current context
-  - [ ] Cache result? (spec unclear, decide and document)
+- [x] **Implement lazy variable on-demand evaluation**
+  - [x] Detect when lazy variable is referenced
+  - [x] Evaluate at point of use with current context
+  - [x] Cache result? (spec unclear, decide and document)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.2 Built-in Functions

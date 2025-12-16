@@ -59,8 +59,9 @@ func (e *Evaluator) EvaluateValue(val *ast.Value) (string, error) {
 }
 
 // resolveVariable resolves a variable reference to its value.
+// For lazy variables, it evaluates on-demand and caches the result.
 func (e *Evaluator) resolveVariable(name string, loc ast.SourceLocation) (string, error) {
-	// Check if variable is defined
+	// Check if variable is defined (including cached lazy values)
 	val, ok := e.ctx.Get(name)
 	if ok {
 		return val, nil
@@ -68,12 +69,30 @@ func (e *Evaluator) resolveVariable(name string, loc ast.SourceLocation) (string
 
 	// Check if it's a lazy variable that needs evaluation
 	if e.ctx.IsLazy(name) {
-		// TODO: Evaluate lazy variable on demand
-		// For now, return an error - lazy evaluation will be implemented later
-		return "", &UndefinedVariableError{Name: name, Location: loc}
+		return e.evaluateLazyVariable(name, loc)
 	}
 
 	return "", &UndefinedVariableError{Name: name, Location: loc}
+}
+
+// evaluateLazyVariable evaluates a lazy variable on-demand and caches the result.
+func (e *Evaluator) evaluateLazyVariable(name string, loc ast.SourceLocation) (string, error) {
+	// Get the lazy variable's AST value
+	lazyValue, ok := e.ctx.GetLazyValue(name)
+	if !ok {
+		return "", &UndefinedVariableError{Name: name, Location: loc}
+	}
+
+	// Evaluate the value
+	result, err := e.EvaluateValue(lazyValue)
+	if err != nil {
+		return "", err
+	}
+
+	// Cache the result for future references
+	e.ctx.CacheLazyResult(name, result)
+
+	return result, nil
 }
 
 // evaluateFunction evaluates a function call.

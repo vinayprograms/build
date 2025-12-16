@@ -39,10 +39,8 @@ func (e *Evaluator) evaluateStatement(stmt ast.Statement) error {
 // evaluateVariable evaluates a single variable definition.
 func (e *Evaluator) evaluateVariable(v *ast.Variable) error {
 	if v.Lazy {
-		// Store lazy variables unevaluated
-		// For now, store the AST value as a marker
-		// The actual evaluation will happen on-demand
-		e.ctx.SetLazy(v.Name, "__lazy__")
+		// Store lazy variables with their AST value for on-demand evaluation
+		e.ctx.SetLazyValue(v.Name, v.Value)
 		return nil
 	}
 

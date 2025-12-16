@@ -92,13 +92,15 @@ func TestContext_SetLazy(t *testing.T) {
 		t.Error("Lazy variable should not be in regular variables")
 	}
 
-	// Should be retrievable as lazy
-	val, ok := ctx.GetLazy("lazy_var")
+	// Should be retrievable as lazy (returns marker since actual value is AST)
+	_, ok = ctx.GetLazy("lazy_var")
 	if !ok {
 		t.Error("Expected lazy variable to be defined")
 	}
-	if val != "unevaluated value" {
-		t.Errorf("Expected 'unevaluated value', got '%s'", val)
+
+	// Check that IsLazy returns true
+	if !ctx.IsLazy("lazy_var") {
+		t.Error("Expected IsLazy to return true")
 	}
 }
 
@@ -193,10 +195,11 @@ func TestContext_LazyVariables(t *testing.T) {
 		t.Errorf("Expected 2 lazy variables, got %d", len(lazyVars))
 	}
 
-	if lazyVars["x"] != "lazy x" {
-		t.Errorf("Expected lazy x='lazy x', got '%s'", lazyVars["x"])
+	// LazyVariables now returns "__lazy__" marker since the actual values are AST nodes
+	if _, ok := lazyVars["x"]; !ok {
+		t.Error("Expected lazy variable 'x' to be present")
 	}
-	if lazyVars["y"] != "lazy y" {
-		t.Errorf("Expected lazy y='lazy y', got '%s'", lazyVars["y"])
+	if _, ok := lazyVars["y"]; !ok {
+		t.Error("Expected lazy variable 'y' to be present")
 	}
 }

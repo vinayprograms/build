@@ -308,3 +308,187 @@ func TestEvaluateVariables_ChainedReferences(t *testing.T) {
 		}
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Lazy Variable Evaluation Tests
+// ----------------------------------------------------------------------------
+
+func TestEvaluateVariables_LazyVariableOnDemand(t *testing.T) {
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	// Define a lazy variable and an immediate variable that references it
+	stmts := []ast.Statement{
+		&ast.Variable{
+			Name: "lazy_greeting",
+			Lazy: true,
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{&ast.LiteralValue{Text: "Hello, World!"}},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Lazy variable should not be evaluated yet
+	_, ok := ctx.Get("lazy_greeting")
+	if ok {
+		t.Error("Lazy variable should not be evaluated until referenced")
+	}
+
+	// Now evaluate a value that references the lazy variable
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.Interpolation{Name: "lazy_greeting"},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error evaluating lazy reference: %v", err)
+	}
+
+	if result != "Hello, World!" {
+		t.Errorf("Expected 'Hello, World!', got '%s'", result)
+	}
+
+	// After evaluation, the lazy value should be cached
+	cached, ok := ctx.Get("lazy_greeting")
+	if !ok {
+		t.Error("Lazy variable should be cached after evaluation")
+	}
+	if cached != "Hello, World!" {
+		t.Errorf("Cached value should be 'Hello, World!', got '%s'", cached)
+	}
+}
+
+func TestEvaluateVariables_LazyVariableWithInterpolation(t *testing.T) {
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	// Define immediate variable first, then lazy variable that uses it
+	stmts := []ast.Statement{
+		&ast.Variable{
+			Name: "greeting",
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{&ast.LiteralValue{Text: "Hello"}},
+			},
+		},
+		&ast.Variable{
+			Name: "message",
+			Lazy: true,
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.Interpolation{Name: "greeting"},
+					&ast.LiteralValue{Text: ", World!"},
+				},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Evaluate the lazy variable
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.Interpolation{Name: "message"},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result != "Hello, World!" {
+		t.Errorf("Expected 'Hello, World!', got '%s'", result)
+	}
+}
+
+func TestEvaluateVariables_LazyVariableReferencesLater(t *testing.T) {
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	// Lazy variable can reference a later-defined immediate variable
+	// because lazy evaluation happens at point of use
+	stmts := []ast.Statement{
+		&ast.Variable{
+			Name: "lazy_path",
+			Lazy: true,
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.Interpolation{Name: "base"},
+					&ast.LiteralValue{Text: "/app"},
+				},
+			},
+		},
+		&ast.Variable{
+			Name: "base",
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{&ast.LiteralValue{Text: "build"}},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Now reference the lazy variable - it should work because 'base' is now defined
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.Interpolation{Name: "lazy_path"},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result != "build/app" {
+		t.Errorf("Expected 'build/app', got '%s'", result)
+	}
+}
+
+func TestEvaluateVariables_LazyVariableCaching(t *testing.T) {
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	stmts := []ast.Statement{
+		&ast.Variable{
+			Name: "lazy_var",
+			Lazy: true,
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{&ast.LiteralValue{Text: "cached value"}},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// First reference - should evaluate
+	val := &ast.Value{Parts: []ast.ValuePart{&ast.Interpolation{Name: "lazy_var"}}}
+	result1, _ := e.EvaluateValue(val)
+
+	// Second reference - should use cache
+	result2, _ := e.EvaluateValue(val)
+
+	if result1 != result2 {
+		t.Errorf("Cached value should be consistent: %s != %s", result1, result2)
+	}
+
+	if result1 != "cached value" {
+		t.Errorf("Expected 'cached value', got '%s'", result1)
+	}
+}
