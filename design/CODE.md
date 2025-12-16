@@ -10,22 +10,39 @@ github.com/vinayprograms/build/
 │   └── build/          # CLI entry point
 │       ├── main.go
 │       ├── main_test.go
-│       ├── interfaces.go   # Interface definitions
-│       └── adapters.go     # Adapters for internal packages
+│       ├── debug.go            # Debug command implementations
+│       ├── interfaces.go       # Interface definitions
+│       ├── lexer_adapter.go    # Lexer adapters
+│       ├── parser_adapter.go   # Parser adapters
+│       └── semantic_adapter.go # Semantic adapters
 ├── internal/
 │   ├── ast/            # Abstract Syntax Tree
-│   │   ├── ast.go          # AST node type definitions
+│   │   ├── doc.go         # Package documentation
+│   │   ├── location.go     # SourceLocation type
+│   │   ├── statement.go    # Buildfile, Statement, Comment, Blank
+│   │   ├── directives.go   # Directive, DirectiveKind
+│   │   ├── environment.go  # Environment, Runtime, VersionSpec types
+│   │   ├── variables.go    # Variable
+│   │   ├── conditionals.go # Condition types, Conditional
+│   │   ├── targets.go      # Target, TargetPattern, Dependency, BraceExpr
+│   │   ├── recipes.go      # Recipe, Command types
+│   │   ├── values.go       # Value, ValuePart, FunctionCall
 │   │   └── ast_test.go
 │   ├── lexer/          # Lexical analysis
+│   │   ├── doc.go         # Package documentation
 │   │   ├── indent.go       # Indentation tracking
 │   │   ├── indent_test.go
 │   │   ├── interp.go       # Interpolation boundary detection
 │   │   ├── interp_test.go
-│   │   ├── lexer.go        # Main lexer implementation
+│   │   ├── lexer.go        # Core lexer state machine
 │   │   ├── lexer_test.go
+│   │   ├── string.go       # String/path/identifier lexing
 │   │   ├── token.go        # Token types and source location
-│   │   └── token_test.go
+│   │   ├── token_test.go
+│   │   └── value.go        # Value/command mode lexing
 │   ├── parser/         # Syntactic analysis
+│   │   ├── doc.go         # Package documentation
+│   │   ├── command.go      # Command/block parsing
 │   │   ├── conditional.go  # Conditional parsing
 │   │   ├── conditional_test.go
 │   │   ├── directive.go    # Directive scope validation
@@ -38,19 +55,25 @@ github.com/vinayprograms/build/
 │   │   ├── include_test.go
 │   │   ├── parser.go       # Parser with scope stack
 │   │   ├── parser_test.go
-│   │   ├── recipe.go       # Recipe parsing
+│   │   ├── recipe.go       # Recipe structure parsing
 │   │   ├── recipe_test.go
 │   │   ├── scope.go        # Scope types and stack
 │   │   ├── scope_test.go
 │   │   ├── target.go       # Target parsing
 │   │   ├── target_test.go
 │   │   ├── variable.go     # Variable parsing
-│   │   └── variable_test.go
+│   │   ├── variable_test.go
+│   │   └── version.go      # Version spec parsing
 │   └── semantic/       # Semantic analysis
+│       ├── doc.go         # Package documentation
 │       ├── capture.go      # Pass 2: Capture validation
 │       ├── capture_test.go
 │       ├── collector.go    # Pass 1: Symbol collection
 │       ├── collector_test.go
+│       ├── depgraph.go     # Pass 4: Dependency graph validation
+│       ├── depgraph_test.go
+│       ├── reference.go    # Pass 3: Reference validation
+│       ├── reference_test.go
 │       ├── symbols.go      # Symbol table implementation
 │       └── symbols_test.go
 ├── Buildfile           # Build configuration for this project
@@ -67,9 +90,12 @@ The CLI follows interface-based design where `cmd/build` defines the interfaces 
 
 ```
 cmd/build/
-├── main.go         # CLI entry point and flag handling
-├── interfaces.go   # Interface definitions (Lexer, Parser, Token, Scope)
-└── adapters.go     # Adapters wrapping internal packages
+├── main.go             # CLI entry point, flag handling, Buildfile discovery
+├── debug.go            # Debug command implementations (--debug-*)
+├── interfaces.go       # Interface definitions (Lexer, Parser, Token, Scope)
+├── lexer_adapter.go    # Lexer adapters (Token, Lexer)
+├── parser_adapter.go   # Parser adapters (Scope, Parser, Variable, Target, etc.)
+└── semantic_adapter.go # Semantic adapters (SymbolTable, Capture, Reference, etc.)
 ```
 
 **Key Interfaces:**
@@ -202,6 +228,15 @@ type Token struct {
 - `LookupDotKeyword(string) (TokenType, bool)`: Maps `.keyword` strings to directive token types
 
 #### Category Helpers
+
+Category checks use explicit maps instead of fragile range-based checks:
+
+```go
+var dotKeywordTypes = map[TokenType]bool{
+    DOT_SHELL: true, DOT_PARALLEL: true, // ...
+}
+func (t TokenType) IsDotKeyword() bool { return dotKeywordTypes[t] }
+```
 
 - `TokenType.IsDotKeyword() bool`: True for directive tokens
 - `TokenType.IsKeyword() bool`: True for control keywords
@@ -376,7 +411,17 @@ Identifiers can contain:
 
 5. **Strict modifier validation**: Only `:raw` is accepted. Any other modifier (`:foo`) is an error, providing early feedback for typos.
 
-### Lexer (`lexer.go`)
+### Lexer Package Structure
+
+The lexer is split across multiple files for maintainability:
+
+| File | Description | Lines |
+|------|-------------|-------|
+| `lexer.go` | Core state machine, mode switching, interpolation handling | ~350 |
+| `value.go` | Value/command mode lexing (`lexValue`, `lexCommand`, etc.) | ~250 |
+| `string.go` | String/path/identifier lexing and character classification | ~150 |
+
+### Core Lexer (`lexer.go`)
 
 The main lexer implementation that tokenizes Buildfile source code.
 
@@ -412,6 +457,11 @@ type Lexer struct {
 |--------|-------------|
 | `New(file, input string) *Lexer` | Creates a new lexer |
 | `NextToken() Token` | Returns the next token |
+| `PeekIsVariableLine() bool` | Peeks ahead to check if line is variable definition (`=` before `:`) |
+| `PeekNextIsDotKeyword() bool` | Peeks ahead to check for dot keyword |
+| `PeekNextIsBlock() bool` | Peeks ahead to check for block keyword |
+| `makeToken(typ, literal)` | Creates token at current position |
+| `makeTokenAt(typ, literal, col)` | Creates token at specific column |
 
 #### Token Recognition
 
@@ -460,9 +510,63 @@ Lines are classified by first non-whitespace token:
 
 5. **Escape handling in normal mode**: `}}` in normal mode returns ESCAPE_RBRACE. Single `}` in normal mode is treated as string content (unexpected, but recoverable).
 
+6. **Named constant for block keyword**: Uses `const blockKeyword = "block"` instead of magic number for length check in `PeekNextIsBlock()`.
+
+### Value/Command Lexing (`value.go`)
+
+Contains unified methods for lexing values (after `=` or `:`) and commands (recipe lines):
+
+| Method | Description |
+|--------|-------------|
+| `lexValue()` | Entry point for value mode - skips leading spaces, delegates to `lexValueOrCommand(true)` |
+| `lexCommand()` | Entry point for command mode - preserves spaces, delegates to `lexValueOrCommand(false)` |
+| `lexValueOrCommand(isValueMode)` | Unified implementation for both modes |
+| `lexContentString(isValueMode)` | Unified string consumption for value/command modes |
+
+**Key Difference**: `lexValue()` skips leading whitespace and stops at parentheses/commas for function argument parsing. `lexCommand()` preserves all whitespace for shell command accuracy. Both share ~80% of logic via `lexValueOrCommand()`.
+
+### String/Path Lexing (`string.go`)
+
+Contains methods for lexing identifiers, paths, and general strings:
+
+| Method | Description |
+|--------|-------------|
+| `lexDotKeyword()` | Handles `.keyword` directives |
+| `lexAtIdentifier()` | Handles `@name` phony targets |
+| `lexIdentifier()` | Handles identifiers and keywords |
+| `lexPath()` | Handles file paths (stops at `{` for interpolation) |
+| `lexString()` | General string content in normal mode |
+
+**Character Classification Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `isIdentStart(ch)` | Delegates to `IsValidIdentifierStart` - letters and underscore |
+| `isIdentChar(ch)` | Letters, digits, underscore (excludes dots - see note) |
+| `isPathChar(ch)` | Identifier chars plus `/`, `.`, `-` |
+| `isPhonyChar(ch)` | Identifier chars plus `-` |
+
+**Note on dot handling**: `isIdentChar` intentionally excludes dots, unlike `IsValidIdentifierChar` in `interp.go` which includes dots for interpolation identifiers like `{target.dir}`. This separation allows proper handling of dots as path separators in normal mode while supporting dotted identifiers inside interpolations.
+
 ## AST Package (`internal/ast`)
 
 Defines the Abstract Syntax Tree node types for Buildfile parsing. The AST captures syntactic structure without interpretation—no evaluation happens during parsing.
+
+### Package Structure
+
+The AST package is split into logical files by domain:
+
+| File | Contents |
+|------|----------|
+| `location.go` | `SourceLocation`, `SourceLocationFromToken()` |
+| `statement.go` | `Buildfile`, `Statement` interface, `Comment`, `Blank` |
+| `directives.go` | `DirectiveKind`, `Directive` |
+| `environment.go` | `Runtime`, `VersionSpec` types, `Requirement`, `Environment` |
+| `variables.go` | `Variable` |
+| `conditionals.go` | `Condition` interface and types, `ConditionalBranch`, `Conditional` |
+| `targets.go` | `PatternSegment` interface, `LiteralSegment`, `BraceExpr`, `TargetPattern`, `Dependency`, `Target` |
+| `recipes.go` | `RecipeDirectives`, `Command`/`CommandPart` interfaces, `LineCommand`, `BlockCommand`, `Recipe` |
+| `values.go` | `ValuePart` interface, `LiteralValue`, `Interpolation`, `FunctionName`, `FunctionCall`, `Value` |
 
 ### Root Node
 
@@ -676,6 +780,12 @@ type SourceLocation struct {
 
 Can be created from a lexer token using `SourceLocationFromToken(tok)`.
 
+**Note on Duplicate SourceLocation**: Both `lexer.SourceLocation` and `ast.SourceLocation` exist as identical types. This duplication is intentional for layer separation:
+- `lexer.SourceLocation` is produced during lexical analysis
+- `ast.SourceLocation` is used in AST nodes during parsing
+- This keeps packages decoupled (lexer has no dependency on ast)
+- `ast.SourceLocationFromToken()` bridges the two types
+
 ### Design Decisions
 
 1. **BraceExpr remains unresolved during parsing**: In target patterns, `{name}` could be either a capture or a variable interpolation. The parser produces `BraceExpr` nodes; semantic analysis resolves them based on the symbol table.
@@ -813,7 +923,13 @@ Scopes map to expected indentation:
 
 3. **Error collection**: Parser collects multiple errors rather than failing on first error, enabling better developer experience.
 
-4. **Exported and unexported methods**: Internal methods are lowercase, with uppercase exported wrappers for CLI/testing access. This maintains encapsulation while enabling debug features.
+4. **Exported methods for public API**: Scope and state methods (`EnterScope`, `ExitScope`, `CurrentScope`, `CurrentIndentLevel`, `CurrentToken`) are exported for CLI/testing access. Since the package is `internal/`, the exported status primarily serves documentation purposes and adapter access.
+
+5. **Two-tier error handling pattern**: The parser uses two consistent error handling approaches:
+   - **Top-level parsing functions** (`ParseVariable`, `ParseTarget`, `ParseConditional`, etc.) return `*ParseError`. These are called by `ParseBuildfile()` which catches errors and performs recovery via `recoverToLevel0()`.
+   - **Value/content parsing functions** (`ParseValue`, `parseInterpolation`, `parseFunctionCall`, etc.) use `addError()` internally and return partial results (or nil). This allows continued parsing despite malformed values.
+   
+   This design enables error recovery: structural errors stop the current block and trigger recovery, while value-level errors are collected but don't halt parsing.
 
 ### Variable Parsing (`variable.go`)
 
@@ -937,7 +1053,6 @@ dependency = path_pattern | interpolation ;
 | `parseTargetPattern(isPhony bool) (*ast.TargetPattern, *ParseError)` | Parses target pattern (left of `:`) |
 | `parseBraceExpr() (*ast.BraceExpr, *ParseError)` | Parses `{name}` in patterns |
 | `parseDependencyList() ([]ast.Dependency, *ParseError)` | Parses dependencies (right of `:`) |
-| `IsTargetLine() bool` | Checks if current line is a target (`: before =`) |
 
 **Target Types:**
 
@@ -992,7 +1107,15 @@ build/{name}.o:  # IsDirectory = false (ends with .o)
 
 4. **Phony name extraction**: For phony targets (`@name`), the parser strips the `@` prefix and stores just the name in the pattern.
 
-### Recipe Parsing (`recipe.go`)
+### Recipe Parsing
+
+Recipe parsing is split across three files:
+
+| File | Description | Key Functions |
+|------|-------------|---------------|
+| `recipe.go` | Recipe structure and directives | `parseRecipe`, `parseRecipeDirective`, `parseRecipeShell/After/Autodeps/Requires` |
+| `command.go` | Command and block parsing | `parseCommandLine`, `parseBlockCommand`, `parseCommandInterpolation` |
+| `version.go` | Version spec parsing | `parseRequirementsList`, `parseRequirement`, `parseVersionSpec` |
 
 Parses recipe sections per DESIGN.md Section 3.2 grammar:
 ```

@@ -50,4 +50,7 @@ debug
 
 # Crush related files
 .crush/
-build
+/build
+
+# Tags database
+tags
