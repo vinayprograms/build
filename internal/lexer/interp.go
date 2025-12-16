@@ -127,7 +127,7 @@ func ScanInterpolation(input string, pos int, prev byte, atSOL bool) (InterpResu
 		return InterpResult{
 			Kind:  InterpError,
 			Name:  name,
-			Error: "unclosed interpolation",
+			Error: fmt.Sprintf("unclosed interpolation: {%s", name),
 		}, identEnd
 	}
 
@@ -148,7 +148,7 @@ func ScanInterpolation(input string, pos int, prev byte, atSOL bool) (InterpResu
 			return InterpResult{
 				Kind:  InterpError,
 				Name:  name,
-				Error: "unclosed interpolation",
+				Error: fmt.Sprintf("unclosed interpolation: {%s:", name),
 			}, modEnd
 		}
 
@@ -170,7 +170,7 @@ func ScanInterpolation(input string, pos int, prev byte, atSOL bool) (InterpResu
 		return InterpResult{
 			Kind:  InterpError,
 			Name:  name,
-			Error: "unclosed interpolation",
+			Error: fmt.Sprintf("unclosed interpolation: {%s", name),
 		}, identEnd
 	}
 }

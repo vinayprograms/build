@@ -353,7 +353,7 @@ func TestScanInterpolation(t *testing.T) {
 			pos:        0,
 			prev:       0,
 			atSOL:      true,
-			wantResult: InterpResult{Kind: InterpError, Name: "var", Error: "unclosed interpolation"},
+			wantResult: InterpResult{Kind: InterpError, Name: "var", Error: "unclosed interpolation: {var"},
 			wantEnd:    4,
 		},
 		{
@@ -362,7 +362,7 @@ func TestScanInterpolation(t *testing.T) {
 			pos:        0,
 			prev:       0,
 			atSOL:      true,
-			wantResult: InterpResult{Kind: InterpError, Name: "var", Error: "unclosed interpolation"},
+			wantResult: InterpResult{Kind: InterpError, Name: "var", Error: "unclosed interpolation: {var:"},
 			wantEnd:    8,
 		},
 		{

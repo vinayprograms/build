@@ -123,19 +123,55 @@ func (t TokenType) String() string {
 	return fmt.Sprintf("UNKNOWN(%d)", t)
 }
 
+// dotKeywordTypes contains all dot keyword (directive) token types.
+var dotKeywordTypes = map[TokenType]bool{
+	DOT_SHELL:       true,
+	DOT_PARALLEL:    true,
+	DOT_DEFAULT:     true,
+	DOT_INCLUDE:     true,
+	DOT_ENVIRONMENT: true,
+	DOT_USING:       true,
+	DOT_SOURCE:      true,
+	DOT_ARGS:        true,
+	DOT_REQUIRES:    true,
+	DOT_AFTER:       true,
+	DOT_AUTODEPS:    true,
+}
+
 // IsDotKeyword returns true if the token type is a dot keyword (directive).
 func (t TokenType) IsDotKeyword() bool {
-	return t >= DOT_SHELL && t <= DOT_AUTODEPS
+	return dotKeywordTypes[t]
+}
+
+// keywordTypes contains all control keyword token types.
+var keywordTypes = map[TokenType]bool{
+	LAZY:   true,
+	IF:     true,
+	ELIF:   true,
+	ELSE:   true,
+	END:    true,
+	IFDEF:  true,
+	IFNDEF: true,
+	BLOCK:  true,
 }
 
 // IsKeyword returns true if the token type is a control keyword.
 func (t TokenType) IsKeyword() bool {
-	return t >= LAZY && t <= BLOCK
+	return keywordTypes[t]
+}
+
+// functionTypes contains all built-in function token types.
+var functionTypes = map[TokenType]bool{
+	FUNC_SHELL:    true,
+	FUNC_GLOB:     true,
+	FUNC_BASENAME: true,
+	FUNC_DIRNAME:  true,
+	FUNC_REPLACE:  true,
 }
 
 // IsFunction returns true if the token type is a built-in function.
 func (t TokenType) IsFunction() bool {
-	return t >= FUNC_SHELL && t <= FUNC_REPLACE
+	return functionTypes[t]
 }
 
 var keywords = map[string]TokenType{

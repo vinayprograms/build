@@ -1187,3 +1187,132 @@ func TestLexerSetModes(t *testing.T) {
 		t.Errorf("normal mode: got %v(%q), want IDENTIFIER(\"test\")", tok.Type, tok.Literal)
 	}
 }
+
+// TestLexerPeekIsVariableLine tests the peek function for variable line detection.
+func TestLexerPeekIsVariableLine(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      string
+		isVariable bool
+	}{
+		// Variables: = appears before : (or no : at all)
+		{
+			name:       "simple variable",
+			input:      "cc = gcc",
+			isVariable: true,
+		},
+		{
+			name:       "variable with colon in value",
+			input:      "path = /usr/bin:foo",
+			isVariable: true,
+		},
+		{
+			name:       "lazy variable",
+			input:      "lazy sources = shell(find . -name *.c)",
+			isVariable: true,
+		},
+		{
+			name:       "variable no spaces",
+			input:      "x=y",
+			isVariable: true,
+		},
+		// Targets: : appears before = (or no = at all)
+		{
+			name:       "simple target no deps",
+			input:      "app:",
+			isVariable: false,
+		},
+		{
+			name:       "simple target with deps",
+			input:      "app: deps",
+			isVariable: false,
+		},
+		{
+			name:       "path target",
+			input:      "build/app: src/main.c",
+			isVariable: false,
+		},
+		{
+			name:       "target with = in dependency",
+			input:      "target: dep=value",
+			isVariable: false,
+		},
+		{
+			name:       "phony target",
+			input:      "@clean:",
+			isVariable: false,
+		},
+		// Edge cases
+		{
+			name:       "no = or :",
+			input:      "justident",
+			isVariable: false,
+		},
+		{
+			name:       "equals and colon at same position impossible - equals first",
+			input:      "a=b:c",
+			isVariable: true,
+		},
+		{
+			name:       "colon first",
+			input:      "a:b=c",
+			isVariable: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := New("test.build", tt.input)
+			got := l.PeekIsVariableLine()
+			if got != tt.isVariable {
+				t.Errorf("PeekIsVariableLine() = %v, want %v", got, tt.isVariable)
+			}
+		})
+	}
+}
+
+// TestLexerPeekIsVariableLine_NoStateChange verifies that PeekIsVariableLine
+// doesn't consume any tokens - the lexer state remains unchanged.
+func TestLexerPeekIsVariableLine_NoStateChange(t *testing.T) {
+	inputs := []string{
+		"cc = gcc",
+		"build/app: src/main.c",
+		"app: deps",
+		"path = /usr:bin",
+	}
+
+	for _, input := range inputs {
+		t.Run(input, func(t *testing.T) {
+			l := New("test.build", input)
+
+			// Record state before peek
+			posBefore := l.pos
+			lineBefore := l.line
+			colBefore := l.col
+			modeBefore := l.mode
+
+			// Call peek
+			_ = l.PeekIsVariableLine()
+
+			// Verify state unchanged
+			if l.pos != posBefore {
+				t.Errorf("pos changed: before=%d, after=%d", posBefore, l.pos)
+			}
+			if l.line != lineBefore {
+				t.Errorf("line changed: before=%d, after=%d", lineBefore, l.line)
+			}
+			if l.col != colBefore {
+				t.Errorf("col changed: before=%d, after=%d", colBefore, l.col)
+			}
+			if l.mode != modeBefore {
+				t.Errorf("mode changed: before=%d, after=%d", modeBefore, l.mode)
+			}
+
+			// Verify we can still lex normally
+			tok := l.NextToken()
+			if tok.Type == ERROR || tok.Type == EOF {
+				t.Errorf("NextToken after peek returned %v", tok.Type)
+			}
+		})
+	}
+}

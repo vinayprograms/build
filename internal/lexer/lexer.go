@@ -70,6 +70,8 @@ func (l *Lexer) SetCommandMode() {
 	l.mode = ModeCommand
 }
 
+const blockKeyword = "block"
+
 // PeekNextIsDotKeyword returns true if the next non-whitespace character starts
 // a dot keyword (like .shell, .after). This is used by the parser to decide
 // whether to use command mode or normal mode for recipe lines.
@@ -92,7 +94,45 @@ func (l *Lexer) PeekNextIsBlock() bool {
 		pos++
 	}
 	remaining := l.input[pos:]
-	return len(remaining) >= 5 && remaining[:5] == "block"
+	return len(remaining) >= len(blockKeyword) && remaining[:len(blockKeyword)] == blockKeyword
+}
+
+// PeekIsVariableLine checks if the current line is a variable definition.
+// Returns true if '=' appears before ':' (or there is no ':' at all).
+// This peeks ahead without consuming any tokens.
+func (l *Lexer) PeekIsVariableLine() bool {
+	pos := l.pos
+
+	// Skip any leading whitespace
+	for pos < len(l.input) && (l.input[pos] == ' ' || l.input[pos] == '\t') {
+		pos++
+	}
+
+	equalsPos := -1
+	colonPos := -1
+
+	// Scan until end of line
+	for pos < len(l.input) {
+		ch := l.input[pos]
+		if ch == '\n' {
+			break
+		}
+		if ch == '=' && equalsPos < 0 {
+			equalsPos = pos
+		}
+		if ch == ':' && colonPos < 0 {
+			colonPos = pos
+		}
+		pos++
+	}
+
+	// It's a variable if = appears and (no : or = comes before :)
+	if equalsPos >= 0 {
+		if colonPos < 0 || equalsPos < colonPos {
+			return true
+		}
+	}
+	return false
 }
 
 // NextToken returns the next token from the input.
@@ -131,7 +171,7 @@ func (l *Lexer) NextToken() Token {
 
 	// In interpolation mode, lex identifier, modifier, or close brace
 	if l.mode == ModeInterp {
-		return l.lexInsideInterp()
+		return l.lexInterpContent()
 	}
 
 	// In command mode, lex as command (like value but no leading space skip)
@@ -241,15 +281,7 @@ func (l *Lexer) lexLineStart() Token {
 		l.mode = ModeNormal
 		if len(indent) > 0 {
 			// Return indent token even for blank/comment lines
-			return Token{
-				Type:    INDENT,
-				Literal: indent,
-				Location: SourceLocation{
-					File:   l.file,
-					Line:   l.line,
-					Column: startCol,
-				},
-			}
+			return l.makeTokenAt(INDENT, indent, startCol)
 		}
 		// No indent, proceed to next token
 		return l.NextToken()
@@ -263,26 +295,10 @@ func (l *Lexer) lexLineStart() Token {
 		// Validate indentation
 		_, err := l.indent.Process(indent)
 		if err != nil {
-			return Token{
-				Type:    ERROR,
-				Literal: err.Error(),
-				Location: SourceLocation{
-					File:   l.file,
-					Line:   l.line,
-					Column: startCol,
-				},
-			}
+			return l.makeTokenAt(ERROR, err.Error(), startCol)
 		}
 
-		return Token{
-			Type:    INDENT,
-			Literal: indent,
-			Location: SourceLocation{
-				File:   l.file,
-				Line:   l.line,
-				Column: startCol,
-			},
-		}
+		return l.makeTokenAt(INDENT, indent, startCol)
 	}
 
 	// No indentation, continue in normal mode
@@ -304,304 +320,12 @@ func (l *Lexer) lexNewline() Token {
 // lexComment handles comment tokens.
 func (l *Lexer) lexComment() Token {
 	start := l.pos
+	startCol := l.col
 	// Consume until end of line
 	for l.pos < len(l.input) && l.input[l.pos] != '\n' {
 		l.advance()
 	}
-	return Token{
-		Type:    COMMENT,
-		Literal: l.input[start:l.pos],
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: l.col - (l.pos - start),
-		},
-	}
-}
-
-// lexValue handles value mode (after = or :).
-func (l *Lexer) lexValue() Token {
-	l.skipSpaces()
-
-	if l.pos >= len(l.input) {
-		return l.makeToken(EOF, "")
-	}
-
-	ch := l.input[l.pos]
-
-	// End of value on newline
-	if ch == '\n' {
-		l.mode = ModeNormal
-		return l.lexNewline()
-	}
-
-	// Comment ends value
-	if ch == '#' {
-		l.mode = ModeNormal
-		return l.lexComment()
-	}
-
-	// Interpolation
-	if ch == '{' {
-		result, end := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
-		switch result.Kind {
-		case InterpValid:
-			return l.lexInterpolation(result, end)
-		case InterpEscapedOpen:
-			tok := l.makeToken(ESCAPE_LBRACE, "{{")
-			l.pos = end
-			l.col += 2
-			l.prevChar = '{'
-			l.atSOL = false
-			return tok
-		case InterpError:
-			tok := Token{
-				Type:    ERROR,
-				Literal: result.Error,
-				Location: SourceLocation{
-					File:   l.file,
-					Line:   l.line,
-					Column: l.col,
-				},
-			}
-			l.pos = end
-			return tok
-		}
-		// InterpNotInterp - fall through to string
-	}
-
-	// Escaped close brace
-	if ch == '}' {
-		if esc, end := ScanEscapedCloseBrace(l.input, l.pos); esc {
-			tok := l.makeToken(ESCAPE_RBRACE, "}}")
-			l.pos = end
-			l.col += 2
-			l.prevChar = '}'
-			l.atSOL = false
-			return tok
-		}
-		// Single } might be end of interpolation
-		l.advance()
-		return l.makeToken(INTERP_END, "}")
-	}
-
-	// Close paren ends function argument
-	if ch == ')' {
-		l.advance()
-		return l.makeToken(RPAREN, ")")
-	}
-
-	// Open paren for function calls
-	if ch == '(' {
-		l.advance()
-		return l.makeToken(LPAREN, "(")
-	}
-
-	// Comma separates function arguments
-	if ch == ',' {
-		l.advance()
-		return l.makeToken(COMMA, ",")
-	}
-
-	// Check for function names (only if followed by '(' to be a function call)
-	if isIdentStart(ch) {
-		// Peek ahead to see if it's a function call
-		ident := l.peekIdentifier()
-		if tok := LookupKeyword(ident); tok.IsFunction() {
-			// Check if followed by (
-			peekPos := l.pos + len(ident)
-			// Skip whitespace
-			for peekPos < len(l.input) && l.input[peekPos] == ' ' {
-				peekPos++
-			}
-			if peekPos < len(l.input) && l.input[peekPos] == '(' {
-				return l.lexIdentifier()
-			}
-			// Not followed by (, treat as part of string
-		}
-	}
-
-	// Consume as string until special character
-	return l.lexValueString()
-}
-
-// lexCommand handles command mode (recipe lines where spaces are significant).
-// Unlike lexValue, this does not skip leading spaces.
-func (l *Lexer) lexCommand() Token {
-	if l.pos >= len(l.input) {
-		return l.makeToken(EOF, "")
-	}
-
-	ch := l.input[l.pos]
-
-	// End of command on newline
-	if ch == '\n' {
-		l.mode = ModeNormal
-		return l.lexNewline()
-	}
-
-	// Comment ends command
-	if ch == '#' {
-		l.mode = ModeNormal
-		return l.lexComment()
-	}
-
-	// Interpolation
-	if ch == '{' {
-		result, end := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
-		switch result.Kind {
-		case InterpValid:
-			return l.lexInterpolation(result, end)
-		case InterpEscapedOpen:
-			tok := l.makeToken(ESCAPE_LBRACE, "{{")
-			l.pos = end
-			l.col += 2
-			l.prevChar = '{'
-			l.atSOL = false
-			return tok
-		case InterpError:
-			tok := Token{
-				Type:    ERROR,
-				Literal: result.Error,
-				Location: SourceLocation{
-					File:   l.file,
-					Line:   l.line,
-					Column: l.col,
-				},
-			}
-			l.pos = end
-			return tok
-		}
-		// InterpNotInterp - fall through to string
-	}
-
-	// Escaped close brace
-	if ch == '}' {
-		if esc, end := ScanEscapedCloseBrace(l.input, l.pos); esc {
-			tok := l.makeToken(ESCAPE_RBRACE, "}}")
-			l.pos = end
-			l.col += 2
-			l.prevChar = '}'
-			l.atSOL = false
-			return tok
-		}
-		// Single } ends the string segment
-		l.advance()
-		return l.makeToken(INTERP_END, "}")
-	}
-
-	// Consume as string until special character (preserving spaces)
-	return l.lexCommandString()
-}
-
-// lexCommandString consumes a command string preserving all spaces.
-func (l *Lexer) lexCommandString() Token {
-	start := l.pos
-	startCol := l.col
-
-	for l.pos < len(l.input) {
-		ch := l.input[l.pos]
-
-		// Stop at special characters (but NOT spaces)
-		if ch == '\n' || ch == '#' {
-			break
-		}
-
-		// Check for interpolation start
-		if ch == '{' {
-			result, _ := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
-			if result.Kind == InterpValid || result.Kind == InterpEscapedOpen || result.Kind == InterpError {
-				break
-			}
-		}
-
-		// Check for escaped close brace
-		if ch == '}' {
-			if esc, _ := ScanEscapedCloseBrace(l.input, l.pos); esc {
-				break
-			}
-			// Single } ends the string segment
-			break
-		}
-
-		l.prevChar = ch
-		l.atSOL = false
-		l.advance()
-	}
-
-	literal := l.input[start:l.pos]
-	if len(literal) == 0 {
-		// If we didn't consume anything, advance one character
-		if l.pos < len(l.input) {
-			l.advance()
-			literal = l.input[start:l.pos]
-		}
-	}
-
-	return Token{
-		Type:    STRING,
-		Literal: literal,
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexValueString consumes a string value until a special character.
-func (l *Lexer) lexValueString() Token {
-	start := l.pos
-	startCol := l.col
-
-	for l.pos < len(l.input) {
-		ch := l.input[l.pos]
-
-		// Stop at special characters
-		if ch == '\n' || ch == '#' || ch == ')' || ch == '(' || ch == ',' {
-			break
-		}
-
-		// Check for interpolation start
-		if ch == '{' {
-			result, _ := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
-			if result.Kind == InterpValid || result.Kind == InterpEscapedOpen || result.Kind == InterpError {
-				break
-			}
-		}
-
-		// Check for escaped close brace
-		if ch == '}' {
-			if esc, _ := ScanEscapedCloseBrace(l.input, l.pos); esc {
-				break
-			}
-			// Single } ends the string segment
-			break
-		}
-
-		l.prevChar = ch
-		l.atSOL = false
-		l.advance()
-	}
-
-	literal := l.input[start:l.pos]
-	if len(literal) == 0 {
-		// If we didn't consume anything, advance one character
-		if l.pos < len(l.input) {
-			l.advance()
-			literal = l.input[start:l.pos]
-		}
-	}
-
-	return Token{
-		Type:    STRING,
-		Literal: literal,
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
+	return l.makeTokenAt(COMMENT, l.input[start:l.pos], startCol)
 }
 
 // lexBrace handles { character.
@@ -621,15 +345,7 @@ func (l *Lexer) lexBrace() Token {
 		return tok
 
 	case InterpError:
-		tok := Token{
-			Type:    ERROR,
-			Literal: result.Error,
-			Location: SourceLocation{
-				File:   l.file,
-				Line:   l.line,
-				Column: l.col,
-			},
-		}
+		tok := l.makeToken(ERROR, result.Error)
 		l.pos = end
 		return tok
 
@@ -654,8 +370,8 @@ func (l *Lexer) lexInterpolation(result InterpResult, end int) Token {
 	return startTok
 }
 
-// lexInsideInterp handles tokens inside an interpolation {}.
-func (l *Lexer) lexInsideInterp() Token {
+// lexInterpContent handles tokens inside an interpolation {}.
+func (l *Lexer) lexInterpContent() Token {
 	ch := l.input[l.pos]
 
 	// Close brace ends interpolation
@@ -686,15 +402,7 @@ func (l *Lexer) lexInsideInterp() Token {
 			l.advance()
 		}
 
-		return Token{
-			Type:    INTERP_MOD,
-			Literal: l.input[start:l.pos],
-			Location: SourceLocation{
-				File:   l.file,
-				Line:   l.line,
-				Column: startCol,
-			},
-		}
+		return l.makeTokenAt(INTERP_MOD, l.input[start:l.pos], startCol)
 	}
 
 	// Identifier
@@ -703,15 +411,7 @@ func (l *Lexer) lexInsideInterp() Token {
 	}
 
 	// Unexpected character in interpolation
-	return Token{
-		Type:    ERROR,
-		Literal: "unexpected character in interpolation",
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: l.col,
-		},
-	}
+	return l.makeToken(ERROR, "unexpected character in interpolation")
 }
 
 // lexInterpIdentifier handles identifiers inside interpolations.
@@ -729,162 +429,7 @@ func (l *Lexer) lexInterpIdentifier() Token {
 		}
 	}
 
-	return Token{
-		Type:    IDENTIFIER,
-		Literal: l.input[start:l.pos],
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexDotKeyword handles .keyword directives.
-func (l *Lexer) lexDotKeyword() Token {
-	start := l.pos
-	startCol := l.col
-
-	l.advance() // consume .
-
-	// Read the keyword part
-	for l.pos < len(l.input) && isIdentChar(l.input[l.pos]) {
-		l.advance()
-	}
-
-	keyword := l.input[start:l.pos]
-	if tok, ok := LookupDotKeyword(keyword); ok {
-		return Token{
-			Type:    tok,
-			Literal: keyword,
-			Location: SourceLocation{
-				File:   l.file,
-				Line:   l.line,
-				Column: startCol,
-			},
-		}
-	}
-
-	// Unknown dot keyword, treat as path
-	return Token{
-		Type:    PATH,
-		Literal: keyword,
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexAtIdentifier handles @name phony targets.
-func (l *Lexer) lexAtIdentifier() Token {
-	start := l.pos
-	startCol := l.col
-
-	l.advance() // consume @
-
-	// Phony target names can include hyphens (like @test-cover, @debug-lex)
-	for l.pos < len(l.input) && isPhonyChar(l.input[l.pos]) {
-		l.advance()
-	}
-
-	return Token{
-		Type:    AT_IDENTIFIER,
-		Literal: l.input[start:l.pos],
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexIdentifier handles identifiers and keywords.
-func (l *Lexer) lexIdentifier() Token {
-	start := l.pos
-	startCol := l.col
-
-	for l.pos < len(l.input) && isIdentChar(l.input[l.pos]) {
-		l.advance()
-	}
-
-	literal := l.input[start:l.pos]
-	tokType := LookupKeyword(literal)
-
-	l.prevChar = l.input[l.pos-1]
-	l.atSOL = false
-
-	return Token{
-		Type:    tokType,
-		Literal: literal,
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexPath handles file paths.
-func (l *Lexer) lexPath() Token {
-	start := l.pos
-	startCol := l.col
-
-	for l.pos < len(l.input) && isPathChar(l.input[l.pos]) {
-		ch := l.input[l.pos]
-		// Stop at interpolation boundary
-		if ch == '{' {
-			break
-		}
-		l.advance()
-	}
-
-	l.prevChar = l.input[l.pos-1]
-	l.atSOL = false
-
-	return Token{
-		Type:    PATH,
-		Literal: l.input[start:l.pos],
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
-}
-
-// lexString handles general string content.
-func (l *Lexer) lexString() Token {
-	start := l.pos
-	startCol := l.col
-
-	for l.pos < len(l.input) {
-		ch := l.input[l.pos]
-		if ch == '\n' || ch == ' ' || ch == '\t' || ch == '#' {
-			break
-		}
-		// Check for interpolation
-		if ch == '{' {
-			result, _ := ScanInterpolation(l.input, l.pos, l.prevChar, l.atSOL)
-			if result.Kind == InterpValid || result.Kind == InterpEscapedOpen {
-				break
-			}
-		}
-		l.prevChar = ch
-		l.atSOL = false
-		l.advance()
-	}
-
-	return Token{
-		Type:    STRING,
-		Literal: l.input[start:l.pos],
-		Location: SourceLocation{
-			File:   l.file,
-			Line:   l.line,
-			Column: startCol,
-		},
-	}
+	return l.makeTokenAt(IDENTIFIER, l.input[start:l.pos], startCol)
 }
 
 // Helper methods
@@ -927,6 +472,21 @@ func (l *Lexer) makeToken(typ TokenType, literal string) Token {
 	}
 }
 
+// makeTokenAt creates a token with a specific column position.
+// Use this when the token's start column differs from the current lexer position
+// (e.g., after consuming characters for the token's literal).
+func (l *Lexer) makeTokenAt(typ TokenType, literal string, col int) Token {
+	return Token{
+		Type:    typ,
+		Literal: literal,
+		Location: SourceLocation{
+			File:   l.file,
+			Line:   l.line,
+			Column: col,
+		},
+	}
+}
+
 func (l *Lexer) peekIdentifier() string {
 	start := l.pos
 	end := start
@@ -950,24 +510,4 @@ func (l *Lexer) looksLikePath() bool {
 		return ch == '/' || ch == '.'
 	}
 	return false
-}
-
-// Character classification
-
-func isIdentStart(ch byte) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
-}
-
-func isIdentChar(ch byte) bool {
-	return isIdentStart(ch) || (ch >= '0' && ch <= '9')
-}
-
-func isPathChar(ch byte) bool {
-	return isIdentChar(ch) || ch == '/' || ch == '.' || ch == '-'
-}
-
-// isPhonyChar returns true for characters valid in phony target names.
-// Phony targets can use hyphens (e.g., @test-cover, @debug-lex).
-func isPhonyChar(ch byte) bool {
-	return isIdentChar(ch) || ch == '-'
 }
