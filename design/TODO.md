@@ -213,25 +213,25 @@ Variable evaluation, function execution, and conditional logic.
   - [x] Store evaluated immediate variables
   - [x] Store unevaluated lazy variable ASTs
   - [x] Store os and arch built-in values
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement immediate variable evaluation**
   - [x] Evaluate variables in definition order
   - [x] Handle forward references (error if immediate var references later immediate var)
   - [x] Allow lazy variables to reference any other variable
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement value interpolation**
   - [x] Substitute `{var}` with evaluated value
   - [x] Handle `:raw` modifier (affects command execution, not evaluation)
   - [x] Handle missing variable with clear error
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement lazy variable on-demand evaluation**
   - [x] Detect when lazy variable is referenced
   - [x] Evaluate at point of use with current context
   - [x] Cache result? (spec unclear, decide and document)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.2 Built-in Functions
 
@@ -240,63 +240,63 @@ Variable evaluation, function execution, and conditional logic.
   - [x] Capture stdout, trim trailing newline
   - [x] Handle command failure with error message
   - [ ] Apply shell quoting for interpolated values (default) vs raw
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `glob()` function**
   - [x] Parse glob pattern
   - [x] Match files in filesystem
   - [x] Return space-separated list of matches
   - [x] Handle no matches (empty string or error?)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `basename()` function**
   - [x] Extract filename without directory
   - [x] Handle edge cases (trailing slash, no directory)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `dirname()` function**
   - [x] Extract directory part of path
   - [x] Handle edge cases (no directory, root)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `replace()` function**
   - [x] Parse three arguments (input, from, to)
   - [x] Replace all occurrences of `from` with `to`
   - [x] Handle special characters in patterns
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Write function unit tests**
   - [x] Test each function independently
   - [x] Test function composition in values
   - [x] Test error cases (shell failure, bad args)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 2.3 Conditional Evaluation
 
-- [ ] **Implement condition parsing during evaluation**
-  - [ ] Evaluate left side of comparison
-  - [ ] Compare with right side literal or evaluated value
-  - [ ] Handle `==` and `!=` operators
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement condition parsing during evaluation**
+  - [x] Evaluate left side of comparison
+  - [x] Compare with right side literal or evaluated value
+  - [x] Handle `==` and `!=` operators
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `ifdef`/`ifndef` checks**
-  - [ ] Check if variable name is in symbol table
-  - [ ] Does NOT evaluate the variable, just checks existence
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement `ifdef`/`ifndef` checks**
+  - [x] Check if variable name is in symbol table
+  - [x] Does NOT evaluate the variable, just checks existence
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement conditional branch execution**
-  - [ ] Evaluate if condition, execute body if true
-  - [ ] Otherwise try elif conditions in order
-  - [ ] Finally execute else body if no match
-  - [ ] Collect variable definitions from chosen branch
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement conditional branch execution**
+  - [x] Evaluate if condition, execute body if true
+  - [x] Otherwise try elif conditions in order
+  - [x] Finally execute else body if no match
+  - [x] Collect variable definitions from chosen branch
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write conditional tests**
-  - [ ] Test os/arch conditionals
-  - [ ] Test ifdef/ifndef
-  - [ ] Test nested conditionals
-  - [ ] Test variable definitions inside conditionals
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Write conditional tests**
+  - [x] Test os/arch conditionals
+  - [x] Test ifdef/ifndef
+  - [x] Test nested conditionals
+  - [x] Test variable definitions inside conditionals
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -306,73 +306,73 @@ Dependency resolution, staleness detection, and pattern matching.
 
 ### 3.1 Target Pattern Matching
 
-- [ ] **Implement literal target matching**
-  - [ ] Exact path comparison
-  - [ ] Handle phony targets (always match regardless of file)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement literal target matching**
+  - [x] Exact path comparison
+  - [x] Handle phony targets (always match regardless of file)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement pattern target matching**
-  - [ ] Match concrete path against pattern
-  - [ ] Extract capture values (e.g., `{name}` → `"utils"`)
-  - [ ] Handle multiple captures in single pattern
-  - [ ] Handle patterns with variable interpolations already resolved
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement pattern target matching**
+  - [x] Match concrete path against pattern
+  - [x] Extract capture values (e.g., `{name}` → `"utils"`)
+  - [x] Handle multiple captures in single pattern
+  - [x] Handle patterns with variable interpolations already resolved
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement target lookup**
-  - [ ] Given concrete path, find matching target definition
-  - [ ] Prefer exact match over pattern match
-  - [ ] Return captures if pattern match
-  - [ ] Error if no match and not a source file
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement target lookup**
+  - [x] Given concrete path, find matching target definition
+  - [x] Prefer exact match over pattern match
+  - [x] Return captures if pattern match
+  - [x] Error if no match and not a source file
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write pattern matching tests**
-  - [ ] Test single capture patterns
-  - [ ] Test multiple capture patterns
-  - [ ] Test patterns with literal path segments
-  - [ ] Test ambiguous patterns (multiple matches)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Write pattern matching tests**
+  - [x] Test single capture patterns
+  - [x] Test multiple capture patterns
+  - [x] Test patterns with literal path segments
+  - [x] Test ambiguous patterns (multiple matches)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 3.2 Dependency Resolution
 
-- [ ] **Implement dependency path resolution**
-  - [ ] For each dependency, resolve pattern with captures
-  - [ ] Expand interpolations with evaluation context
-  - [ ] Build list of concrete dependency paths
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement dependency path resolution**
+  - [x] For each dependency, resolve pattern with captures
+  - [x] Expand interpolations with evaluation context
+  - [x] Build list of concrete dependency paths
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement recursive dependency planning**
-  - [ ] For requested target, find matching definition
-  - [ ] For each dependency, recursively plan its build
+- [x] **Implement recursive dependency planning**
+  - [x] For requested target, find matching definition
+  - [x] For each dependency, recursively plan its build
   - [ ] Handle order-only dependencies (`.after:`)
-  - [ ] Detect and report cycles during planning
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Detect and report cycles during planning
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement topological sort**
-  - [ ] Sort build tasks in dependency order
-  - [ ] Tasks with no dependencies first
+- [x] **Implement topological sort**
+  - [x] Sort build tasks in dependency order
+  - [x] Tasks with no dependencies first
   - [ ] Identify independent tasks for parallelism
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 3.3 Staleness Detection
 
-- [ ] **Implement file timestamp checking**
-  - [ ] Get mtime for target and all dependencies
-  - [ ] Handle missing target (always rebuild)
-  - [ ] Handle missing dependency (error)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement file timestamp checking**
+  - [x] Get mtime for target and all dependencies
+  - [x] Handle missing target (always rebuild)
+  - [x] Handle missing dependency (error)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement rebuild decision**
-  - [ ] Phony targets always rebuild
-  - [ ] Missing targets always rebuild
-  - [ ] Rebuild if any dependency mtime > target mtime
-  - [ ] Skip if target newer than all dependencies
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement rebuild decision**
+  - [x] Phony targets always rebuild
+  - [x] Missing targets always rebuild
+  - [x] Rebuild if any dependency mtime > target mtime
+  - [x] Skip if target newer than all dependencies
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement order-only dependency handling**
-  - [ ] `.after:` dependencies must exist
-  - [ ] Their timestamps are NOT checked for staleness
-  - [ ] Only used to ensure build order
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement order-only dependency handling**
+  - [x] `.after:` dependencies must exist
+  - [x] Their timestamps are NOT checked for staleness
+  - [x] Only used to ensure build order
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement autodeps support**
   - [ ] After successful build, parse `.d` file specified by `.autodeps:`
@@ -380,19 +380,19 @@ Dependency resolution, staleness detection, and pattern matching.
   - [ ] Incorporate into staleness checking
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Build plan structure**
-  - [ ] List of BuildTask in execution order
-  - [ ] Each task has target, dependencies, recipe, and build reason
-  - [ ] Build reason explains why rebuild needed
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Build plan structure**
+  - [x] List of BuildTask in execution order
+  - [x] Each task has target, dependencies, recipe, and build reason
+  - [x] Build reason explains why rebuild needed
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write planning tests**
-  - [ ] Test simple dependency chains
-  - [ ] Test diamond dependencies
-  - [ ] Test phony targets
-  - [ ] Test order-only dependencies
-  - [ ] Test staleness detection logic
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Write planning tests**
+  - [x] Test simple dependency chains
+  - [x] Test diamond dependencies
+  - [x] Test phony targets
+  - [x] Test order-only dependencies
+  - [x] Test staleness detection logic
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -402,63 +402,63 @@ Shell invocation, variable interpolation in commands, and error handling.
 
 ### 4.1 Command Interpolation
 
-- [ ] **Implement automatic variable resolution**
-  - [ ] `{target}` / `{out}` → target path
-  - [ ] `{deps}` → space-separated dependency list
-  - [ ] `{in}` → first dependency
-  - [ ] `{stem}` → pattern capture (for pattern targets)
-  - [ ] `{target.dir}` → directory part of target
-  - [ ] `{target.file}` → filename part of target
+- [x] **Implement automatic variable resolution**
+  - [x] `{target}` / `{out}` → target path
+  - [x] `{deps}` → space-separated dependency list
+  - [x] `{in}` → first dependency
+  - [x] `{stem}` → pattern capture (for pattern targets)
+  - [x] `{target.dir}` → directory part of target
+  - [x] `{target.file}` → filename part of target
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement capture resolution**
-  - [ ] Resolve pattern captures from match (e.g., `{name}` → matched value)
+- [x] **Implement capture resolution**
+  - [x] Resolve pattern captures from match (e.g., `{name}` → matched value)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement shell quoting**
-  - [ ] Default: shell-quote interpolated values (single quotes, escape embedded quotes)
-  - [ ] With `:raw` modifier: no quoting, allows word splitting
-  - [ ] Pass through `$var` to shell unchanged
+- [x] **Implement shell quoting**
+  - [x] Default: shell-quote interpolated values (single quotes, escape embedded quotes)
+  - [x] With `:raw` modifier: no quoting, allows word splitting
+  - [x] Pass through `$var` to shell unchanged
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.2 Shell Execution
 
-- [ ] **Implement line mode execution**
-  - [ ] Each command line is separate shell invocation
-  - [ ] Use global `.shell:` or recipe `.shell:` override
-  - [ ] Execute via `shell -c "command"`
+- [x] **Implement line mode execution**
+  - [x] Each command line is separate shell invocation
+  - [x] Use global `.shell:` or recipe `.shell:` override
+  - [x] Execute via `shell -c "command"`
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement block mode execution**
-  - [ ] All lines in `block:` passed as single script
-  - [ ] Preserve internal structure (if/fi, loops, etc.)
-  - [ ] Execute via `shell -c "script"`
+- [x] **Implement block mode execution**
+  - [x] All lines in `block:` passed as single script
+  - [x] Preserve internal structure (if/fi, loops, etc.)
+  - [x] Execute via `shell -c "script"`
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement shell selection**
-  - [ ] Default: `/bin/sh`
-  - [ ] Global override: `.shell: bash`
-  - [ ] Recipe override: `.shell: zsh` (indented under target)
+- [x] **Implement shell selection**
+  - [x] Default: `/bin/sh`
+  - [x] Global override: `.shell: bash`
+  - [x] Recipe override: `.shell: zsh` (indented under target)
   - [ ] Verify shell exists before execution
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement dry-run mode**
-  - [ ] Print commands without executing
-  - [ ] Show interpolated values
+- [x] **Implement dry-run mode**
+  - [x] Print commands without executing
+  - [x] Show interpolated values
   - [ ] Prefix with "Would build: target"
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement verbose mode**
-  - [ ] Print commands before executing
+- [x] **Implement verbose mode**
+  - [x] Print commands before executing
   - [ ] Show variable evaluation results
   - [ ] Show staleness check decisions
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.3 Execution Error Handling
 
-- [ ] **Handle command failure**
-  - [ ] Check exit status of each command
-  - [ ] Stop build on first failure (default)
+- [x] **Handle command failure**
+  - [x] Check exit status of each command
+  - [x] Stop build on first failure (default)
   - [ ] Implement `--keep-going` flag to continue despite failures
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
@@ -472,12 +472,12 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] If `.requires:` binary not found, suggest installation
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write execution tests**
-  - [ ] Test line mode execution
-  - [ ] Test block mode execution
-  - [ ] Test shell selection
-  - [ ] Test dry-run output
-  - [ ] Test error handling
+- [x] **Write execution tests**
+  - [x] Test line mode execution
+  - [x] Test block mode execution
+  - [x] Test shell selection
+  - [x] Test dry-run output
+  - [x] Test error handling
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---

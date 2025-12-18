@@ -78,12 +78,22 @@ github.com/vinayprograms/build/
 │       ├── reference_test.go
 │       ├── symbols.go      # Symbol table implementation
 │       └── symbols_test.go
-│   └── eval/           # Variable evaluation
+│   ├── eval/           # Variable evaluation
+│   │   ├── doc.go         # Package documentation
+│   │   ├── command.go      # Command interpolation
+│   │   ├── command_test.go
+│   │   ├── context.go      # Evaluation context
+│   │   ├── context_test.go
+│   │   ├── evaluator.go    # Value evaluator
+│   │   └── evaluator_test.go
+│   ├── executor/       # Recipe execution
+│   │   ├── doc.go         # Package documentation
+│   │   ├── executor.go    # Shell executor
+│   │   └── executor_test.go
+│   └── planner/        # Build planning
 │       ├── doc.go         # Package documentation
-│       ├── context.go      # Evaluation context
-│       ├── context_test.go
-│       ├── evaluator.go    # Value evaluator
-│       └── evaluator_test.go
+│       ├── match.go        # Target pattern matching
+│       └── match_test.go
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -103,7 +113,9 @@ cmd/build/
 ├── interfaces.go       # Interface definitions (Lexer, Parser, Token, Scope)
 ├── lexer_adapter.go    # Lexer adapters (Token, Lexer)
 ├── parser_adapter.go   # Parser adapters (Scope, Parser, Variable, Target, etc.)
-└── semantic_adapter.go # Semantic adapters (SymbolTable, Capture, Reference, etc.)
+├── semantic_adapter.go # Semantic adapters (SymbolTable, Capture, Reference, etc.)
+├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult)
+└── planner_adapter.go  # Planner adapters (MatchResult, LookupResult)
 ```
 
 **Key Interfaces:**
@@ -128,6 +140,8 @@ cmd/build/
 | `ParseError` | Represents a parse error with location and hint |
 | `BuildfileResult` | Contains parsed statements and collected errors |
 | `BuildfileParser` | Parses complete buildfiles with error recovery |
+| `EvalContext` | Represents evaluation context with variable values |
+| `EvalResult` | Contains evaluation results and any errors |
 
 **Design Rationale:**
 
@@ -184,6 +198,8 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `--debug-include` | Dump include parsing (shows included files and statements) |
 | `--debug-ast` | Dump full AST with error recovery (shows all parsed statements and errors) |
 | `--debug-semantic` | Dump semantic analysis (shows symbol table) |
+| `--debug-eval` | Dump variable evaluation (shows evaluated variables and lazy variables) |
+| `--debug-plan` | Dump build planning / target matching (shows target patterns and matches) |
 
 ### Version Information
 
@@ -2167,6 +2183,7 @@ All debug flags have corresponding tests:
 | `TestRunDebugCond` | `--debug-cond` |
 | `TestRunDebugAST` | `--debug-ast` |
 | `TestRunDebugSemantic` | `--debug-semantic` |
+| `TestRunDebugEval` | `--debug-eval` |
 
 Each debug test includes:
 - Success case with valid buildfile
@@ -2365,13 +2382,34 @@ The evaluator evaluates AST values using the context.
 |--------|-------------|
 | `NewEvaluator(ctx)` | Creates evaluator with context |
 | `EvaluateValue(val)` | Evaluates AST Value to string |
+| `EvaluateVariables(stmts)` | Evaluates all variables in statement list |
+| `EvaluateCondition(cond)` | Evaluates a condition (==, !=, ifdef, ifndef) |
+| `EvaluateConditional(cond)` | Evaluates a conditional block and its body |
 
 #### Value Evaluation
 
 Values are evaluated by processing each part:
 - `LiteralValue`: Appended directly
 - `Interpolation`: Variable resolved from context
-- `FunctionCall`: Function executed (TODO)
+- `FunctionCall`: Function executed
+
+#### Conditional Evaluation
+
+Conditionals are evaluated by:
+1. Evaluating the if branch condition
+2. If true, execute the if body statements
+3. Otherwise, try each elif branch in order
+4. If no match, execute the else body (if present)
+
+### Built-in Functions
+
+| Function | Description |
+|----------|-------------|
+| `shell(cmd)` | Executes shell command, returns stdout |
+| `glob(pattern)` | Returns space-separated list of matching files |
+| `basename(path)` | Extracts filename from path |
+| `dirname(path)` | Extracts directory from path |
+| `replace(str, from, to)` | Replaces all occurrences of from with to |
 
 ### Error Types
 
@@ -2410,3 +2448,589 @@ Values are evaluated by processing each part:
 | `TestEvaluateValue_EmptyValue` | Empty value returns empty string |
 | `TestEvaluateValue_RawModifier` | Raw modifier handling |
 | `TestUndefinedVariableError_Error` | Error message format |
+
+#### Conditional Tests (`conditional_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestEvaluateCondition_Equals_True` | Equals condition that evaluates to true |
+| `TestEvaluateCondition_Equals_False` | Equals condition that evaluates to false |
+| `TestEvaluateCondition_NotEquals_True` | Not-equals condition that evaluates to true |
+| `TestEvaluateCondition_NotEquals_False` | Not-equals condition that evaluates to false |
+| `TestEvaluateCondition_Defined_True` | Ifdef condition for defined variable |
+| `TestEvaluateCondition_Defined_False` | Ifdef condition for undefined variable |
+| `TestEvaluateCondition_NotDefined_True` | Ifndef condition for undefined variable |
+| `TestEvaluateCondition_NotDefined_False` | Ifndef condition for defined variable |
+| `TestEvaluateCondition_BuiltinDefined` | Built-in variables are always defined |
+| `TestEvaluateConditional_IfTrue` | If branch executes when condition true |
+| `TestEvaluateConditional_IfFalse_NoElse` | No action when condition false and no else |
+| `TestEvaluateConditional_ElifBranch` | Elif branch executes when matched |
+| `TestEvaluateConditional_ElseBranch` | Else branch executes as fallback |
+| `TestEvaluateConditional_Ifdef` | Ifdef conditional execution |
+| `TestEvaluateConditional_Ifndef` | Ifndef conditional execution |
+| `TestEvaluateConditional_NestedConditionals` | Nested conditional evaluation |
+
+#### Variables Tests (`variables_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestEvaluateVariables_EmptyStatements` | Empty statement list |
+| `TestEvaluateVariables_SimpleVariable` | Simple immediate variable |
+| `TestEvaluateVariables_MultipleVariables` | Multiple variables in order |
+| `TestEvaluateVariables_VariableReference` | Variable referencing another |
+| `TestEvaluateVariables_ForwardReferenceError` | Forward reference causes error |
+| `TestEvaluateVariables_LazyVariable` | Lazy variable stored for later |
+| `TestEvaluateVariables_BuiltinReference` | Built-in variable access |
+| `TestEvaluateVariables_SkipsNonVariables` | Non-variable statements skipped |
+| `TestEvaluateVariables_ChainedReferences` | Chained variable references |
+| `TestEvaluateVariables_LazyVariableOnDemand` | Lazy variable evaluated on demand |
+| `TestEvaluateVariables_LazyVariableWithInterpolation` | Lazy variable with interpolation |
+| `TestEvaluateVariables_LazyVariableReferencesLater` | Lazy can reference later variables |
+| `TestEvaluateVariables_LazyVariableCaching` | Lazy variable result is cached |
+| `TestEvaluateVariables_WithConditional` | Conditional in statement list |
+
+#### Functions Tests (`functions_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestFuncBasename_Simple` | Basic basename extraction |
+| `TestFuncBasename_TrailingSlash` | Basename with trailing slash |
+| `TestFuncDirname_Simple` | Basic dirname extraction |
+| `TestFuncDirname_RootPath` | Dirname of root path |
+| `TestFuncReplace_Simple` | Basic string replacement |
+| `TestFuncReplace_Multiple` | Multiple occurrence replacement |
+| `TestFuncReplace_NoMatch` | No match returns input unchanged |
+| `TestFuncGlob_CurrentDir` | Glob in current directory |
+| `TestFuncGlob_NoMatches` | Glob with no matches |
+| `TestFuncShell_Echo` | Shell echo command |
+| `TestFuncShell_TrimNewline` | Trailing newline trimmed |
+| `TestFuncShell_WithInterpolation` | Shell with variable interpolation |
+| `TestFuncShell_FailingCommand` | Shell command failure error |
+| `TestFuncComposition_DirnameBasename` | Nested function calls |
+| `TestFuncComposition_ReplaceInGlob` | Function composition |
+| `TestFuncError_UndefinedInArg` | Undefined variable in function arg |
+| `TestFuncShell_MultilineOutput` | Shell with multiline output |
+
+## Planner Package (`internal/planner`)
+
+The planner package provides build planning for Buildfiles. It handles target pattern matching, dependency resolution, and build task ordering.
+
+### Target Pattern Matching (`match.go`)
+
+Implements target pattern matching for both literal and pattern targets.
+
+#### MatchTarget Function
+
+```go
+func MatchTarget(pattern *ast.TargetPattern, path string) (bool, map[string]string)
+```
+
+Matches a concrete path against a target pattern. Returns whether the pattern matches and a map of capture values.
+
+**Matching rules:**
+- Literal segments must match exactly
+- Captures (`{name}`) match any sequence of characters (including slashes)
+- Duplicate capture names must have the same value
+- Phony targets must be matched with `@` prefix in path
+- Directory targets can match with or without trailing slash
+
+#### LookupTarget Function
+
+```go
+func LookupTarget(path string, targets []*ast.Target) (*ast.Target, map[string]string, error)
+```
+
+Finds a target definition that matches the given path.
+
+**Lookup order:**
+1. Exact literal matches are preferred over pattern matches
+2. Among patterns, first match in definition order wins
+
+Returns the matching target, capture values, and any error.
+
+### Error Types
+
+| Type | Description |
+|------|-------------|
+| `TargetNotFoundError` | No rule matches the requested target path |
+
+### Design Decisions
+
+1. **Capture greedy matching**: When multiple captures are adjacent (e.g., `{a}{b}`), the first capture is greedy and takes as much as possible while still allowing the rest to match.
+
+2. **Shortest match for literals**: When a capture is followed by a literal, the matcher finds the first position where the literal appears, preferring shorter captures.
+
+3. **Duplicate capture consistency**: If the same capture name appears multiple times in a pattern (e.g., `{name}/{name}.o`), all occurrences must capture the same value.
+
+4. **Directory target flexibility**: Directory targets (`build/`) match both `build/` and `build` for convenience.
+
+5. **Phony target prefix**: Phony targets require the `@` prefix in the path for lookup (e.g., `@all` to match `@all` target).
+
+6. **Exact match preference**: When both a literal target and a pattern target could match, the literal target is preferred. This allows overriding pattern rules for specific files.
+
+### Planner Unit Tests (`match_test.go`)
+
+#### Literal Target Matching Tests
+
+| Test | Description |
+|------|-------------|
+| `TestMatchLiteral_ExactMatch` | Exact literal path matching |
+| `TestMatchLiteral_NoMatch` | Different path doesn't match |
+| `TestMatchLiteral_PartialNoMatch` | Partial matches don't count |
+| `TestMatchLiteral_PhonyTarget` | Phony target with @ prefix |
+| `TestMatchLiteral_PhonyTargetNoMatch` | Phony without prefix fails |
+| `TestMatchLiteral_DirectoryTarget` | Directory with trailing slash |
+| `TestMatchLiteral_DirectoryTargetNoTrailingSlash` | Directory without slash |
+| `TestMatchLiteral_EmptyPath` | Empty path handling |
+| `TestMatchLiteral_CaseSensitive` | Case-sensitive comparison |
+
+#### Pattern Target Matching Tests
+
+| Test | Description |
+|------|-------------|
+| `TestMatchPattern_SingleCapture` | Single `{name}` capture |
+| `TestMatchPattern_MultipleCaptures` | Multiple captures in pattern |
+| `TestMatchPattern_CaptureAtStart` | Capture at pattern start |
+| `TestMatchPattern_CaptureAtEnd` | Capture at pattern end |
+| `TestMatchPattern_OnlyCapture` | Pattern is just a capture |
+| `TestMatchPattern_NoMatchWrongSuffix` | Wrong suffix doesn't match |
+| `TestMatchPattern_NoMatchWrongPrefix` | Wrong prefix doesn't match |
+| `TestMatchPattern_EmptyCapture` | Empty capture value allowed |
+| `TestMatchPattern_CaptureWithSlash` | Captures can contain slashes |
+| `TestMatchPattern_DuplicateCaptureName` | Same capture name must match |
+| `TestMatchPattern_PhonyCaptureNotAllowed` | Phony patterns work |
+| `TestMatchPattern_AdjacentCaptures` | Adjacent captures (greedy) |
+
+#### Target Lookup Tests
+
+| Test | Description |
+|------|-------------|
+| `TestLookupTarget_ExactMatch` | Find exact literal match |
+| `TestLookupTarget_PatternMatch` | Find pattern match |
+| `TestLookupTarget_ExactMatchPreferred` | Exact beats pattern |
+| `TestLookupTarget_NotFound` | Error for unmatched path |
+| `TestLookupTarget_PhonyTarget` | Lookup phony target |
+| `TestLookupTarget_DirectoryTarget` | Lookup directory target |
+| `TestLookupTarget_MultiplePatternMatches` | First pattern wins |
+| `TestLookupTarget_EmptyTargetList` | Error for empty list |
+
+### CLI Integration
+
+The planner adds a new debug flag:
+
+| Flag | Description |
+|------|-------------|
+| `--debug-plan` | Dump build planning / target matching (for development) |
+
+The debug output shows:
+- All defined targets with their types (literal, pattern, phony, directory)
+- Pattern matching test results for sample paths
+- Target lookup examples based on defined patterns
+- Dependency resolution for each target
+
+### Dependency Resolution (`resolve.go`)
+
+Implements dependency path resolution for converting pattern-based dependencies to concrete file paths.
+
+#### ResolveDependency Function
+
+```go
+func ResolveDependency(dep ast.Dependency, captures map[string]string, ctx *eval.Context) (string, error)
+```
+
+Resolves a single dependency pattern to a concrete path.
+
+**Resolution order for `{name}` in dependency patterns:**
+1. If name is in captures (from pattern matching), use capture value
+2. If name is defined in context (user variable or built-in), use variable value
+3. Otherwise, return error for undefined variable
+
+#### ResolveDependencies Function
+
+```go
+func ResolveDependencies(deps []ast.Dependency, captures map[string]string, ctx *eval.Context) ([]string, error)
+```
+
+Resolves multiple dependencies to concrete paths. Processes each dependency in order and returns a slice of resolved paths.
+
+#### Error Types
+
+| Type | Description |
+|------|-------------|
+| `UndefinedVariableError` | Variable in dependency pattern cannot be resolved |
+
+#### Design Decisions
+
+1. **Capture precedence**: When a name exists both as a capture and a variable, the capture takes precedence. This ensures pattern matching works correctly.
+
+2. **Built-in support**: Built-in variables like `os` and `arch` are resolved from the evaluation context.
+
+3. **Error early**: Resolution fails immediately on undefined variables rather than continuing with partial results.
+
+### Build Planning (`plan.go`)
+
+Implements the core build planning logic including recursive dependency planning and topological sorting.
+
+#### BuildReason Enumeration
+
+```go
+type BuildReason int
+
+const (
+    BuildReasonTargetMissing    BuildReason = iota  // Target file doesn't exist
+    BuildReasonDependencyNewer                       // A dependency is newer than target
+    BuildReasonPhonyTarget                           // Phony targets always rebuild
+    BuildReasonForcedRebuild                         // Explicit rebuild requested
+)
+```
+
+#### BuildTask Structure
+
+```go
+type BuildTask struct {
+    Target        string            // Path to be built (@ prefix for phony)
+    Dependencies  []string          // Resolved dependency paths
+    OrderOnlyDeps []string          // Order-only dependencies (from .after:)
+    Recipe        *ast.Recipe       // Recipe to execute (may be nil)
+    Reason        BuildReason       // Why this target needs rebuilding
+    Captures      map[string]string // Pattern capture values
+    TargetDef     *ast.Target       // AST target definition
+}
+```
+
+**OrderOnlyDeps**: These are dependencies specified via `.after:` directives. They:
+- Must exist or be buildable before this target runs
+- Do NOT affect staleness checking (their timestamps are ignored)
+- Are used purely for build ordering (e.g., creating directories before files)
+
+#### BuildPlan Structure
+
+```go
+type BuildPlan struct {
+    Tasks []BuildTask  // Topologically sorted list of tasks
+}
+```
+
+#### FileSystem Interface
+
+```go
+type FileSystem interface {
+    Exists(path string) bool
+    ModTime(path string) (time.Time, error)
+}
+```
+
+Abstracts file system operations for testability and platform independence.
+
+#### PlanBuild Function
+
+```go
+func PlanBuild(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem) (*BuildPlan, error)
+```
+
+Creates a build plan for the requested target.
+
+**Planning steps:**
+1. **Target lookup**: Find matching target definition (exact or pattern)
+2. **Dependency resolution**: Convert patterns to concrete paths
+3. **Recursive planning**: Plan all dependencies first (DFS)
+4. **Staleness detection**: Determine if rebuild is needed
+5. **Topological ordering**: Tasks ordered so dependencies come first
+
+#### Error Types
+
+| Type | Description |
+|------|-------------|
+| `CircularDependencyError` | Circular dependency detected in target graph |
+| `MissingSourceError` | Source file doesn't exist and has no build rule |
+
+#### Staleness Detection Rules
+
+| Condition | Rebuild? | Reason |
+|-----------|----------|--------|
+| Target is phony | Yes | `BuildReasonPhonyTarget` |
+| Target file doesn't exist | Yes | `BuildReasonTargetMissing` |
+| Any dependency newer than target | Yes | `BuildReasonDependencyNewer` |
+| All dependencies older than target | No | Up to date |
+| Dependency was rebuilt this plan | Yes | `BuildReasonDependencyNewer` |
+
+#### Design Decisions
+
+1. **DFS-based planning**: Uses depth-first search to plan dependencies before their dependents, naturally producing topological order.
+
+2. **Cycle detection with stack**: Maintains a recursion stack to detect cycles during the DFS traversal. Returns `CircularDependencyError` with cycle path.
+
+3. **Source file detection**: If a dependency has no build rule and doesn't exist on the filesystem, returns `MissingSourceError`.
+
+4. **Phony targets always rebuild**: Phony targets (prefixed with `@`) are always included in the plan regardless of filesystem state.
+
+5. **Transitive rebuilds**: If a dependency is rebuilt, its dependents are also marked for rebuild even if their files are newer.
+
+### Planner Unit Tests
+
+#### Dependency Resolution Tests (`resolve_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestResolveDependency_LiteralOnly` | Literal dependencies resolve directly |
+| `TestResolveDependency_VariableInterpolation` | Variables are substituted |
+| `TestResolveDependency_CaptureSubstitution` | Captures are substituted |
+| `TestResolveDependency_MixedInterpolationAndCapture` | Mixed captures and variables |
+| `TestResolveDependency_BuiltinVariable` | Built-in variables work |
+| `TestResolveDependency_UndefinedVariable` | Undefined variables cause error |
+| `TestResolveDependency_CapturePreferredOverVariable` | Capture takes precedence |
+| `TestResolveDependency_MultipleCaptures` | Multiple captures work |
+| `TestResolveDependency_EmptyCapture` | Empty capture values work |
+| `TestResolveDependencies_MultipleDeps` | Multiple dependencies resolved |
+| `TestResolveDependencies_WithCaptures` | Multiple with captures |
+| `TestResolveDependencies_Empty` | Empty dependency list |
+| `TestResolveDependencies_ErrorPropagation` | Errors propagate correctly |
+
+#### Build Planning Tests (`plan_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestBuildReason_String` | Reason string representations |
+| `TestBuildTask_Structure` | Task structure verification |
+| `TestBuildPlan_Empty` | Empty plan handling |
+| `TestBuildPlan_AddTask` | Adding tasks to plan |
+| `TestPlanBuild_SingleTarget_NoDeps` | Single target without dependencies |
+| `TestPlanBuild_SingleTarget_WithDeps` | Single target with source dependencies |
+| `TestPlanBuild_ChainedDependencies` | A→B→C dependency chain |
+| `TestPlanBuild_DiamondDependency` | A→B,C, B→D, C→D diamond |
+| `TestPlanBuild_PatternTarget` | Pattern target with captures |
+| `TestPlanBuild_PhonyTarget` | Phony target always rebuilds |
+| `TestPlanBuild_TargetUpToDate` | Up-to-date target skipped |
+| `TestPlanBuild_DependencyNewer` | Newer dependency triggers rebuild |
+| `TestPlanBuild_TargetNotFound` | Error for unknown target |
+| `TestPlanBuild_CircularDependency` | Circular dependency detected |
+| `TestPlanBuild_SourceFileMissing` | Missing source file error |
+| `TestPlanBuild_NoRecipe` | Target without recipe handled |
+| `TestPlanBuild_OrderOnlyDeps_BuildOrder` | Order-only deps affect build order |
+| `TestPlanBuild_OrderOnlyDeps_NotForStaleness` | Order-only deps don't trigger rebuild |
+| `TestPlanBuild_OrderOnlyDeps_MustExist` | Order-only deps must exist or have build rule |
+| `TestPlanBuild_OrderOnlyDeps_InTask` | Order-only deps tracked in BuildTask |
+| `TestCircularDependencyError_Error` | Error message format |
+
+### Command Interpolation (`command.go`)
+
+Implements command interpolation for recipe execution, resolving automatic variables, captures, and user variables with optional shell quoting.
+
+#### CommandContext Structure
+
+```go
+type CommandContext struct {
+    parent    *Context
+    automatic map[string]string
+    captures  map[string]string
+}
+```
+
+Extends the evaluation context with:
+- **Automatic variables**: `target`, `out`, `deps`, `in`, `stem`, `target.dir`, `target.file`
+- **Captures**: Pattern match values from target pattern matching
+- **Parent context**: Inherits user-defined and built-in variables
+
+#### Automatic Variables
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `target` | Target path being built | `build/app` |
+| `out` | Alias for target | `build/app` |
+| `deps` | Space-separated dependency list | `main.c utils.c` |
+| `in` | First dependency | `main.c` |
+| `stem` | Pattern match stem (set via SetStem) | `utils` |
+| `target.dir` | Directory part of target | `build` |
+| `target.file` | Filename part of target | `app` |
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewCommandContext(parent, target, deps)` | Creates context with automatic vars set |
+| `SetStem(stem)` | Sets the stem automatic variable |
+| `SetCaptures(captures)` | Sets capture variables from pattern matching |
+| `Get(name)` | Gets variable (automatic → captures → parent) |
+| `InterpolateCommand(cmd, ctx)` | Interpolates a line command |
+| `InterpolateBlockCommand(block, ctx)` | Interpolates a block command |
+| `ShellQuote(s)` | Quotes string for shell (single quotes) |
+
+#### Variable Resolution Priority
+
+1. Automatic variables (`target`, `deps`, etc.)
+2. Captures (from pattern matching)
+3. Parent context (user variables, lazy variables, built-ins)
+
+#### Shell Quoting
+
+By default, interpolated values are shell-quoted using single quotes:
+
+```
+{target} → 'build/app'
+{deps}   → 'main.c utils.c'
+```
+
+The `:raw` modifier disables quoting:
+
+```
+{FLAGS:raw} → -Wall -O2  (no quotes, allows word splitting)
+```
+
+**Quoting rules:**
+- Simple strings: `'string'`
+- Strings with single quotes: `'it'"'"'s'` (end quote, double-quoted quote, start quote)
+- Empty strings: `''`
+
+#### Design Decisions
+
+1. **Automatic variable precedence**: Automatic variables take precedence over captures and user variables. This ensures recipe authors can always rely on `{target}` and `{deps}`.
+
+2. **Single quote quoting**: Single quotes are used because they prevent all shell expansion except for the quote itself. This is safer than double quotes.
+
+3. **Raw modifier for flags**: The `:raw` modifier allows flags and options to be expanded without quoting, enabling word splitting for arguments like `-Wall -O2`.
+
+4. **Context inheritance**: CommandContext wraps the parent Context rather than copying, ensuring lazy variable evaluation works correctly.
+
+5. **Directory target handling**: For directory targets (ending with `/`), `target.dir` is the directory path and `target.file` is empty.
+
+### Command Interpolation Unit Tests (`command_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewCommandContext` | Context creation with automatic vars |
+| `TestCommandContext_NoDependencies` | Empty deps/in for no-dependency targets |
+| `TestCommandContext_WithStem` | Stem variable setting |
+| `TestCommandContext_WithCaptures` | Capture variable setting |
+| `TestCommandContext_DirectoryTarget` | Directory target handling |
+| `TestCommandContext_RootTarget` | Root-level target handling |
+| `TestCommandContext_InheritsVariables` | Parent variable inheritance |
+| `TestInterpolateCommand_LiteralOnly` | Literal-only commands |
+| `TestInterpolateCommand_AutomaticVariables` | Automatic variable substitution |
+| `TestInterpolateCommand_RawModifier` | Raw modifier (no quoting) |
+| `TestInterpolateCommand_CaptureVariables` | Capture variable substitution |
+| `TestInterpolateCommand_StemVariable` | Stem variable substitution |
+| `TestInterpolateCommand_UserVariables` | User variable substitution |
+| `TestInterpolateCommand_UndefinedVariable` | Error for undefined variables |
+| `TestInterpolateCommand_BuiltinVariables` | Built-in variable access |
+| `TestInterpolateCommand_TargetDirAndFile` | target.dir and target.file |
+| `TestShellQuote_Simple` | Simple string quoting |
+| `TestShellQuote_SpecialCharacters` | Special characters (spaces, $, *, etc.) |
+| `TestInterpolateBlockCommand` | Block command interpolation |
+
+## Executor Package (`internal/executor`)
+
+The executor package provides recipe execution for Buildfiles, handling shell invocation and command orchestration.
+
+### Shell Configuration (`executor.go`)
+
+```go
+type ShellConfig struct {
+    Shell   string // Path to shell (default: /bin/sh)
+    DryRun  bool   // If true, print commands without executing
+    Verbose bool   // If true, print commands before executing
+}
+```
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewShellConfig()` | Creates config with `/bin/sh` default |
+| `SetShell(shell)` | Sets the shell path |
+| `WithOverride(shell)` | Returns new config with overridden shell |
+
+### Executor Structure
+
+```go
+type Executor struct {
+    config *ShellConfig
+    output io.Writer
+}
+```
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewExecutor(config)` | Creates executor with given config |
+| `SetOutput(w)` | Sets output writer for dry-run/verbose |
+| `ExecuteLine(cmdLine)` | Executes single command line |
+| `ExecuteBlock(script)` | Executes multi-line script block |
+| `ExecuteRecipe(recipe, ctx)` | Executes all commands in a recipe |
+
+### Execution Modes
+
+| Mode | Description |
+|------|-------------|
+| **Line Mode** | Each command line is a separate shell invocation via `shell -c "command"` |
+| **Block Mode** | All lines passed as single script to `shell -c "script"` |
+| **Dry Run** | Print commands without executing, always return success |
+| **Verbose** | Print commands before executing, then execute |
+
+### ExecResult Structure
+
+```go
+type ExecResult struct {
+    Command  string // The command that was executed
+    Stdout   string // Standard output
+    Stderr   string // Standard error
+    ExitCode int    // Exit code (0 = success)
+}
+```
+
+### Recipe Execution Flow
+
+1. Determine shell (recipe `.shell:` overrides global)
+2. For each command in recipe:
+   - **LineCommand**: Interpolate with CommandContext, execute as single line
+   - **BlockCommand**: Interpolate all lines, execute as single script
+3. Stop on first command failure (return all results so far)
+
+### Error Types
+
+```go
+type CommandError struct {
+    Command  string
+    ExitCode int
+    Stderr   string
+}
+```
+
+Error format: `command failed with exit code N: command\nstderr...`
+
+### Design Decisions
+
+1. **Separate invocations for line mode**: Each line command runs in its own shell, so variable assignments don't persist between lines. This matches Make behavior.
+
+2. **Single invocation for block mode**: Block commands preserve shell state (variables, if/fi, loops) by running as a single script.
+
+3. **Recipe shell override**: The recipe's `.shell:` directive creates a new Executor with the overridden shell, leaving the global config unchanged.
+
+4. **Stdout/stderr capture**: Both streams are captured separately, allowing error messages to be extracted from stderr.
+
+5. **Exit code extraction**: Uses `syscall.WaitStatus` to get the exact exit code for error reporting.
+
+### Executor Unit Tests (`executor_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewShellConfig_Default` | Default shell is /bin/sh |
+| `TestShellConfig_FromGlobalDirective` | SetShell changes shell |
+| `TestShellConfig_FromRecipeOverride` | WithOverride creates new config |
+| `TestExecuteLine_Simple` | Simple command execution |
+| `TestExecuteLine_WithVariables` | Shell variable expansion |
+| `TestExecuteLine_Failure` | Command failure handling |
+| `TestExecuteLine_Stderr` | Stderr capture |
+| `TestExecuteLine_BashSpecific` | Bash-specific syntax |
+| `TestExecuteBlock_Simple` | Multi-line script |
+| `TestExecuteBlock_WithIfStatement` | If/then/else preserved |
+| `TestExecuteBlock_WithLoop` | For loop preserved |
+| `TestExecuteBlock_FailsOnError` | Stops on error |
+| `TestExecuteRecipe_SingleLineCommand` | Single command execution |
+| `TestExecuteRecipe_MultipleLineCommands` | Multiple commands |
+| `TestExecuteRecipe_BlockCommand` | Block command execution |
+| `TestExecuteRecipe_StopsOnFirstError` | Stops on failure |
+| `TestExecuteRecipe_ShellOverride` | Recipe .shell override |
+| `TestDryRun_PrintsCommands` | Dry-run prints only |
+| `TestDryRun_DoesNotExecute` | Dry-run doesn't execute |
+| `TestVerbose_PrintsCommand` | Verbose shows command |
