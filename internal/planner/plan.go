@@ -42,6 +42,10 @@ type BuildTask struct {
 	// Dependencies are the resolved paths of dependencies
 	Dependencies []string
 
+	// AutodepsDeps are additional dependencies from .autodeps file
+	// These are learned from previous builds (e.g., header files)
+	AutodepsDeps []string
+
 	// OrderOnlyDeps are order-only dependencies (from .after: directives)
 	// These must exist/be built before this target but don't affect staleness
 	OrderOnlyDeps []string
@@ -57,6 +61,9 @@ type BuildTask struct {
 
 	// TargetDef is the AST target definition
 	TargetDef *ast.Target
+
+	// AutodepsPath is the .autodeps file path to update after build
+	AutodepsPath string
 }
 
 // BuildPlan contains a topologically sorted list of build tasks.
@@ -163,6 +170,12 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 		return err
 	}
 
+	// Resolve autodeps (learned dependencies from previous builds)
+	autodepsDeps, autodepsPath, err := p.resolveAutodeps(target, captures)
+	if err != nil {
+		return err
+	}
+
 	// Recursively plan normal dependencies
 	for _, depPath := range depPaths {
 		if err := p.planTarget(depPath); err != nil {
@@ -191,8 +204,8 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 		}
 	}
 
-	// Check if rebuild is needed (only based on normal deps, not order-only)
-	reason, needsRebuild := p.needsRebuild(targetPath, target, depPaths)
+	// Check if rebuild is needed (based on normal deps and autodeps, not order-only)
+	reason, needsRebuild := p.needsRebuild(targetPath, target, depPaths, autodepsDeps)
 
 	// Mark as visited
 	p.visited[targetPath] = true
@@ -202,11 +215,13 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 		task := BuildTask{
 			Target:        targetPath,
 			Dependencies:  depPaths,
+			AutodepsDeps:  autodepsDeps,
 			OrderOnlyDeps: orderOnlyPaths,
 			Recipe:        target.Recipe,
 			Reason:        reason,
 			Captures:      captures,
 			TargetDef:     target,
+			AutodepsPath:  autodepsPath,
 		}
 		p.tasks = append(p.tasks, task)
 		p.taskIndex[targetPath] = len(p.tasks) - 1
@@ -233,6 +248,29 @@ func (p *buildPlanner) resolveOrderOnlyDeps(target *ast.Target, captures map[str
 	}
 
 	return orderOnlyPaths, nil
+}
+
+// resolveAutodeps resolves autodeps (learned dependencies from .autodeps file).
+// Returns the list of learned dependencies and the autodeps file path.
+func (p *buildPlanner) resolveAutodeps(target *ast.Target, captures map[string]string) ([]string, string, error) {
+	if target.Recipe == nil || target.Recipe.Directives.Autodeps == nil {
+		return nil, "", nil
+	}
+
+	// Evaluate the .autodeps: value to get the path
+	evaluator := newValueEvaluator(p.ctx, captures)
+	autodepsPath, err := evaluator.evaluate(target.Recipe.Directives.Autodeps)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Parse the .d file to get learned dependencies
+	deps, err := ParseAutodepsFile(autodepsPath)
+	if err != nil {
+		return nil, autodepsPath, err
+	}
+
+	return deps, autodepsPath, nil
 }
 
 // valueEvaluator evaluates AST values to strings.
@@ -285,7 +323,7 @@ func (p *buildPlanner) normalizePath(path string) string {
 }
 
 // needsRebuild determines if a target needs rebuilding.
-func (p *buildPlanner) needsRebuild(targetPath string, target *ast.Target, depPaths []string) (BuildReason, bool) {
+func (p *buildPlanner) needsRebuild(targetPath string, target *ast.Target, depPaths []string, autodepsDeps []string) (BuildReason, bool) {
 	// Phony targets always need rebuilding
 	if target.Pattern.IsPhony {
 		return BuildReasonPhonyTarget, true
@@ -304,6 +342,7 @@ func (p *buildPlanner) needsRebuild(targetPath string, target *ast.Target, depPa
 		return BuildReasonTargetMissing, true
 	}
 
+	// Check declared dependencies
 	for _, depPath := range depPaths {
 		depFsPath := p.normalizePath(depPath)
 
@@ -314,6 +353,19 @@ func (p *buildPlanner) needsRebuild(targetPath string, target *ast.Target, depPa
 
 		if p.fs.Exists(depFsPath) {
 			depMtime, err := p.fs.ModTime(depFsPath)
+			if err != nil {
+				continue
+			}
+			if depMtime.After(targetMtime) {
+				return BuildReasonDependencyNewer, true
+			}
+		}
+	}
+
+	// Check autodeps (learned dependencies from previous builds)
+	for _, depPath := range autodepsDeps {
+		if p.fs.Exists(depPath) {
+			depMtime, err := p.fs.ModTime(depPath)
 			if err != nil {
 				continue
 			}

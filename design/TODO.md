@@ -374,10 +374,10 @@ Dependency resolution, staleness detection, and pattern matching.
   - [x] Only used to ensure build order
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement autodeps support**
-  - [ ] After successful build, parse `.d` file specified by `.autodeps:`
-  - [ ] Store learned dependencies for future builds
-  - [ ] Incorporate into staleness checking
+- [x] **Implement autodeps support**
+  - [x] After successful build, parse `.d` file specified by `.autodeps:`
+  - [x] Store learned dependencies for future builds
+  - [x] Incorporate into staleness checking
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Build plan structure**
