@@ -462,9 +462,9 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [ ] Implement `--keep-going` flag to continue despite failures
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Handle missing dependencies**
-  - [ ] If dependency can't be built and doesn't exist, error
-  - [ ] Clear error message with dependency path
+- [x] **Handle missing dependencies**
+  - [x] If dependency can't be built and doesn't exist, error
+  - [x] Clear error message with dependency path
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Handle missing binaries**
@@ -488,34 +488,34 @@ Concurrent task execution respecting dependencies.
 
 ### 5.1 Parallel Scheduler
 
-- [ ] **Implement task queue**
-  - [ ] Tasks ready when all dependencies complete
-  - [ ] Track in-progress and completed tasks
-  - [ ] Handle task completion events
+- [x] **Implement task queue**
+  - [x] Tasks ready when all dependencies complete
+  - [x] Track in-progress and completed tasks
+  - [x] Handle task completion events
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement worker pool**
-  - [ ] Spawn N workers based on `.parallel:` or `-j` flag
-  - [ ] Workers pull tasks from ready queue
-  - [ ] Workers report completion or failure
+- [x] **Implement worker pool**
+  - [x] Spawn N workers based on `.parallel:` or `-j` flag
+  - [x] Workers pull tasks from ready queue
+  - [x] Workers report completion or failure
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement dependency-aware scheduling**
-  - [ ] Only schedule task when all dependencies satisfied
-  - [ ] Update ready queue when task completes
-  - [ ] Handle parallel diamond dependencies correctly
+- [x] **Implement dependency-aware scheduling**
+  - [x] Only schedule task when all dependencies satisfied
+  - [x] Update ready queue when task completes
+  - [x] Handle parallel diamond dependencies correctly
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement cancellation on failure**
-  - [ ] On task failure, stop scheduling new tasks
-  - [ ] Wait for in-progress tasks to complete
-  - [ ] Report all failures
+- [x] **Implement cancellation on failure**
+  - [x] On task failure, stop scheduling new tasks
+  - [x] Wait for in-progress tasks to complete
+  - [x] Report all failures
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write parallel execution tests**
-  - [ ] Test parallel independent tasks
-  - [ ] Test parallel with dependencies
-  - [ ] Test failure propagation
+- [x] **Write parallel execution tests**
+  - [x] Test parallel independent tasks
+  - [x] Test parallel with dependencies
+  - [x] Test failure propagation
   - [ ] Test `-j` flag override
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 

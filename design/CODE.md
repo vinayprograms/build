@@ -3034,3 +3034,87 @@ Error format: `command failed with exit code N: command\nstderr...`
 | `TestDryRun_PrintsCommands` | Dry-run prints only |
 | `TestDryRun_DoesNotExecute` | Dry-run doesn't execute |
 | `TestVerbose_PrintsCommand` | Verbose shows command |
+
+### Parallel Scheduler (`scheduler.go`)
+
+Implements parallel execution of build tasks with dependency-aware scheduling.
+
+#### Scheduler Structure
+
+```go
+type Scheduler struct {
+    executor   *Executor
+    numWorkers int
+}
+```
+
+#### TaskResult Structure
+
+```go
+type TaskResult struct {
+    Target  string        // The target that was built
+    Results []*ExecResult // Results from recipe execution
+    Error   error         // Error if execution failed
+    Skipped bool          // True if task was skipped due to dependency failure
+}
+```
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewScheduler(executor, numWorkers)` | Creates scheduler with N workers |
+| `Workers()` | Returns number of workers |
+| `Execute(tasks, ctxFactory)` | Executes tasks respecting dependencies |
+| `ExecuteWithCallback(tasks, ctxFactory, callback)` | Execute with per-task callback |
+
+#### Scheduling Algorithm
+
+1. **Initialization**: Build dependency tracking map, queue tasks with no dependencies
+2. **Worker Pool**: Start N goroutines that pull from ready queue
+3. **Dependency Resolution**: When task completes, decrement pending count for dependents
+4. **Ready Queue**: Tasks with zero pending deps are queued for execution
+5. **Cancellation**: On failure, mark remaining tasks as skipped
+
+#### Dependency Handling
+
+| Scenario | Behavior |
+|----------|----------|
+| No dependencies | Execute immediately |
+| Dependencies complete | Queue when all deps finish |
+| Dependency failed | Skip task, mark as failed |
+| Diamond dependency | Both paths must complete |
+
+#### Cancellation on Failure
+
+When a task fails:
+1. Set `cancelled` flag to prevent new task scheduling
+2. Already-running tasks complete normally
+3. Pending tasks are marked as `Skipped`
+4. All results (success, failure, skipped) are returned
+
+#### Design Decisions
+
+1. **Channel-based coordination**: Ready queue is a buffered channel for efficient task distribution.
+
+2. **Mutex-protected state**: Completed/failed maps are protected by mutex for thread-safety.
+
+3. **Worker count limit**: Max concurrent tasks bounded by numWorkers regardless of ready tasks.
+
+4. **Dependency tracking**: PendingDeps map decremented atomically when deps complete.
+
+5. **Factory pattern for contexts**: ContextFactory callback creates fresh context per target.
+
+### Scheduler Unit Tests (`scheduler_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewScheduler` | Scheduler creation with worker count |
+| `TestScheduler_SingleTask_NoDeps` | Single task execution |
+| `TestScheduler_MultipleTasks_NoDeps` | Multiple independent tasks |
+| `TestScheduler_DependencyOrdering` | B depends on A ordering |
+| `TestScheduler_ParallelIndependentTasks` | Independent tasks run in parallel |
+| `TestScheduler_DiamondDependency` | Diamond A→B,C→D ordering |
+| `TestScheduler_FailureCancellation` | Failure cancels pending tasks |
+| `TestScheduler_NoRecipe` | Tasks without recipe succeed |
+| `TestScheduler_ParallelWorkerCount` | Worker count limits concurrency |
