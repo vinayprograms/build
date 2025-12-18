@@ -546,3 +546,58 @@ type DependencyResult interface {
 	// UnsatisfiedDepsList returns the unsatisfied dependencies for the i-th entry.
 	UnsatisfiedDepsList(i int) []string
 }
+
+// EvalContext represents the evaluation context with variable values.
+type EvalContext interface {
+	// Get retrieves a variable's evaluated value.
+	// Returns the value and true if found, or ("", false) if not found.
+	Get(name string) (string, bool)
+
+	// Set sets a variable's value.
+	Set(name, value string)
+
+	// IsDefined returns true if the variable is defined.
+	IsDefined(name string) bool
+
+	// IsLazy returns true if the variable is lazy (not yet evaluated).
+	IsLazy(name string) bool
+
+	// Variables returns all evaluated variable names and values.
+	Variables() map[string]string
+
+	// LazyVariables returns all lazy variable names.
+	LazyVariables() map[string]string
+}
+
+// EvalResult represents the result of variable evaluation.
+type EvalResult interface {
+	// Context returns the evaluation context with variable values.
+	Context() EvalContext
+
+	// HasErrors returns true if any errors were encountered during evaluation.
+	HasErrors() bool
+
+	// ErrorCount returns the number of errors.
+	ErrorCount() int
+
+	// GetError returns the i-th error.
+	GetError(i int) error
+
+	// Errors returns all errors.
+	Errors() []error
+
+	// EvaluatedCount returns the number of evaluated (non-lazy) variables.
+	EvaluatedCount() int
+
+	// EvaluatedName returns the name of the i-th evaluated variable.
+	EvaluatedName(i int) string
+
+	// EvaluatedValue returns the value of the i-th evaluated variable.
+	EvaluatedValue(i int) string
+
+	// LazyCount returns the number of lazy variables.
+	LazyCount() int
+
+	// LazyName returns the name of the i-th lazy variable.
+	LazyName(i int) string
+}

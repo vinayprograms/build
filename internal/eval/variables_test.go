@@ -492,3 +492,45 @@ func TestEvaluateVariables_LazyVariableCaching(t *testing.T) {
 		t.Errorf("Expected 'cached value', got '%s'", result1)
 	}
 }
+
+func TestEvaluateVariables_WithConditional(t *testing.T) {
+	ctx := NewContext()
+	ctx.Set("platform", "linux") // Set a test platform
+	e := NewEvaluator(ctx)
+
+	stmts := []ast.Statement{
+		&ast.Conditional{
+			IfBranch: ast.ConditionalBranch{
+				Condition: &ast.EqualsCondition{
+					Left:  &ast.Value{Parts: []ast.ValuePart{&ast.Interpolation{Name: "platform"}}},
+					Right: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "linux"}}},
+				},
+				Body: []ast.Statement{
+					&ast.Variable{
+						Name:  "cc",
+						Value: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "gcc"}}},
+					},
+				},
+			},
+			ElseBody: []ast.Statement{
+				&ast.Variable{
+					Name:  "cc",
+					Value: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "clang"}}},
+				},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	val, ok := ctx.Get("cc")
+	if !ok {
+		t.Error("Expected 'cc' to be defined")
+	}
+	if val != "gcc" {
+		t.Errorf("Expected 'gcc', got '%s'", val)
+	}
+}

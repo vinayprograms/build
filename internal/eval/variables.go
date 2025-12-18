@@ -28,8 +28,7 @@ func (e *Evaluator) evaluateStatement(stmt ast.Statement) error {
 	case *ast.Variable:
 		return e.evaluateVariable(s)
 	case *ast.Conditional:
-		// TODO: Handle conditionals
-		return nil
+		return e.EvaluateConditional(s)
 	default:
 		// Skip non-variable statements (comments, blanks, directives, targets, etc.)
 		return nil

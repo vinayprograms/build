@@ -46,6 +46,8 @@ type flags struct {
 	debugIncl     bool // Debug: dump include parsing
 	debugAST      bool // Debug: dump full AST with error recovery
 	debugSemantic bool // Debug: dump semantic analysis (symbol table)
+	debugEval     bool // Debug: dump variable evaluation
+	debugPlan     bool // Debug: dump build planning (target matching)
 }
 
 func main() {
@@ -128,6 +130,16 @@ func run(args []string) int {
 	// Debug mode: dump semantic analysis (symbol table)
 	if f.debugSemantic {
 		return debugSemantic(buildfile)
+	}
+
+	// Debug mode: dump variable evaluation
+	if f.debugEval {
+		return debugEval(buildfile)
+	}
+
+	// Debug mode: dump build planning (target matching)
+	if f.debugPlan {
+		return debugPlan(buildfile)
 	}
 
 	// Parse the buildfile
@@ -214,6 +226,8 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.debugIncl, "debug-include", false, "Debug: dump include parsing")
 	fs.BoolVar(&f.debugAST, "debug-ast", false, "Debug: dump full AST with error recovery")
 	fs.BoolVar(&f.debugSemantic, "debug-semantic", false, "Debug: dump semantic analysis")
+	fs.BoolVar(&f.debugEval, "debug-eval", false, "Debug: dump variable evaluation")
+	fs.BoolVar(&f.debugPlan, "debug-plan", false, "Debug: dump build planning (target matching)")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, nil, err
@@ -252,6 +266,8 @@ Debug Options:
   --debug-include      Dump include parsing (for development)
   --debug-ast          Dump full AST with error recovery (for development)
   --debug-semantic     Dump semantic analysis (for development)
+  --debug-eval         Dump variable evaluation (for development)
+  --debug-plan         Dump build planning / target matching (for development)
 
 Examples:
   build                Build default target

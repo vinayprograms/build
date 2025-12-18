@@ -1389,3 +1389,275 @@ func debugSemantic(path string) int {
 	}
 	return exitSuccess
 }
+
+func debugEval(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Variable Evaluation Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse the buildfile first
+	l := NewLexer(path, string(content))
+	p := NewParser(l)
+	bp := NewBuildfileParser(p)
+	result := bp.ParseBuildfile()
+
+	// Report parse errors
+	if result.HasErrors() {
+		fmt.Printf("Parse errors (%d):\n", result.ErrorCount())
+		for i := 0; i < result.ErrorCount(); i++ {
+			e := result.GetError(i)
+			fmt.Printf("  %s\n", e.Error())
+		}
+		fmt.Println()
+		return exitParseError
+	}
+
+	// Evaluate variables
+	fmt.Println("Variable Evaluation:")
+	fmt.Println()
+
+	evalResult := EvaluateVariables(result)
+
+	// Print built-in variables
+	fmt.Println("Built-in Variables:")
+	ctx := evalResult.Context()
+	if osVal, ok := ctx.Get("os"); ok {
+		fmt.Printf("  os = %s\n", osVal)
+	}
+	if archVal, ok := ctx.Get("arch"); ok {
+		fmt.Printf("  arch = %s\n", archVal)
+	}
+	fmt.Println()
+
+	// Print evaluated variables
+	fmt.Println("Evaluated Variables:")
+	if evalResult.EvaluatedCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < evalResult.EvaluatedCount(); i++ {
+			name := evalResult.EvaluatedName(i)
+			value := evalResult.EvaluatedValue(i)
+			fmt.Printf("  %s = %q\n", name, value)
+		}
+	}
+	fmt.Println()
+
+	// Print lazy variables
+	fmt.Println("Lazy Variables (not yet evaluated):")
+	if evalResult.LazyCount() == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i := 0; i < evalResult.LazyCount(); i++ {
+			name := evalResult.LazyName(i)
+			fmt.Printf("  %s (lazy)\n", name)
+		}
+	}
+	fmt.Println()
+
+	// Print evaluation errors (if any)
+	if evalResult.HasErrors() {
+		fmt.Printf("Evaluation errors (%d):\n", evalResult.ErrorCount())
+		for _, e := range evalResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	fmt.Println("No evaluation errors.")
+	return exitSuccess
+}
+
+func debugPlan(path string) int {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", path, err)
+		return exitParseError
+	}
+
+	fmt.Printf("=== Build Planning Debug: %s ===\n\n", path)
+	fmt.Printf("File contents (%d bytes):\n", len(content))
+	fmt.Println("---")
+	fmt.Print(string(content))
+	if len(content) > 0 && content[len(content)-1] != '\n' {
+		fmt.Println()
+	}
+	fmt.Println("---")
+	fmt.Println()
+
+	// Parse the buildfile first
+	l := NewLexer(path, string(content))
+	p := NewParser(l)
+	bp := NewBuildfileParser(p)
+	result := bp.ParseBuildfile()
+
+	// Report parse errors
+	if result.HasErrors() {
+		fmt.Printf("Parse errors (%d):\n", result.ErrorCount())
+		for i := 0; i < result.ErrorCount(); i++ {
+			e := result.GetError(i)
+			fmt.Printf("  %s\n", e.Error())
+		}
+		fmt.Println()
+		return exitParseError
+	}
+
+	// Symbol collection (needed to get targets)
+	collectResult := CollectSymbols(result)
+	if collectResult.HasErrors() {
+		fmt.Printf("Semantic errors (%d):\n", collectResult.ErrorCount())
+		for _, e := range collectResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	// Get the underlying symbol table
+	sta, ok := collectResult.SymbolTable().(*symbolTableAdapter)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "error: unexpected symbol table type")
+		return exitParseError
+	}
+	targets := sta.st.Targets
+
+	fmt.Println("Target Pattern Matching:")
+	fmt.Println()
+
+	// Print all defined targets
+	fmt.Println("Defined Targets:")
+	if len(targets) == 0 {
+		fmt.Println("  (none)")
+	} else {
+		for i, target := range targets {
+			isPattern := false
+			for _, seg := range target.Pattern.Segments {
+				if _, ok := seg.(*ast.BraceExpr); ok {
+					isPattern = true
+					break
+				}
+			}
+			patternType := "literal"
+			if isPattern {
+				patternType = "pattern"
+			}
+			if target.Pattern.IsPhony {
+				patternType = "phony"
+			}
+			if target.Pattern.IsDirectory {
+				patternType = "directory"
+			}
+			fmt.Printf("  [%d] %s (%s)\n", i, patternStr(&target.Pattern), patternType)
+		}
+	}
+	fmt.Println()
+
+	// Test pattern matching with some sample paths
+	fmt.Println("Pattern Matching Tests:")
+	testPaths := []string{
+		"build/app",
+		"build/main.o",
+		"build/utils.o",
+		"src/main.c",
+		"@all",
+		"@clean",
+		"@test",
+		"build/",
+	}
+
+	for _, testPath := range testPaths {
+		lookupResult := LookupTargetByPath(testPath, targets)
+		if lookupResult.Found() {
+			target := lookupResult.Target()
+			fmt.Printf("  %q → matches %s", testPath, patternStr(&target.Pattern))
+			if lookupResult.CaptureCount() > 0 {
+				fmt.Printf(" (captures: ")
+				for i := 0; i < lookupResult.CaptureCount(); i++ {
+					if i > 0 {
+						fmt.Printf(", ")
+					}
+					fmt.Printf("%s=%q", lookupResult.CaptureName(i), lookupResult.CaptureValue(i))
+				}
+				fmt.Printf(")")
+			}
+			fmt.Println()
+		} else {
+			fmt.Printf("  %q → no match\n", testPath)
+		}
+	}
+	fmt.Println()
+
+	// Interactive target lookup based on defined patterns
+	fmt.Println("Target Lookup Examples (from Buildfile patterns):")
+	// Generate test paths based on actual patterns
+	for _, target := range targets {
+		if target.Pattern.IsPhony {
+			testPath := "@" + patternStr(&target.Pattern)
+			lookupResult := LookupTargetByPath(testPath, targets)
+			if lookupResult.Found() {
+				fmt.Printf("  %s → found (phony)\n", testPath)
+			}
+		}
+	}
+	fmt.Println()
+
+	// Evaluate variables for dependency resolution
+	evalResult := EvaluateVariables(result)
+	if evalResult.HasErrors() {
+		fmt.Printf("Evaluation errors (%d):\n", evalResult.ErrorCount())
+		for _, e := range evalResult.Errors() {
+			fmt.Printf("  %s\n", e.Error())
+		}
+	}
+	ctx := evalResult.Context()
+
+	// Dependency resolution examples
+	fmt.Println("Dependency Resolution:")
+	fmt.Println()
+
+	for _, target := range targets {
+		if len(target.Dependencies) == 0 {
+			continue
+		}
+		targetPath := patternStr(&target.Pattern)
+		if target.Pattern.IsPhony {
+			targetPath = "@" + targetPath
+		}
+
+		fmt.Printf("  %s:\n", targetPath)
+
+		// Get captures from target pattern (using example values)
+		captures := make(map[string]string)
+		for _, seg := range target.Pattern.Segments {
+			if be, ok := seg.(*ast.BraceExpr); ok {
+				// Use example value for captures
+				captures[be.Identifier] = "example"
+			}
+		}
+
+		// Resolve dependencies
+		resolveResult := ResolveDependencyPaths(target.Dependencies, captures, ctx)
+		if resolveResult.Error() != nil {
+			fmt.Printf("    ERROR: %v\n", resolveResult.Error())
+		} else {
+			paths := resolveResult.Paths()
+			for _, p := range paths {
+				fmt.Printf("    → %s\n", p)
+			}
+		}
+	}
+	fmt.Println()
+
+	fmt.Println("Build planning complete.")
+	return exitSuccess
+}

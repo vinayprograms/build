@@ -1165,3 +1165,271 @@ build/common.o: src/common.c
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
+
+// ===========================================================================
+// Variable Evaluation Tests (Phase 2)
+// ===========================================================================
+
+func TestParseFlagsDebugEval(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-eval"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugEval {
+		t.Error("debugEval should be true")
+	}
+}
+
+func TestRunDebugEval(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test variable evaluation
+	content := `# Test buildfile for variable evaluation
+cc = gcc
+cflags = -Wall -O2
+prefix = /usr/local
+build_dir = build
+
+# Variables using interpolation
+full_cc = {cc} {cflags}
+install_path = {prefix}/bin
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEvalMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-eval"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugEvalLazyVariables(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test lazy variable evaluation
+	content := `# Buildfile with lazy variables
+base = build
+lazy all_flags = {cflags} -DNDEBUG
+cflags = -Wall
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEvalBuiltins(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test built-in variable evaluation
+	content := `# Buildfile with built-in variables
+platform = {os}-{arch}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEvalEmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := ``
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEvalFunctions(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test function evaluation (basename, dirname, replace)
+	content := `# Buildfile with functions
+path = /usr/local/bin/app
+base = basename({path})
+dir = dirname({path})
+result = replace(foo.c, .c, .o)
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugEvalUndefinedVariable(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test undefined variable error (forward reference)
+	content := `# Buildfile with undefined variable
+foo = {bar}
+bar = value
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	// Should return exitParseError because foo references bar before it's defined
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestPrintUsageIncludesDebugEval(t *testing.T) {
+	output := captureOutput(printUsage)
+
+	if !strings.Contains(output, "--debug-eval") {
+		t.Error("usage output should include --debug-eval")
+	}
+}
+
+func TestRunDebugEvalWithConditional(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test conditional evaluation - NOTE: We can't override 'os' built-in, so use a different pattern
+	// We test with ifdef which doesn't rely on the os built-in
+	content := `# Buildfile with conditional
+DEBUG = 1
+ifdef DEBUG
+cflags = -g -O0
+end
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Build Planning Tests (Phase 3)
+// ===========================================================================
+
+func TestParseFlagsDebugPlan(t *testing.T) {
+	f, _, err := parseFlags([]string{"--debug-plan"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !f.debugPlan {
+		t.Error("debugPlan should be true")
+	}
+}
+
+func TestRunDebugPlan(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test build planning with various target types
+	content := `# Test buildfile for build planning
+cc = gcc
+cflags = -Wall
+
+# Literal file targets
+build/app: build/main.o build/utils.o
+    {cc} {cflags} -o {target} {deps}
+
+build/main.o: src/main.c
+    {cc} -c {in} -o {out}
+
+build/utils.o: src/utils.c
+    {cc} -c {in} -o {out}
+
+# Phony targets
+@all: build/app
+
+@clean:
+    rm -rf build/
+
+@test: build/app
+    ./build/app --test
+
+# Directory target
+build/:
+    mkdir -p {target}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanMissingFile(t *testing.T) {
+	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-plan"})
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+}
+
+func TestRunDebugPlanPatternTargets(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test pattern targets
+	content := `# Buildfile with pattern targets
+build/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+
+build/app: build/main.o build/utils.o
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanEmptyFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := ``
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestPrintUsageIncludesDebugPlan(t *testing.T) {
+	output := captureOutput(printUsage)
+
+	if !strings.Contains(output, "--debug-plan") {
+		t.Error("usage output should include --debug-plan")
+	}
+}
