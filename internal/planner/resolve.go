@@ -92,8 +92,9 @@ func ResolveDependencies(deps []ast.Dependency, captures map[string]string, ctx 
 			return nil, err
 		}
 
-		// If it's a single variable expansion, split on spaces
-		if isSingleVar && strings.ContainsAny(path, " \t") {
+		// If it's a single variable expansion, split on whitespace (spaces, tabs, newlines)
+		// This handles both space-separated lists and newline-separated shell output
+		if isSingleVar && strings.ContainsAny(path, " \t\n\r") {
 			splitPaths := strings.Fields(path)
 			paths = append(paths, splitPaths...)
 		} else {
