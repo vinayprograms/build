@@ -36,6 +36,115 @@ func (eca *evalContextAdapter) LazyVariables() map[string]string {
 	return eca.ctx.LazyVariables()
 }
 
+// underlyingContext returns the underlying eval.Context.
+func (eca *evalContextAdapter) underlyingContext() *eval.Context {
+	return eca.ctx
+}
+
+// ----------------------------------------------------------------------------
+// Command Context Adapter
+// ----------------------------------------------------------------------------
+
+// commandContextAdapter wraps eval.CommandContext to implement CommandContext.
+type commandContextAdapter struct {
+	ctx *eval.CommandContext
+}
+
+func (cca *commandContextAdapter) Get(name string) (string, bool) {
+	return cca.ctx.Get(name)
+}
+
+func (cca *commandContextAdapter) IsDefined(name string) bool {
+	return cca.ctx.IsDefined(name)
+}
+
+func (cca *commandContextAdapter) SetStem(stem string) {
+	cca.ctx.SetStem(stem)
+}
+
+func (cca *commandContextAdapter) SetCaptures(captures map[string]string) {
+	cca.ctx.SetCaptures(captures)
+}
+
+func (cca *commandContextAdapter) AutomaticVarNames() []string {
+	// Return the list of automatic variables
+	return []string{"target", "out", "deps", "in", "stem", "target.dir", "target.file"}
+}
+
+func (cca *commandContextAdapter) GetAutomatic(name string) (string, bool) {
+	return cca.ctx.Get(name)
+}
+
+func (cca *commandContextAdapter) underlyingContext() *eval.CommandContext {
+	return cca.ctx
+}
+
+// NewCommandContext creates a CommandContext for command interpolation.
+func NewCommandContext(parentCtx EvalContext, target string, deps []string) CommandContext {
+	// Get the underlying eval.Context from the parent
+	eca, ok := parentCtx.(*evalContextAdapter)
+	if !ok {
+		// Create a new context if we can't get the underlying one
+		return &commandContextAdapter{
+			ctx: eval.NewCommandContext(eval.NewContext(), target, deps),
+		}
+	}
+
+	return &commandContextAdapter{
+		ctx: eval.NewCommandContext(eca.ctx, target, deps),
+	}
+}
+
+// ----------------------------------------------------------------------------
+// Interpolation Result Adapter
+// ----------------------------------------------------------------------------
+
+// interpolateResultAdapter wraps the result of command interpolation.
+type interpolateResultAdapter struct {
+	interpolated string
+	err          error
+}
+
+func (r *interpolateResultAdapter) Interpolated() string {
+	return r.interpolated
+}
+
+func (r *interpolateResultAdapter) Error() error {
+	return r.err
+}
+
+// InterpolateLineCommand interpolates a line command.
+func InterpolateLineCommand(cmd *ast.LineCommand, ctx CommandContext) InterpolateResult {
+	cca, ok := ctx.(*commandContextAdapter)
+	if !ok {
+		return &interpolateResultAdapter{
+			err: &eval.UndefinedVariableError{Name: "(invalid context)"},
+		}
+	}
+
+	result, err := eval.InterpolateCommand(cmd, cca.ctx)
+	return &interpolateResultAdapter{
+		interpolated: result,
+		err:          err,
+	}
+}
+
+// InterpolateBlockCommand interpolates a block command.
+func InterpolateBlockCommand(cmd *ast.BlockCommand, ctx CommandContext) InterpolateResult {
+	cca, ok := ctx.(*commandContextAdapter)
+	if !ok {
+		return &interpolateResultAdapter{
+			err: &eval.UndefinedVariableError{Name: "(invalid context)"},
+		}
+	}
+
+	result, err := eval.InterpolateBlockCommand(cmd, cca.ctx)
+	return &interpolateResultAdapter{
+		interpolated: result,
+		err:          err,
+	}
+}
+
 // evalResultAdapter wraps eval.Context and evaluation errors to implement EvalResult.
 type evalResultAdapter struct {
 	ctx       *eval.Context

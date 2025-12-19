@@ -1658,6 +1658,121 @@ func debugPlan(path string) int {
 	}
 	fmt.Println()
 
+	// Command Interpolation examples
+	fmt.Println("Command Interpolation (automatic variable resolution):")
+	fmt.Println()
+
+	// Find global shell directive
+	globalShell := "/bin/sh"
+	for _, stmt := range result.Statements() {
+		if stmt.StatementType() == "directive" {
+			summary := stmt.Summary()
+			if len(summary) > 7 && summary[:7] == ".shell:" {
+				globalShell = summary[8:] // Skip ".shell: "
+			}
+		}
+	}
+
+	for _, target := range targets {
+		if target.Recipe == nil || len(target.Recipe.Commands) == 0 {
+			continue
+		}
+
+		targetPath := patternStr(&target.Pattern)
+		if target.Pattern.IsPhony {
+			targetPath = "@" + targetPath
+		}
+
+		fmt.Printf("  %s:\n", targetPath)
+
+		// Get captures from target pattern (using example values)
+		captures := make(map[string]string)
+		for _, seg := range target.Pattern.Segments {
+			if be, ok := seg.(*ast.BraceExpr); ok {
+				captures[be.Identifier] = "example"
+			}
+		}
+
+		// Resolve dependencies for command context
+		resolveResult := ResolveDependencyPaths(target.Dependencies, captures, ctx)
+		var deps []string
+		if resolveResult.Error() == nil {
+			deps = resolveResult.Paths()
+		}
+
+		// Create command context with automatic variables
+		cmdCtx := NewCommandContext(ctx, targetPath, deps)
+		cmdCtx.SetCaptures(captures)
+
+		// Show shell configuration
+		recipeShell := GetRecipeShell(target.Recipe, globalShell, ctx)
+		fmt.Printf("    Shell: %s", recipeShell)
+		if target.Recipe.Directives.Shell != nil {
+			fmt.Printf(" (recipe override)")
+		}
+		fmt.Println()
+
+		// Show automatic variables
+		fmt.Printf("    Automatic variables:\n")
+		for _, name := range cmdCtx.AutomaticVarNames() {
+			if val, ok := cmdCtx.GetAutomatic(name); ok && val != "" {
+				fmt.Printf("      {%s} = %q\n", name, val)
+			}
+		}
+		if len(captures) > 0 {
+			fmt.Printf("    Captures:\n")
+			for name, val := range captures {
+				fmt.Printf("      {%s} = %q\n", name, val)
+			}
+		}
+
+		// Interpolate each command
+		fmt.Printf("    Commands:\n")
+		for i, cmd := range target.Recipe.Commands {
+			switch c := cmd.(type) {
+			case *ast.LineCommand:
+				interpResult := InterpolateLineCommand(c, cmdCtx)
+				if interpResult.Error() != nil {
+					fmt.Printf("      [%d] ERROR: %v\n", i, interpResult.Error())
+				} else {
+					fmt.Printf("      [%d] %s\n", i, interpResult.Interpolated())
+				}
+			case *ast.BlockCommand:
+				interpResult := InterpolateBlockCommand(c, cmdCtx)
+				if interpResult.Error() != nil {
+					fmt.Printf("      [%d] block: ERROR: %v\n", i, interpResult.Error())
+				} else {
+					fmt.Printf("      [%d] block:\n", i)
+					// Print each line of the block indented
+					lines := splitLines(interpResult.Interpolated())
+					for _, line := range lines {
+						fmt.Printf("          %s\n", line)
+					}
+				}
+			}
+		}
+		fmt.Println()
+	}
+
 	fmt.Println("Build planning complete.")
 	return exitSuccess
+}
+
+// splitLines splits a string into lines.
+func splitLines(s string) []string {
+	if s == "" {
+		return nil
+	}
+	lines := []string{}
+	start := 0
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\n' {
+			lines = append(lines, s[start:i])
+			start = i + 1
+		}
+	}
+	if start < len(s) {
+		lines = append(lines, s[start:])
+	}
+	return lines
 }

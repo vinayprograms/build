@@ -601,3 +601,34 @@ type EvalResult interface {
 	// LazyName returns the name of the i-th lazy variable.
 	LazyName(i int) string
 }
+
+// CommandContext represents the context for command interpolation.
+// It includes automatic variables, captures, and parent context.
+type CommandContext interface {
+	// Get retrieves a variable value (automatic > captures > parent).
+	Get(name string) (string, bool)
+
+	// IsDefined returns true if the variable is defined.
+	IsDefined(name string) bool
+
+	// SetStem sets the stem automatic variable.
+	SetStem(stem string)
+
+	// SetCaptures sets capture variables from pattern matching.
+	SetCaptures(captures map[string]string)
+
+	// AutomaticVarNames returns names of all automatic variables.
+	AutomaticVarNames() []string
+
+	// GetAutomatic returns an automatic variable value.
+	GetAutomatic(name string) (string, bool)
+}
+
+// InterpolateResult represents the result of interpolating a command.
+type InterpolateResult interface {
+	// Interpolated returns the interpolated command string.
+	Interpolated() string
+
+	// Error returns any error during interpolation.
+	Error() error
+}
