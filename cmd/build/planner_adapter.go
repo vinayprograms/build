@@ -338,7 +338,10 @@ func PlanBuild(target string, targets []*ast.Target, ctx EvalContext, fs FileSys
 	// Create the file system adapter
 	fsAdapter := &fileSystemPlannerAdapter{fs: fs}
 
-	plan, err := planner.PlanBuild(target, targets, eca.ctx, fsAdapter)
+	// Get the autodeps cache
+	autodepsCache := GetAutodepsCache()
+
+	plan, err := planner.PlanBuildWithOptions(target, targets, eca.ctx, fsAdapter, autodepsCache, nil)
 	return &buildPlanResultAdapter{plan: plan, err: err}
 }
 

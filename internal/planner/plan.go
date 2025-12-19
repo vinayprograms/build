@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/cache"
 	"github.com/vinayprograms/build/internal/eval"
 )
 
@@ -105,16 +106,25 @@ func (e *MissingSourceError) Error() string {
 //  4. Staleness detection (determining if rebuild is needed)
 //  5. Topological sorting (ordering tasks for execution)
 func PlanBuild(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem) (*BuildPlan, error) {
-	return PlanBuildWithVerbose(requestedTarget, targets, ctx, fs, nil)
+	return PlanBuildWithOptions(requestedTarget, targets, ctx, fs, nil, nil)
 }
 
 // PlanBuildWithVerbose creates a build plan with optional verbose output.
 // If verboseOutput is non-nil, staleness check decisions are written to it.
 func PlanBuildWithVerbose(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, verboseOutput io.Writer) (*BuildPlan, error) {
+	return PlanBuildWithOptions(requestedTarget, targets, ctx, fs, nil, verboseOutput)
+}
+
+// PlanBuildWithOptions creates a build plan with all optional parameters.
+// If autodepsCache is non-nil, .d file parsing results are cached.
+// If verboseOutput is non-nil, staleness check decisions are written to it.
+func PlanBuildWithOptions(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, autodepsCache *cache.AutodepsCache, verboseOutput io.Writer) (*BuildPlan, error) {
 	planner := &buildPlanner{
 		targets:       targets,
+		targetIndex:   NewTargetIndex(targets),
 		ctx:           ctx,
 		fs:            fs,
+		autodepsCache: autodepsCache,
 		visited:       make(map[string]bool),
 		inStack:       make(map[string]bool),
 		tasks:         make([]BuildTask, 0),
@@ -132,13 +142,15 @@ func PlanBuildWithVerbose(requestedTarget string, targets []*ast.Target, ctx *ev
 // buildPlanner handles the recursive planning process.
 type buildPlanner struct {
 	targets       []*ast.Target
+	targetIndex   *TargetIndex // Optimized target lookup index
 	ctx           *eval.Context
 	fs            FileSystem
-	visited       map[string]bool // Targets already processed
-	inStack       map[string]bool // Targets in current recursion stack (for cycle detection)
-	tasks         []BuildTask     // Tasks in topological order
-	taskIndex     map[string]int  // Index of each target in tasks (for dedup)
-	verboseOutput io.Writer       // Optional output for verbose mode
+	autodepsCache *cache.AutodepsCache // Cache for .d file parsing
+	visited       map[string]bool      // Targets already processed
+	inStack       map[string]bool      // Targets in current recursion stack (for cycle detection)
+	tasks         []BuildTask          // Tasks in topological order
+	taskIndex     map[string]int       // Index of each target in tasks (for dedup)
+	verboseOutput io.Writer            // Optional output for verbose mode
 }
 
 // planTarget recursively plans a single target.
@@ -153,8 +165,8 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 		return nil
 	}
 
-	// Find matching target definition
-	target, captures, err := LookupTarget(targetPath, p.targets)
+	// Find matching target definition using the index
+	target, captures, err := p.targetIndex.Lookup(targetPath)
 	if err != nil {
 		// Not a defined target - could be a source file
 		if p.fs.Exists(p.normalizePath(targetPath)) {
@@ -282,10 +294,23 @@ func (p *buildPlanner) resolveAutodeps(target *ast.Target, captures map[string]s
 		return nil, "", err
 	}
 
+	// Try cache first if available
+	if p.autodepsCache != nil {
+		if deps, ok, err := p.autodepsCache.Get(autodepsPath); err == nil && ok {
+			return deps, autodepsPath, nil
+		}
+	}
+
 	// Parse the .d file to get learned dependencies
 	deps, err := ParseAutodepsFile(autodepsPath)
 	if err != nil {
 		return nil, autodepsPath, err
+	}
+
+	// Cache the result if cache is available
+	if p.autodepsCache != nil && deps != nil {
+		// Only cache if file exists (ParseAutodepsFile returns nil, nil for missing files)
+		_ = p.autodepsCache.Put(autodepsPath, deps)
 	}
 
 	return deps, autodepsPath, nil

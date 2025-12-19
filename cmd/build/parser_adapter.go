@@ -1069,6 +1069,9 @@ func GetASTStatements(result BuildfileResult) []ast.Statement {
 	if br, ok := result.(buildfileResultAdapter); ok {
 		return br.statements
 	}
+	if cr, ok := result.(cachedBuildfileResultAdapter); ok {
+		return cr.statements
+	}
 	return nil
 }
 
