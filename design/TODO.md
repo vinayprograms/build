@@ -857,17 +857,17 @@ Performance improvements and user experience polish.
 
 ### 10.1 Performance Optimization
 
-- [ ] **Cache parsed Buildfiles**
-  - [ ] Store parsed AST between runs
-  - [ ] Invalidate on file modification
+- [x] **Cache parsed Buildfiles**
+  - [x] Store parsed AST between runs
+  - [x] Invalidate on file modification
 
-- [ ] **Cache autodeps**
-  - [ ] Store learned dependencies persistently
-  - [ ] Load on subsequent builds
+- [x] **Cache autodeps**
+  - [x] Store learned dependencies persistently
+  - [x] Load on subsequent builds
 
-- [ ] **Optimize pattern matching**
-  - [ ] Pre-compile patterns for fast matching
-  - [ ] Index targets by prefix
+- [x] **Optimize pattern matching**
+  - [x] Pre-compile patterns for fast matching
+  - [x] Index targets by prefix
 
 - [ ] **Lazy shell() execution**
   - [ ] Defer shell() calls until value is needed
