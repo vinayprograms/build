@@ -1,0 +1,14 @@
+# Built-in functions example
+.shell: bash
+
+# File manipulation functions
+dir = dirname(/path/to/file.c)
+base = basename(/path/to/file.c)
+
+# String replacement
+objects = replace(main.c utils.c, .c, .o)
+
+@test:
+	echo "Directory: {dir}"
+	echo "Basename: {base}"
+	echo "Objects: {objects}"

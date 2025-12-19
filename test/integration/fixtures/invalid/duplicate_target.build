@@ -1,0 +1,8 @@
+# Invalid: Duplicate target definition
+.shell: bash
+
+@test:
+	echo "first"
+
+@test:
+	echo "second"

@@ -1,0 +1,13 @@
+# Environment blocks example
+.shell: bash
+
+.environment:
+	.using: bare
+	.requires: gcc python3
+
+.environment: dev
+	.using: bare
+	.requires: gcc@11 python3@3.10
+
+@build:
+	echo "Building with current environment"

@@ -1,0 +1,13 @@
+# Conditional blocks example
+.shell: bash
+
+if {os} == darwin
+	platform = macOS
+elif {os} == linux
+	platform = Linux
+else
+	platform = Other
+end
+
+@info:
+	echo "Platform: {platform}"

@@ -1,0 +1,6 @@
+# Invalid: Directive in wrong scope
+.shell: bash
+
+@test:
+	.parallel: 4
+	echo "test"

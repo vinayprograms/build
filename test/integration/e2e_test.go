@@ -154,7 +154,7 @@ func TestPhonyTargets(t *testing.T) {
 `)
 
 	// Test @all target (should trigger both build and test)
-	result := h.Run("all")  // Note: no @ prefix needed in args
+	result := h.Run("all") // Note: no @ prefix needed in args
 	result.AssertSuccess().
 		AssertStdoutContains("Building...").
 		AssertStdoutContains("Testing...")
@@ -204,7 +204,7 @@ func TestDependencyChain(t *testing.T) {
 	// Check the order file
 	content := h.ReadFile("order.txt")
 	lines := strings.Split(strings.TrimSpace(content), "\n")
-	
+
 	if len(lines) != 3 {
 		t.Errorf("expected 3 lines in order.txt, got %d", len(lines))
 	}
@@ -416,7 +416,122 @@ func TestErrorHandling(t *testing.T) {
 `)
 
 	result := h.Run("fail")
-	result.AssertExitCode(1).  // Build failure
-		AssertStdoutContains("About to fail").
-		AssertStdoutNotContains("This should not run")
+	result.AssertExitCode(1). // Build failure
+					AssertStdoutContains("About to fail").
+					AssertStdoutNotContains("This should not run")
+}
+
+// TestNestedIncludes tests that nested .include: directives work correctly.
+func TestNestedIncludes(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create the base file
+	h.WriteFile("base.build", `base_var = base_value
+`)
+
+	// Create the common file that includes base
+	h.WriteFile("common.build", `.include: ./base.build
+common_var = common_value
+`)
+
+	// Create main Buildfile that includes common
+	h.WriteFile("Buildfile", `.shell: bash
+.include: ./common.build
+
+main_var = main_value
+
+@test:
+	echo "base: {base_var}"
+	echo "common: {common_var}"
+	echo "main: {main_var}"
+`)
+
+	result := h.Run("test")
+	result.AssertSuccess().
+		AssertStdoutContains("base:").
+		AssertStdoutContains("base_value").
+		AssertStdoutContains("common:").
+		AssertStdoutContains("common_value").
+		AssertStdoutContains("main:").
+		AssertStdoutContains("main_value")
+}
+
+// TestCircularIncludeDetection tests that circular includes are detected and reported as errors.
+func TestCircularIncludeDetection(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create file A that includes file B
+	h.WriteFile("a.build", `.include: ./b.build
+varA = value
+`)
+
+	// Create file B that includes file A (circular)
+	h.WriteFile("b.build", `.include: ./a.build
+varB = value
+`)
+
+	// Create main Buildfile that includes A
+	h.WriteFile("Buildfile", `.include: ./a.build
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("test")
+	result.AssertExitCode(3). // Parse error
+					AssertStderrContains("circular")
+}
+
+// TestDeepNestedIncludes tests deeply nested includes (A → B → C → D).
+func TestDeepNestedIncludes(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create deep include chain
+	h.WriteFile("d.build", `d_var = d_value
+`)
+	h.WriteFile("c.build", `.include: ./d.build
+c_var = c_value
+`)
+	h.WriteFile("b.build", `.include: ./c.build
+b_var = b_value
+`)
+	h.WriteFile("a.build", `.include: ./b.build
+a_var = a_value
+`)
+
+	h.WriteFile("Buildfile", `.shell: bash
+.include: ./a.build
+
+@test:
+	echo "{a_var} {b_var} {c_var} {d_var}"
+`)
+
+	result := h.Run("test")
+	result.AssertSuccess().
+		AssertStdoutContains("a_value").
+		AssertStdoutContains("b_value").
+		AssertStdoutContains("c_value").
+		AssertStdoutContains("d_value")
+}
+
+// TestIncludeWithTargets tests that targets from included files can be built.
+func TestIncludeWithTargets(t *testing.T) {
+	h := NewTestHarness(t)
+
+	// Create included file with targets
+	h.WriteFile("targets.build", `@included-target:
+	echo "from included file"
+`)
+
+	h.WriteFile("Buildfile", `.shell: bash
+.include: ./targets.build
+
+@main-target: @included-target
+	echo "from main file"
+`)
+
+	result := h.Run("main-target")
+	result.AssertSuccess().
+		AssertStdoutContains("from included file").
+		AssertStdoutContains("from main file")
 }

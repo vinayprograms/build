@@ -1,0 +1,3 @@
+# Invalid: Missing end for conditional
+if {os} == linux
+	cc = gcc

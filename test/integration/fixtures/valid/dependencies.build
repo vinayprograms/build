@@ -1,0 +1,16 @@
+# Dependency chain example
+.shell: bash
+
+@all: @compile @test @package
+
+@compile:
+	echo "Compiling..."
+
+@test: @compile
+	echo "Testing..."
+
+@package: @test
+	echo "Packaging..."
+
+@clean:
+	echo "Cleaning..."

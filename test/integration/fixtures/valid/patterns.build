@@ -1,0 +1,14 @@
+# Pattern targets example
+.shell: bash
+
+# Pattern target for compiling C files
+build/{name}.o: src/{name}.c
+	mkdir -p build
+	gcc -c {in} -o {out}
+
+# Target using pattern-built dependencies
+app: build/main.o build/utils.o
+	gcc -o {target} {deps}
+
+@clean:
+	rm -rf build app

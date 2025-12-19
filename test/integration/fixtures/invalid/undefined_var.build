@@ -1,0 +1,3 @@
+# Invalid: Undefined variable reference
+@test:
+	echo "{undefined_var}"

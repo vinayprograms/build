@@ -1,0 +1,6 @@
+# Invalid: Mixed indentation (tabs and spaces)
+.shell: bash
+
+@test:
+	echo "with tab"
+    echo "with spaces"

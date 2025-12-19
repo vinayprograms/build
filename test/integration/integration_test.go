@@ -258,7 +258,7 @@ func TestMissingBuildfile(t *testing.T) {
 	// No Buildfile written
 	result := h.Run("test")
 	result.AssertExitCode(3). // Parse error
-				AssertStderrContains("Buildfile")
+					AssertStderrContains("Buildfile")
 }
 
 // TestDefaultTarget tests building the default target when no target is specified.
@@ -372,5 +372,5 @@ func TestInvalidFlag(t *testing.T) {
 
 	result := h.Run("--invalid-flag")
 	result.AssertExitCode(2). // Usage error
-				AssertStderrContains("flag")
+					AssertStderrContains("flag")
 }

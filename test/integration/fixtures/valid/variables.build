@@ -1,0 +1,10 @@
+# Variable definitions example
+.shell: bash
+
+# Immediate variables
+cc = gcc
+cflags = -Wall -O2
+
+@build:
+	echo "Compiler: {cc}"
+	echo "Flags: {cflags}"
