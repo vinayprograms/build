@@ -4602,6 +4602,16 @@ The errors package provides structured error formatting for user-friendly error 
 | `doc.go` | Package documentation |
 | `format.go` | `FormattedError`, `SourceLine`, extraction functions |
 | `format_test.go` | Unit tests |
+| `lexical.go` | Lexical error codes (E001-E099) |
+| `lexical_test.go` | Lexical error tests |
+| `syntax.go` | Syntax error codes (E100-E199) |
+| `syntax_test.go` | Syntax error tests |
+| `semantic.go` | Semantic error codes (E200-E299) |
+| `semantic_test.go` | Semantic error tests |
+| `evaluation.go` | Evaluation error codes (E300-E399) |
+| `evaluation_test.go` | Evaluation error tests |
+| `execution.go` | Execution error codes (E400-E499) |
+| `execution_test.go` | Execution error tests |
 
 ### FormattedError Structure
 
@@ -4655,13 +4665,71 @@ type SourceLine struct {
 
 ### Error Code Categories
 
-| Range | Category | Examples |
-|-------|----------|----------|
-| E001-E099 | Lexical | Invalid character, mixed indentation |
-| E100-E199 | Syntax | Unexpected token, missing colon |
-| E200-E299 | Semantic | Undefined variable, duplicate definition |
-| E300-E399 | Evaluation | Shell failure, bad function args |
-| E400-E499 | Execution | Recipe failed, missing file |
+#### Lexical Errors (E001-E099)
+
+| Code | Constructor | Description |
+|------|-------------|-------------|
+| E001 | `NewInvalidCharacterError` | Invalid character in source |
+| E002 | `NewMixedIndentationError` | Mixed tabs and spaces in indentation |
+| E003 | `NewInconsistentIndentationError` | Switched between tabs and spaces |
+| E004 | `NewInvalidIndentWidthError` | Indentation not multiple of unit |
+| E005 | `NewUnclosedInterpolationError` | Interpolation { not closed with } |
+| E006 | `NewInvalidModifierError` | Invalid modifier (only :raw is valid) |
+| E007 | `NewUnexpectedCharInInterpError` | Unexpected character inside {} |
+| E008 | `NewInvalidEscapeSequenceError` | Invalid escape sequence |
+
+#### Syntax Errors (E100-E199)
+
+| Code | Constructor | Description |
+|------|-------------|-------------|
+| E100 | `NewUnexpectedTokenError` | Unexpected token during parsing |
+| E101 | `NewMissingColonError` | Missing : in target definition |
+| E102 | `NewMissingEndError` | Missing 'end' to close conditional |
+| E103 | `NewInvalidDirectiveScopeError` | Directive used in invalid scope |
+| E104 | `NewMissingConditionError` | Missing condition after if/elif |
+| E105 | `NewMissingOperatorError` | Missing == or != in condition |
+| E106 | `NewMissingIdentifierError` | Missing identifier after ifdef/ifndef |
+| E107 | `NewInvalidRuntimeError` | Invalid runtime in .using directive |
+| E108 | `NewMissingFunctionArgumentError` | Wrong argument count to function |
+| E109 | `NewCircularIncludeError` | Circular include detected |
+| E110 | `NewIncludeNotFoundError` | Included file not found |
+
+#### Semantic Errors (E200-E299)
+
+| Code | Constructor | Description |
+|------|-------------|-------------|
+| E200 | `NewUndefinedVariableError` | Reference to undefined variable |
+| E201 | `NewDuplicateVariableError` | Variable defined multiple times |
+| E202 | `NewDuplicateTargetError` | Target defined multiple times |
+| E203 | `NewDuplicateEnvironmentError` | Environment defined multiple times |
+| E204 | `NewCircularDependencyError` | Circular dependency in target graph |
+| E205 | `NewCaptureConflictError` | Capture conflicts with variable/automatic |
+| E206 | `NewCaptureMismatchError` | Capture in dep not in target pattern |
+| E207 | `NewAutomaticOutsideRecipeError` | Automatic var outside recipe scope |
+| E208 | `NewAutomaticInPatternError` | Automatic var in target pattern |
+
+#### Evaluation Errors (E300-E399)
+
+| Code | Constructor | Description |
+|------|-------------|-------------|
+| E300 | `NewShellCommandFailedError` | Shell command returned non-zero |
+| E301 | `NewGlobNoMatchError` | Glob pattern matched no files |
+| E302 | `NewInvalidFunctionArgumentsError` | Invalid function arguments |
+| E303 | `NewForwardReferenceError` | Forward reference in immediate var |
+| E304 | `NewLazyEvaluationError` | Error evaluating lazy variable |
+| E305 | `NewConditionEvaluationError` | Error evaluating condition |
+
+#### Execution Errors (E400-E499)
+
+| Code | Constructor | Description |
+|------|-------------|-------------|
+| E400 | `NewRecipeFailedError` | Recipe command returned non-zero |
+| E401 | `NewMissingDependencyError` | Required dependency file missing |
+| E402 | `NewMissingBinaryError` | Required binary not in PATH |
+| E403 | `NewShellNotFoundError` | Specified shell not found |
+| E404 | `NewVersionMismatchError` | Binary version doesn't match spec |
+| E405 | `NewTargetNotFoundError` | Requested target not defined |
+| E406 | `NewNoDefaultTargetError` | No default target and none specified |
 
 ### Unit Tests
 
