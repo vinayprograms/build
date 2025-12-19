@@ -298,8 +298,14 @@ func run(args []string) int {
 	shellConfig.SetDryRun(f.dryRun)
 	shellConfig.SetVerbose(f.verbose)
 
+	// Create output reporter based on flags
+	reporter := NewNormalReporterWithConfig(os.Stdout, f.verbose, f.quiet, f.color)
+
 	// Process each resolved target
 	hasFailure := false
+	totalTasks := 0
+	failedTasks := 0
+
 	for _, target := range resolvedTargets {
 		// Plan the build
 		planResult := PlanBuild(target, astTargets, ctx, fs)
@@ -309,24 +315,28 @@ func run(args []string) int {
 		}
 
 		if planResult.TaskCount() == 0 {
-			if f.verbose {
-				fmt.Printf("No work needed for %s\n", target)
-			}
+			reporter.NothingToBuild(target)
 			continue
+		}
+
+		// Set total for progress display
+		if ra, ok := reporter.(*normalReporterAdapter); ok {
+			ra.SetTotal(planResult.TaskCount())
 		}
 
 		// Execute tasks
 		executor := NewExecutor(shellConfig)
 		for i := 0; i < planResult.TaskCount(); i++ {
 			task := planResult.Task(i)
-			// Show what we're building (verbose mode only)
-			if f.verbose {
-				fmt.Printf("Building %s\n", task.Target())
-			}
+			totalTasks++
+
+			// Announce the build
+			reporter.BuildStarted(task.Target())
 
 			// Get the recipe
 			recipe := task.Recipe()
 			if recipe == nil {
+				reporter.BuildCompleted(task.Target(), true, "")
 				continue
 			}
 
@@ -350,41 +360,46 @@ func run(args []string) int {
 			// Execute the recipe
 			results, err := executor.ExecuteRecipe(recipe, cmdCtx)
 
-			// Print command output from all executed commands (even on error)
+			// Report command output
 			for _, r := range results {
-				// Print stdout/stderr from the command
-				if r.Stdout() != "" {
-					fmt.Print(r.Stdout())
-				}
-				if r.Stderr() != "" {
-					fmt.Fprint(os.Stderr, r.Stderr())
-				}
+				reporter.CommandOutput(r.Command(), r.Stdout(), r.Stderr())
 			}
 
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "\nerror executing recipe for %s: %v\n", target, err)
+				reporter.BuildCompleted(task.Target(), false, err.Error())
 				hasFailure = true
+				failedTasks++
 				break
 			}
 
 			// Check for command failures
+			cmdFailed := false
 			for _, r := range results {
-				// Check for command failure
 				if r.ExitCode() != 0 {
-					fmt.Fprintf(os.Stderr, "command failed with exit code %d: %s\n", r.ExitCode(), r.Command())
+					errMsg := fmt.Sprintf("command failed with exit code %d: %s", r.ExitCode(), r.Command())
+					reporter.BuildCompleted(task.Target(), false, errMsg)
 					hasFailure = true
+					failedTasks++
+					cmdFailed = true
 					break
 				}
 			}
 
-			if hasFailure {
+			if cmdFailed {
 				break
 			}
+
+			reporter.BuildCompleted(task.Target(), true, "")
 		}
 
 		if hasFailure {
 			break
 		}
+	}
+
+	// Show summary if there were tasks
+	if totalTasks > 0 {
+		reporter.Summary(totalTasks, failedTasks)
 	}
 
 	if hasFailure {
