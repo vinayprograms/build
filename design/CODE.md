@@ -2432,7 +2432,7 @@ Conditionals are evaluated by:
 3. Otherwise, try each elif branch in order
 4. If no match, execute the else body (if present)
 
-### Built-in Functions
+### Built-in Functions (`functions.go`)
 
 | Function | Description |
 |----------|-------------|
@@ -2441,6 +2441,46 @@ Conditionals are evaluated by:
 | `basename(path)` | Extracts filename from path |
 | `dirname(path)` | Extracts directory from path |
 | `replace(str, from, to)` | Replaces all occurrences of from with to |
+
+#### Shell Quoting in `shell()` Function
+
+The `shell()` function applies shell quoting to interpolated values to ensure safety when values contain spaces or special characters:
+
+| Syntax | Behavior | Example |
+|--------|----------|---------|
+| `{var}` | Shell-quoted (wrapped in single quotes) | `find '{src_dir}'` |
+| `{var:raw}` | Unquoted (allows word splitting) | `gcc -Wall -O2` |
+
+**Implementation:**
+
+The `shell()` function uses `evaluateShellCommand()` instead of `EvaluateValue()` to process its argument. This method:
+1. For `{var}` (non-raw): Applies `ShellQuote()` which wraps the value in single quotes and handles embedded single quotes
+2. For `{var:raw}`: Inserts the value directly without quoting
+
+**Examples:**
+
+```
+src_dir = my sources
+flags = -Wall -O2
+
+# Quoted (default) — safe for paths with spaces
+sources = shell(find {src_dir} -name "*.c")
+# Executes: find 'my sources' -name "*.c"
+
+# Raw — for flags that need word splitting
+result = shell(gcc {flags:raw} -c main.c)
+# Executes: gcc -Wall -O2 -c main.c
+```
+
+**ShellQuote Function:**
+
+```go
+func ShellQuote(s string) string
+```
+
+Uses single-quote quoting with special handling for embedded single quotes:
+- Simple case: `'value'`
+- With embedded quotes: `'it'"'"'s working'` (ends quote, adds double-quoted single quote, restarts quote)
 
 ### Error Types
 
@@ -2969,6 +3009,37 @@ type ShellConfig struct {
 | `NewShellConfig()` | Creates config with `/bin/sh` default |
 | `SetShell(shell)` | Sets the shell path |
 | `WithOverride(shell)` | Returns new config with overridden shell |
+| `Validate()` | Validates that the shell exists and is executable |
+
+### Shell Validation
+
+The `Validate()` method checks that the configured shell exists before execution:
+
+```go
+func (c *ShellConfig) Validate() error
+```
+
+**Behavior:**
+- Absolute paths (starting with `/`): Checks if the file exists and is executable via `exec.LookPath`
+- Relative names (e.g., `bash`, `sh`): Searches PATH for the executable
+- Returns `ShellNotFoundError` if the shell cannot be found
+
+**Usage:**
+
+```go
+cfg := NewShellConfig()
+cfg.SetShell("nonexistent-shell")
+
+if err := cfg.Validate(); err != nil {
+    // Handle missing shell error
+}
+```
+
+The `NewExecutorWithValidation()` function combines creation and validation:
+
+```go
+func NewExecutorWithValidation(config *ShellConfig) (*Executor, error)
+```
 
 ### Executor Structure
 
@@ -3028,6 +3099,14 @@ type CommandError struct {
 ```
 
 Error format: `command failed with exit code N: command\nstderr...`
+
+```go
+type ShellNotFoundError struct {
+    Shell string
+}
+```
+
+Error format: `shell not found: path`
 
 ### Design Decisions
 

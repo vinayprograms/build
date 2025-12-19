@@ -239,7 +239,7 @@ Variable evaluation, function execution, and conditional logic.
   - [x] Execute shell command with default shell
   - [x] Capture stdout, trim trailing newline
   - [x] Handle command failure with error message
-  - [ ] Apply shell quoting for interpolated values (default) vs raw
+  - [x] Apply shell quoting for interpolated values (default) vs raw
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `glob()` function**
@@ -343,14 +343,14 @@ Dependency resolution, staleness detection, and pattern matching.
 - [x] **Implement recursive dependency planning**
   - [x] For requested target, find matching definition
   - [x] For each dependency, recursively plan its build
-  - [ ] Handle order-only dependencies (`.after:`)
+  - [x] Handle order-only dependencies (`.after:`)
   - [x] Detect and report cycles during planning
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement topological sort**
   - [x] Sort build tasks in dependency order
   - [x] Tasks with no dependencies first
-  - [ ] Identify independent tasks for parallelism
+  - [x] Identify independent tasks for parallelism
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 3.3 Staleness Detection
@@ -439,7 +439,7 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] Default: `/bin/sh`
   - [x] Global override: `.shell: bash`
   - [x] Recipe override: `.shell: zsh` (indented under target)
-  - [ ] Verify shell exists before execution
+  - [x] Verify shell exists before execution
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement dry-run mode**
