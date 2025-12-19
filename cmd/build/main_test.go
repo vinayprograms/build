@@ -1433,3 +1433,271 @@ func TestPrintUsageIncludesDebugPlan(t *testing.T) {
 		t.Error("usage output should include --debug-plan")
 	}
 }
+
+// ===========================================================================
+// Command Interpolation Tests (Phase 4.1 - Automatic Variable Resolution)
+// ===========================================================================
+
+func TestRunDebugPlanCommandInterpolation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test command interpolation with automatic variables
+	content := `# Buildfile with automatic variables in commands
+cc = gcc
+cflags = -Wall
+
+build/app: src/main.c
+    {cc} {cflags} -o {target} {deps}
+    echo "Built {out} from {in}"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanCaptureVariables(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test command interpolation with captures
+	content := `# Buildfile with captures in commands
+build/{name}.o: src/{name}.c
+    gcc -c {in} -o {out}
+    echo "Compiling {name}"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanTargetDirAndFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test target.dir and target.file automatic variables
+	content := `# Buildfile with target.dir and target.file
+build/output/app: src/main.c
+    mkdir -p {target.dir}
+    gcc -o {target} {deps}
+    echo "Output file: {target.file}"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanStemVariable(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test stem variable with pattern targets
+	content := `# Buildfile with stem variable
+build/{name}.o: src/{name}.c
+    echo "Stem: {name}"
+    gcc -c {in} -o {out}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanRawModifier(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test raw modifier for unquoted expansion
+	content := `# Buildfile with raw modifier
+FLAGS = -Wall -O2
+
+build/app: src/main.c
+    gcc {FLAGS:raw} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanBlockCommandInterpolation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test block command interpolation
+	content := `# Buildfile with block command
+build/app: src/main.c
+    block:
+        if [ -f {target} ]; then
+            rm {target}
+        fi
+        gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanDepsVariable(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test deps variable with multiple dependencies
+	content := `# Buildfile with multiple deps
+build/app: src/main.c src/utils.c src/helper.c
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanMixedVariables(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test mixed user-defined, automatic, and builtin variables
+	content := `# Buildfile with mixed variables
+cc = gcc
+build_dir = build
+
+{build_dir}/app: src/main.c
+    echo "Building for {os}-{arch}"
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Shell Execution Tests (Phase 4.2)
+// ===========================================================================
+
+func TestRunDebugPlanWithShellDirective(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test global shell directive
+	content := `# Buildfile with shell directive
+.shell: bash
+
+build/app: src/main.c
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanWithRecipeShellOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test recipe-level shell override
+	content := `# Buildfile with recipe shell override
+.shell: sh
+
+build/app: src/main.c
+    .shell: bash
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Parallel Execution Tests (Phase 5)
+// ===========================================================================
+
+func TestRunDebugPlanWithParallelDirective(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test parallel directive
+	content := `# Buildfile with parallel directive
+.parallel: 4
+
+build/a.o: src/a.c
+    gcc -c {in} -o {out}
+
+build/b.o: src/b.c
+    gcc -c {in} -o {out}
+
+build/app: build/a.o build/b.o
+    gcc -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunDebugPlanDiamondDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Test diamond dependency for parallel scheduling
+	content := `# Buildfile with diamond dependency
+build/app: build/a.o build/b.o
+    gcc -o {target} {deps}
+
+build/a.o: build/common.h src/a.c
+    gcc -c src/a.c -o {target}
+
+build/b.o: build/common.h src/b.c
+    gcc -c src/b.c -o {target}
+
+build/common.h: src/common.h
+    cp {in} {out}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}

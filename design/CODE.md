@@ -114,8 +114,9 @@ cmd/build/
 ├── lexer_adapter.go    # Lexer adapters (Token, Lexer)
 ├── parser_adapter.go   # Parser adapters (Scope, Parser, Variable, Target, etc.)
 ├── semantic_adapter.go # Semantic adapters (SymbolTable, Capture, Reference, etc.)
-├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult)
-└── planner_adapter.go  # Planner adapters (MatchResult, LookupResult)
+├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult, CommandContext)
+├── planner_adapter.go  # Planner adapters (MatchResult, LookupResult, BuildTask)
+└── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
 ```
 
 **Key Interfaces:**
@@ -142,6 +143,8 @@ cmd/build/
 | `BuildfileParser` | Parses complete buildfiles with error recovery |
 | `EvalContext` | Represents evaluation context with variable values |
 | `EvalResult` | Contains evaluation results and any errors |
+| `CommandContext` | Extends EvalContext with automatic variables and captures |
+| `InterpolateResult` | Contains interpolated command string and any errors |
 
 **Design Rationale:**
 
@@ -2184,11 +2187,39 @@ All debug flags have corresponding tests:
 | `TestRunDebugAST` | `--debug-ast` |
 | `TestRunDebugSemantic` | `--debug-semantic` |
 | `TestRunDebugEval` | `--debug-eval` |
+| `TestRunDebugPlan` | `--debug-plan` |
 
 Each debug test includes:
 - Success case with valid buildfile
 - Missing file error case
 - (Some) edge cases like empty files or files without target content
+
+#### Command Interpolation Tests
+
+| Test | Description |
+|------|-------------|
+| `TestRunDebugPlanCommandInterpolation` | Automatic variable resolution in commands |
+| `TestRunDebugPlanCaptureVariables` | Capture variable substitution in commands |
+| `TestRunDebugPlanTargetDirAndFile` | target.dir and target.file automatic variables |
+| `TestRunDebugPlanStemVariable` | Stem variable with pattern targets |
+| `TestRunDebugPlanRawModifier` | Raw modifier for unquoted expansion |
+| `TestRunDebugPlanBlockCommandInterpolation` | Block command interpolation |
+| `TestRunDebugPlanDepsVariable` | deps variable with multiple dependencies |
+| `TestRunDebugPlanMixedVariables` | Mixed user-defined, automatic, and builtin variables |
+
+#### Shell Execution Tests
+
+| Test | Description |
+|------|-------------|
+| `TestRunDebugPlanWithShellDirective` | Global shell directive handling |
+| `TestRunDebugPlanWithRecipeShellOverride` | Recipe-level shell override |
+
+#### Parallel Execution Tests
+
+| Test | Description |
+|------|-------------|
+| `TestRunDebugPlanWithParallelDirective` | Parallel directive handling |
+| `TestRunDebugPlanDiamondDependency` | Diamond dependency for parallel scheduling |
 
 ### Semantic Unit Tests (`internal/semantic`)
 

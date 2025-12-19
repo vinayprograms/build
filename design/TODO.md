@@ -378,7 +378,7 @@ Dependency resolution, staleness detection, and pattern matching.
   - [x] After successful build, parse `.d` file specified by `.autodeps:`
   - [x] Store learned dependencies for future builds
   - [x] Incorporate into staleness checking
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Build plan structure**
   - [x] List of BuildTask in execution order
@@ -409,17 +409,17 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] `{stem}` → pattern capture (for pattern targets)
   - [x] `{target.dir}` → directory part of target
   - [x] `{target.file}` → filename part of target
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement capture resolution**
   - [x] Resolve pattern captures from match (e.g., `{name}` → matched value)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement shell quoting**
   - [x] Default: shell-quote interpolated values (single quotes, escape embedded quotes)
   - [x] With `:raw` modifier: no quoting, allows word splitting
   - [x] Pass through `$var` to shell unchanged
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.2 Shell Execution
 
@@ -427,32 +427,32 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] Each command line is separate shell invocation
   - [x] Use global `.shell:` or recipe `.shell:` override
   - [x] Execute via `shell -c "command"`
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement block mode execution**
   - [x] All lines in `block:` passed as single script
   - [x] Preserve internal structure (if/fi, loops, etc.)
   - [x] Execute via `shell -c "script"`
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement shell selection**
   - [x] Default: `/bin/sh`
   - [x] Global override: `.shell: bash`
   - [x] Recipe override: `.shell: zsh` (indented under target)
   - [ ] Verify shell exists before execution
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement dry-run mode**
   - [x] Print commands without executing
   - [x] Show interpolated values
   - [ ] Prefix with "Would build: target"
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement verbose mode**
   - [x] Print commands before executing
   - [ ] Show variable evaluation results
   - [ ] Show staleness check decisions
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.3 Execution Error Handling
 
@@ -460,12 +460,12 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] Check exit status of each command
   - [x] Stop build on first failure (default)
   - [ ] Implement `--keep-going` flag to continue despite failures
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Handle missing dependencies**
   - [x] If dependency can't be built and doesn't exist, error
   - [x] Clear error message with dependency path
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Handle missing binaries**
   - [ ] If shell not found, error
@@ -478,7 +478,7 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] Test shell selection
   - [x] Test dry-run output
   - [x] Test error handling
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -492,32 +492,32 @@ Concurrent task execution respecting dependencies.
   - [x] Tasks ready when all dependencies complete
   - [x] Track in-progress and completed tasks
   - [x] Handle task completion events
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement worker pool**
   - [x] Spawn N workers based on `.parallel:` or `-j` flag
   - [x] Workers pull tasks from ready queue
   - [x] Workers report completion or failure
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement dependency-aware scheduling**
   - [x] Only schedule task when all dependencies satisfied
   - [x] Update ready queue when task completes
   - [x] Handle parallel diamond dependencies correctly
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement cancellation on failure**
   - [x] On task failure, stop scheduling new tasks
   - [x] Wait for in-progress tasks to complete
   - [x] Report all failures
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Write parallel execution tests**
   - [x] Test parallel independent tasks
   - [x] Test parallel with dependencies
   - [x] Test failure propagation
   - [ ] Test `-j` flag override
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
