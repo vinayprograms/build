@@ -628,24 +628,24 @@ Runtime environments for build isolation.
   - [ ] Error if only named environments and no selection
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `--list-env` flag**
-  - [ ] List all defined environments
-  - [ ] Show runtime type and source for each
-  - [ ] Mark default environment
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement `--list-env` flag**
+  - [x] List all defined environments
+  - [x] Show runtime type and source for each
+  - [x] Mark default environment
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `--check-env` flag**
-  - [ ] Verify environment requirements are met
+- [x] **Implement `--check-env` flag**
+  - [x] Verify environment requirements are met
   - [ ] For containers, verify Dockerfile/runtime exists
-  - [ ] Print status for each requirement
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Print status for each requirement
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Write environment tests**
-  - [ ] Test bare environment requirements checking
+- [x] **Write environment tests**
+  - [x] Test bare environment requirements checking
   - [ ] Test container environment (requires Docker/Podman)
-  - [ ] Test environment selection logic
-  - [ ] Test --list-env and --check-env output
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Test environment selection logic
+  - [x] Test --list-env and --check-env output
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
@@ -709,13 +709,13 @@ Command-line argument parsing and user interaction.
 
 ### 7.3 Exit Codes
 
-- [ ] **Define exit codes**
-  - [ ] 0 → success
-  - [ ] 1 → build failure (recipe returned non-zero)
-  - [ ] 2 → usage error (bad arguments)
-  - [ ] 3 → parse error (invalid Buildfile)
-  - [ ] 4 → environment error (missing requirements)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Define exit codes**
+  - [x] 0 → success
+  - [x] 1 → build failure (recipe returned non-zero)
+  - [x] 2 → usage error (bad arguments)
+  - [x] 3 → parse error (invalid Buildfile)
+  - [x] 4 → environment error (missing requirements)
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
