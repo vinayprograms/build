@@ -52,15 +52,26 @@ type OutputReporter interface {
 	NothingToBuild(target string)
 }
 
-// normalReporterAdapter wraps output.NormalReporter for CLI use.
+// normalReporterAdapter wraps output.EmitterBackedNormalReporter for CLI use.
+// It delegates to the new event-based output system while maintaining the
+// Reporter interface for backward compatibility.
 type normalReporterAdapter struct {
-	reporter *output.NormalReporter
+	reporter *output.EmitterBackedNormalReporter
 }
 
-// NewNormalReporter creates a new normal output reporter.
+// NewNormalReporter creates a new normal output reporter using the emitter system.
 func NewNormalReporter(w io.Writer) OutputReporter {
+	config := output.WriterConfig{Color: "auto"}
 	return &normalReporterAdapter{
-		reporter: output.NewNormalReporter(w),
+		reporter: output.NewEmitterBackedNormalReporter(w, config),
+	}
+}
+
+// NewNormalReporterWithConfig creates a new normal output reporter with custom config.
+func NewNormalReporterWithConfig(w io.Writer, verbose, quiet bool, color string) OutputReporter {
+	config := output.NewWriterConfigFromFlags(verbose, quiet, color)
+	return &normalReporterAdapter{
+		reporter: output.NewEmitterBackedNormalReporter(w, config),
 	}
 }
 
@@ -89,6 +100,11 @@ func (a *normalReporterAdapter) NothingToBuild(target string) {
 	a.reporter.NothingToBuild(target)
 }
 
+// SetTotal sets the total number of targets for progress display.
+func (a *normalReporterAdapter) SetTotal(total int) {
+	a.reporter.SetTotal(total)
+}
+
 // ----------------------------------------------------------------------------
 // Dry-Run Reporter Adapter
 // ----------------------------------------------------------------------------
@@ -112,15 +128,26 @@ type DryRunOutputReporter interface {
 	NothingToBuild(target string)
 }
 
-// dryRunReporterAdapter wraps output.DryRunReporter for CLI use.
+// dryRunReporterAdapter wraps output.EmitterBackedDryRunReporter for CLI use.
+// It delegates to the new event-based output system while maintaining the
+// DryRunReporter interface for backward compatibility.
 type dryRunReporterAdapter struct {
-	reporter *output.DryRunReporter
+	reporter *output.EmitterBackedDryRunReporter
 }
 
-// NewDryRunReporter creates a new dry-run output reporter.
+// NewDryRunReporter creates a new dry-run output reporter using the emitter system.
 func NewDryRunReporter(w io.Writer) DryRunOutputReporter {
+	config := output.WriterConfig{Color: "auto"}
 	return &dryRunReporterAdapter{
-		reporter: output.NewDryRunReporter(w),
+		reporter: output.NewEmitterBackedDryRunReporter(w, config),
+	}
+}
+
+// NewDryRunReporterWithConfig creates a new dry-run output reporter with custom config.
+func NewDryRunReporterWithConfig(w io.Writer, verbose, quiet bool, color string) DryRunOutputReporter {
+	config := output.NewWriterConfigFromFlags(verbose, quiet, color)
+	return &dryRunReporterAdapter{
+		reporter: output.NewEmitterBackedDryRunReporter(w, config),
 	}
 }
 
@@ -147,6 +174,11 @@ func (a *dryRunReporterAdapter) Summary(total int) {
 // NothingToBuild implements DryRunOutputReporter.
 func (a *dryRunReporterAdapter) NothingToBuild(target string) {
 	a.reporter.NothingToBuild(target)
+}
+
+// SetTotal sets the total number of targets for progress display.
+func (a *dryRunReporterAdapter) SetTotal(total int) {
+	a.reporter.SetTotal(total)
 }
 
 // ----------------------------------------------------------------------------
@@ -187,15 +219,26 @@ type VerboseOutputReporter interface {
 	NothingToBuild(target string)
 }
 
-// verboseReporterAdapter wraps output.VerboseReporter for CLI use.
+// verboseReporterAdapter wraps output.EmitterBackedVerboseReporter for CLI use.
+// It delegates to the new event-based output system while maintaining the
+// VerboseReporter interface for backward compatibility.
 type verboseReporterAdapter struct {
-	reporter *output.VerboseReporter
+	reporter *output.EmitterBackedVerboseReporter
 }
 
-// NewVerboseReporter creates a new verbose output reporter.
+// NewVerboseReporter creates a new verbose output reporter using the emitter system.
 func NewVerboseReporter(w io.Writer) VerboseOutputReporter {
+	config := output.WriterConfig{Color: "auto", Verbose: true}
 	return &verboseReporterAdapter{
-		reporter: output.NewVerboseReporter(w),
+		reporter: output.NewEmitterBackedVerboseReporter(w, config),
+	}
+}
+
+// NewVerboseReporterWithConfig creates a new verbose output reporter with custom config.
+func NewVerboseReporterWithConfig(w io.Writer, quiet bool, color string) VerboseOutputReporter {
+	config := output.NewWriterConfigFromFlags(true, quiet, color)
+	return &verboseReporterAdapter{
+		reporter: output.NewEmitterBackedVerboseReporter(w, config),
 	}
 }
 
@@ -249,6 +292,11 @@ func (a *verboseReporterAdapter) NothingToBuild(target string) {
 	a.reporter.NothingToBuild(target)
 }
 
+// SetTotal sets the total number of targets for progress display.
+func (a *verboseReporterAdapter) SetTotal(total int) {
+	a.reporter.SetTotal(total)
+}
+
 // ----------------------------------------------------------------------------
 // Progress Reporter Adapter (for parallel builds)
 // ----------------------------------------------------------------------------
@@ -275,16 +323,27 @@ type ProgressOutputReporter interface {
 	CurrentlyBuilding() []string
 }
 
-// progressReporterAdapter wraps output.ProgressReporter for CLI use.
+// progressReporterAdapter wraps output.EmitterBackedProgressReporter for CLI use.
+// It delegates to the new event-based output system while maintaining the
+// ProgressReporter interface for backward compatibility.
 type progressReporterAdapter struct {
-	reporter *output.ProgressReporter
+	reporter *output.EmitterBackedProgressReporter
 }
 
-// NewProgressReporter creates a new progress output reporter.
+// NewProgressReporter creates a new progress output reporter using the emitter system.
 // total is the total number of targets expected to build.
 func NewProgressReporter(w io.Writer, total int) ProgressOutputReporter {
+	config := output.WriterConfig{Color: "auto"}
 	return &progressReporterAdapter{
-		reporter: output.NewProgressReporter(w, total),
+		reporter: output.NewEmitterBackedProgressReporter(w, config, total),
+	}
+}
+
+// NewProgressReporterWithConfig creates a new progress output reporter with custom config.
+func NewProgressReporterWithConfig(w io.Writer, total int, verbose, quiet bool, color string) ProgressOutputReporter {
+	config := output.NewWriterConfigFromFlags(verbose, quiet, color)
+	return &progressReporterAdapter{
+		reporter: output.NewEmitterBackedProgressReporter(w, config, total),
 	}
 }
 
