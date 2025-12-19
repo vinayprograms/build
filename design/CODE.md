@@ -113,6 +113,10 @@ github.com/vinayprograms/build/
 │       ├── doc.go         # Package documentation
 │       ├── match.go        # Target pattern matching
 │       └── match_test.go
+├── completions/        # Shell completion scripts
+│   ├── build.bash    # Bash completion
+│   ├── _build        # Zsh completion
+│   └── build.fish    # Fish completion
 ├── Buildfile           # Build configuration for this project
 └── go.mod
 ```
@@ -210,6 +214,9 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `-j, --jobs` | Parallel jobs |
 | `-n, --dry-run` | Show what would execute |
 | `-v, --verbose` | Verbose output |
+| `-q, --quiet` | Suppress non-error output |
+| `--color=MODE` | Color output mode: auto, always, never (default: auto) |
+| `--progress=MODE` | Progress output mode: auto, always, never (default: auto) |
 | `--check-env` | Verify environment requirements |
 | `--show-install` | Show install instructions for missing requirements |
 | `--list-env` | List available environments |
@@ -250,6 +257,23 @@ Version and commit are embedded at build time via `-ldflags`:
 ```bash
 go build -ldflags "-X main.version=v1.0.0 -X main.commit=abc123" ./cmd/build
 ```
+
+### Shell Completions (`completions/`)
+
+Tab completion scripts for common shells:
+
+| File | Shell | Installation |
+|------|-------|--------------|
+| `build.bash` | Bash | Copy to `/etc/bash_completion.d/` or source in `~/.bashrc` |
+| `_build` | Zsh | Copy to a directory in `$fpath` (e.g., `/usr/local/share/zsh/site-functions`) |
+| `build.fish` | Fish | Copy to `~/.config/fish/completions/` |
+
+**Features:**
+- Complete all CLI flags with descriptions
+- Dynamic target completion from Buildfile
+- Dynamic environment name completion from Buildfile
+- Completion for `--color` and `--progress` mode values (auto, always, never)
+- Completion for job counts (1, 2, 4, 8, 16)
 
 ### Error Formatting (`error_adapter.go`)
 
@@ -2465,9 +2489,11 @@ The evaluation context stores all variable values during evaluation.
 
 ```go
 type Context struct {
-    variables     map[string]string  // Evaluated variable values
-    lazyVariables map[string]string  // Unevaluated lazy variables
-    builtins      map[string]string  // Read-only built-in variables
+    variables     map[string]string   // Evaluated variable values
+    lazyVariables map[string]*ast.Value // Unevaluated lazy variable AST values
+    lazyCache     map[string]string   // Cached lazy variable evaluations
+    builtins      map[string]string   // Read-only built-in variables (os, arch)
+    shellCache    map[string]string   // Cached shell() function results
 }
 ```
 
@@ -2486,11 +2512,15 @@ type Context struct {
 | `Get(name)` | Returns variable value (built-ins first) |
 | `Set(name, value)` | Sets a variable (built-ins protected) |
 | `IsDefined(name)` | Returns true if variable is defined |
-| `SetLazy(name, value)` | Stores a lazy variable |
-| `GetLazy(name)` | Gets a lazy variable's unevaluated value |
+| `SetLazyValue(name, value)` | Stores a lazy variable's AST value |
+| `GetLazyValue(name)` | Gets a lazy variable's AST value |
 | `IsLazy(name)` | Returns true if variable is lazy |
+| `CacheLazyResult(name, value)` | Caches a lazy variable evaluation result |
 | `Variables()` | Returns all evaluated variables |
 | `LazyVariables()` | Returns all lazy variables |
+| `GetShellCache(cmd)` | Gets cached shell() result for command |
+| `SetShellCache(cmd, output)` | Caches shell() result for command |
+| `ClearShellCache()` | Clears all cached shell() results |
 
 ### Evaluator (`evaluator.go`)
 
@@ -2532,7 +2562,7 @@ Conditionals are evaluated by:
 
 | Function | Description |
 |----------|-------------|
-| `shell(cmd)` | Executes shell command, returns stdout |
+| `shell(cmd)` | Executes shell command, returns stdout (cached within build) |
 | `glob(pattern)` | Returns space-separated list of matching files |
 | `basename(path)` | Extracts filename from path |
 | `dirname(path)` | Extracts directory from path |
@@ -2577,6 +2607,41 @@ func ShellQuote(s string) string
 Uses single-quote quoting with special handling for embedded single quotes:
 - Simple case: `'value'`
 - With embedded quotes: `'it'"'"'s working'` (ends quote, adds double-quoted single quote, restarts quote)
+
+#### Shell Caching
+
+The `shell()` function caches results within a build to avoid redundant shell executions:
+
+**Behavior:**
+- Results are cached by the evaluated command string
+- Same command called multiple times returns cached result
+- Only successful executions are cached; errors are not cached
+- Different interpolation values produce different cache keys
+- Cache is per-Context (cleared between builds)
+
+**Use case:**
+```
+# Without caching, this would run 'date' twice
+timestamp = shell(date +%s)
+other = prefix-{timestamp}-suffix
+log = shell(date +%s)-log   # Returns same timestamp due to cache
+```
+
+**Implementation:**
+1. Evaluate command string with interpolations
+2. Check `Context.shellCache` for cached result
+3. If found, return cached value
+4. Otherwise, execute command via `/bin/sh -c "command"`
+5. Cache successful result for future calls
+6. Do NOT cache errors (allow retry on failure)
+
+**Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `GetShellCache(cmd)` | Gets cached result for evaluated command |
+| `SetShellCache(cmd, output)` | Stores result in cache |
+| `ClearShellCache()` | Clears all cached results |
 
 ### Error Types
 
@@ -2678,6 +2743,12 @@ Uses single-quote quoting with special handling for embedded single quotes:
 | `TestFuncComposition_ReplaceInGlob` | Function composition |
 | `TestFuncError_UndefinedInArg` | Undefined variable in function arg |
 | `TestFuncShell_MultilineOutput` | Shell with multiline output |
+| `TestFuncShell_CachingBasic` | Shell result caching for identical commands |
+| `TestFuncShell_CachingWithSameCommand` | Same command returns cached result |
+| `TestFuncShell_CachingDifferentCommands` | Different commands not sharing cache |
+| `TestFuncShell_CachingWithInterpolation` | Cache key includes interpolated values |
+| `TestFuncShell_CachingErrorsNotCached` | Errors not cached (allow retry) |
+| `TestContext_ShellCacheOperations` | Shell cache get/set/clear operations |
 
 ## Planner Package (`internal/planner`)
 

@@ -869,9 +869,9 @@ Performance improvements and user experience polish.
   - [x] Pre-compile patterns for fast matching
   - [x] Index targets by prefix
 
-- [ ] **Lazy shell() execution**
-  - [ ] Defer shell() calls until value is needed
-  - [ ] Cache shell() results within build
+- [x] **Lazy shell() execution**
+  - [x] Defer shell() calls until value is needed
+  - [x] Cache shell() results within build
 
 ### 10.2 Output Beautification System
 
@@ -931,10 +931,10 @@ See DESIGN.md Section 10 for full architecture.
   - [ ] Emit error events from all stages
   - [ ] Emit summary events at completion
 
-- [ ] **Add CLI flags for output control**
-  - [ ] Add --quiet / -q flag to suppress non-error output
-  - [ ] Add --color=auto|always|never flag
-  - [ ] Add --progress=auto|always|never flag
+- [x] **Add CLI flags for output control**
+  - [x] Add --quiet / -q flag to suppress non-error output
+  - [x] Add --color=auto|always|never flag
+  - [x] Add --progress=auto|always|never flag
   - [ ] Wire flags to output writer selection
 
 - [ ] **Refactor existing Reporter to use new system**
@@ -945,10 +945,10 @@ See DESIGN.md Section 10 for full architecture.
 
 ### 10.3 Tab Completion
 
-- [ ] **Tab completion**
-  - [ ] Bash completion script
-  - [ ] Zsh completion script
-  - [ ] Fish completion script
+- [x] **Tab completion**
+  - [x] Bash completion script
+  - [x] Zsh completion script
+  - [x] Fish completion script
 
 ### 10.4 Platform Support
 
