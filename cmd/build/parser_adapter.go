@@ -1062,3 +1062,28 @@ func NewBuildfileParser(p Parser) BuildfileParser {
 	}
 	panic("NewBuildfileParser requires a Parser created by NewParser")
 }
+
+// GetASTStatements returns the raw AST statements from a BuildfileResult.
+// This is useful for operations that need direct access to ast types.
+func GetASTStatements(result BuildfileResult) []ast.Statement {
+	if br, ok := result.(buildfileResultAdapter); ok {
+		return br.statements
+	}
+	return nil
+}
+
+// GetEnvironments extracts all ast.Environment from parsed statements.
+func GetEnvironments(result BuildfileResult) []*ast.Environment {
+	statements := GetASTStatements(result)
+	if statements == nil {
+		return nil
+	}
+
+	var envs []*ast.Environment
+	for _, stmt := range statements {
+		if env, ok := stmt.(*ast.Environment); ok {
+			envs = append(envs, env)
+		}
+	}
+	return envs
+}

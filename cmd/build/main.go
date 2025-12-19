@@ -164,6 +164,16 @@ func run(args []string) int {
 		return exitParseError
 	}
 
+	// Handle --check-env flag
+	if f.checkEnv {
+		return checkEnvironment(result, f.env, f.verbose)
+	}
+
+	// Handle --list-env flag
+	if f.listEnv {
+		return listEnvironments(result)
+	}
+
 	// Show what was parsed (verbose mode)
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)

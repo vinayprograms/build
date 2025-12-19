@@ -632,3 +632,48 @@ type InterpolateResult interface {
 	// Error returns any error during interpolation.
 	Error() error
 }
+
+// RequirementResult represents the result of checking a single requirement.
+type RequirementResult interface {
+	// Name returns the requirement name.
+	Name() string
+
+	// VersionSpec returns the required version as a string.
+	VersionSpec() string
+
+	// Found returns true if the binary was found.
+	Found() bool
+
+	// Path returns the path to the binary (if found).
+	Path() string
+
+	// DetectedVersion returns the detected version string (if available).
+	DetectedVersion() string
+
+	// Error returns the error (if any).
+	Error() error
+
+	// String returns a human-readable status string.
+	String() string
+}
+
+// RequirementsChecker checks that required binaries are available.
+type RequirementsChecker interface {
+	// CheckBinaryExists checks if a binary exists in PATH.
+	CheckBinaryExists(name string) error
+
+	// CheckRequirements checks multiple requirements.
+	CheckRequirements(reqs []Requirement) []RequirementResult
+
+	// CheckRequirementsWithVersion checks requirements with version validation.
+	CheckRequirementsWithVersion(reqs []Requirement) []RequirementResult
+}
+
+// Requirement represents a binary requirement from ast.Requirement.
+type Requirement interface {
+	// Name returns the binary name.
+	Name() string
+
+	// VersionSpec returns the version specification as a string.
+	VersionSpec() string
+}

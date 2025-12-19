@@ -1701,3 +1701,168 @@ build/common.h: src/common.h
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Environment Command Tests
+// ----------------------------------------------------------------------------
+
+func TestRunListEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+.environment: ci
+    .using: docker
+    .source: ./Dockerfile
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunListEnvNoEnvs(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `# No environments
+cc = gcc
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunCheckEnvDefaultSuccess(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest sh@latest
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunCheckEnvDefaultMissing(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: nonexistent-binary-xyz
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNamed(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+.environment: ci
+    .using: docker
+    .source: ./Dockerfile
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "ci"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestRunCheckEnvNamedNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nonexistent"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNoDefaultWithNamedOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Only named environments, no default
+	content := `.environment: ci
+    .using: docker
+    .source: ./Dockerfile
+
+.environment: dev
+    .using: nix
+    .source: ./shell.nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should error when trying to check without specifying --env
+	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNoEnvironments(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// No environments at all
+	content := `# No environments
+cc = gcc
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - bare environment with no requirements
+	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
