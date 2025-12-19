@@ -655,12 +655,12 @@ Command-line argument parsing and user interaction.
 
 ### 7.1 Argument Parsing
 
-- [ ] **Implement target argument parsing**
-  - [ ] No argument → use `.default:` or first target
-  - [ ] `build target` → build specific file target
-  - [ ] `build @phony` → build phony target
-  - [ ] Multiple targets → build all in order
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement target argument parsing**
+  - [x] No argument → use `.default:` or first target
+  - [x] `build target` → build specific file target
+  - [x] `build phony` → build phony target. User need not provide `@` to indicate phonyness.
+  - [x] Multiple targets → build all in order
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement option flags**
   - [x] `--env` / `-e` → environment selection
@@ -685,11 +685,11 @@ Command-line argument parsing and user interaction.
 
 ### 7.2 Output Formatting
 
-- [ ] **Implement normal output**
-  - [ ] Show target being built
-  - [ ] Show command output
-  - [ ] Show completion/failure status
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement normal output**
+  - [x] Show target being built
+  - [x] Show command output
+  - [x] Show completion/failure status
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement dry-run output**
   - [ ] "Would build: target"

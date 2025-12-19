@@ -97,6 +97,10 @@ github.com/vinayprograms/build/
 │   │   ├── version.go     # Version parsing and detection
 │   │   ├── version_test.go
 │   │   └── errors.go      # Environment error types
+│   ├── output/         # Build output formatting
+│   │   ├── doc.go         # Package documentation
+│   │   ├── reporter.go    # Reporter interface and NormalReporter
+│   │   └── reporter_test.go
 │   └── planner/        # Build planning
 │       ├── doc.go         # Package documentation
 │       ├── match.go        # Target pattern matching
@@ -124,6 +128,7 @@ cmd/build/
 ├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult, CommandContext)
 ├── planner_adapter.go  # Planner adapters (MatchResult, LookupResult, BuildTask)
 ├── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
+├── output_adapter.go   # Output adapters (OutputReporter, NormalReporter)
 ├── environ_adapter.go  # Environment adapters (RequirementsChecker, RequirementResult)
 └── environ.go          # Environment commands (--check-env, --list-env)
 ```
@@ -157,6 +162,7 @@ cmd/build/
 | `RequirementResult` | Represents result of checking a single requirement |
 | `RequirementsChecker` | Checks that required binaries are available |
 | `Requirement` | Represents a binary requirement |
+| `OutputReporter` | Reports build output (target status, command output, summary) |
 
 **Design Rationale:**
 
@@ -4144,3 +4150,201 @@ Returns user-friendly instructions for managing kept-alive containers.
 5. **Keep-alive for debugging**: The `--keep` flag preserves the container for troubleshooting.
 
 6. **Literal paths only**: `.source:` paths must be literal (no interpolation) to avoid chicken-and-egg evaluation issues.
+
+## Output Package (`internal/output`)
+
+The output package provides build output formatting and reporting, implementing the normal output mode for displaying build progress and results.
+
+### Package Structure
+
+| File | Contents |
+|------|----------|
+| `doc.go` | Package documentation |
+| `reporter.go` | `Reporter` interface and `NormalReporter` implementation |
+| `reporter_test.go` | Unit tests for reporters |
+
+### Reporter Interface
+
+```go
+type Reporter interface {
+    // BuildStarted is called when a target build begins.
+    BuildStarted(target string)
+
+    // BuildCompleted is called when a target build finishes.
+    BuildCompleted(target string, success bool, errMsg string)
+
+    // CommandOutput is called to display command output.
+    CommandOutput(command, stdout, stderr string)
+
+    // Summary is called at the end to show build summary.
+    Summary(total, failed int)
+
+    // NothingToBuild is called when a target is already up to date.
+    NothingToBuild(target string)
+}
+```
+
+### NormalReporter
+
+The `NormalReporter` implements the `Reporter` interface for normal (non-verbose) output mode:
+
+```go
+type NormalReporter struct {
+    w io.Writer
+}
+```
+
+#### Key Methods
+
+| Method | Description | Output Format |
+|--------|-------------|---------------|
+| `BuildStarted(target)` | Logs target build start | `Building <target>` |
+| `BuildCompleted(target, success, errMsg)` | Logs build result | `Built <target>` or `FAILED <target>: <msg>` |
+| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Raw stdout/stderr (empty suppressed) |
+| `Summary(total, failed)` | Shows build summary | `Build success: N target(s) built` or `Build failed: N of M targets failed` |
+| `NothingToBuild(target)` | Shows up-to-date status | `<target> is up to date` |
+
+#### Output Behaviors
+
+| Scenario | Output |
+|----------|--------|
+| Build starts | `Building build/app` |
+| Build succeeds | `Built build/app` |
+| Build fails | `FAILED build/app: compile error` |
+| Command has stdout | Stdout content (preserves trailing newline) |
+| Command has stderr | Stderr content (preserves trailing newline) |
+| Command has no output | No output (empty suppressed) |
+| All targets built | `Build success: 5 targets built` |
+| Some targets failed | `Build failed: 2 of 5 targets failed` |
+| Target up to date | `build/app is up to date` |
+
+### CLI Integration
+
+The output package is integrated into the CLI via the `OutputReporter` adapter:
+
+```go
+// In cmd/build/output_adapter.go
+type OutputReporter interface {
+    BuildStarted(target string)
+    BuildCompleted(target string, success bool, errMsg string)
+    CommandOutput(command, stdout, stderr string)
+    Summary(total, failed int)
+    NothingToBuild(target string)
+}
+
+func NewNormalReporter(w io.Writer) OutputReporter
+```
+
+The adapter wraps `output.NormalReporter` for use in the CLI package.
+
+### Unit Tests (`reporter_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNormalReporter_BuildStarted` | Target name in output |
+| `TestNormalReporter_BuildCompleted` | Success output |
+| `TestNormalReporter_BuildCompletedFailure` | Failure with error message |
+| `TestNormalReporter_CommandOutput` | Stdout content displayed |
+| `TestNormalReporter_CommandOutputStderr` | Stderr content displayed |
+| `TestNormalReporter_SuppressesEmptyOutput` | Empty output suppressed |
+| `TestNormalReporter_Summary` | Summary with counts |
+| `TestNormalReporter_SummaryAllSuccess` | Success message |
+| `TestNormalReporter_NothingToBuild` | Up-to-date message |
+| `TestNormalReporter_OutputScenarios` | Table-driven output tests |
+
+### Design Decisions
+
+1. **Interface-based design**: The `Reporter` interface allows for different output implementations (normal, verbose, quiet, progress-based for parallel builds).
+
+2. **Writer injection**: Reporters accept an `io.Writer` for testability and flexibility (can write to stdout, buffers, files, etc.).
+
+3. **Empty output suppression**: Commands that produce no output don't generate any lines, keeping the build log clean.
+
+4. **Newline handling**: Output methods ensure content ends with a newline for consistent formatting.
+
+5. **Separation from execution**: The output package is independent of the executor, allowing it to be used in different contexts (dry-run, actual execution, testing).
+
+## Target Resolution (`cmd/build/target_resolve.go`)
+
+The target resolution module handles command-line target argument parsing and resolution to canonical target names.
+
+### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `ResolveTargetArgs(args, result)` | Resolves CLI target arguments to canonical names |
+| `extractTargetsAndDefault(stmts)` | Extracts targets and `.default:` from AST |
+| `resolveDefaultTarget(targets, default)` | Resolves when no args provided |
+| `resolveExplicitTargets(args, targets)` | Resolves explicit target arguments |
+| `resolveTargetName(arg, targets)` | Resolves single argument to canonical name |
+| `matchTargetPattern(target, path)` | Checks if path matches target pattern |
+
+### Target Argument Resolution Rules
+
+| Scenario | Resolution |
+|----------|------------|
+| No arguments, `.default:` present | Use `.default:` directive value |
+| No arguments, no `.default:` | Use first defined target |
+| `build/app` (file target) | Exact match against file targets |
+| `@clean` (phony with @) | Match phony target with that name |
+| `clean` (phony without @) | Match phony target `@clean` if exists |
+| Pattern match (e.g., `build/main.o`) | Match against pattern targets |
+| Unknown target | Return error |
+
+### Canonical Target Names
+
+Resolved targets are returned in canonical form:
+- File targets: Path as-is (e.g., `build/app`)
+- Phony targets: With `@` prefix (e.g., `@clean`, even if user typed `clean`)
+- Pattern matches: Concrete path (e.g., `build/main.o` for `build/{name}.o`)
+
+### Resolution Priority
+
+When resolving a target argument without `@` prefix:
+1. Try exact match against file targets first
+2. Try match as phony target name (without @)
+3. Try pattern target matching
+4. Return "target not found" error
+
+When resolving with `@` prefix:
+1. Match only against phony targets
+2. Return "target not found" error if no match
+
+### CLI Integration
+
+Target resolution is integrated into the main CLI flow:
+
+```go
+// In run() after parsing
+resolvedTargets, err := ResolveTargetArgs(targets, result)
+if err != nil {
+    fmt.Fprintf(os.Stderr, "error: %v\n", err)
+    return exitUsageError
+}
+```
+
+### Unit Tests (`target_resolve_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestResolveTargetsNoArgs` | Default target resolution |
+| `TestResolveTargetsSingleArg` | Single target argument |
+| `TestResolveTargetsMultipleArgs` | Multiple targets in order |
+| `TestResolveTargetArgsEmptySlice` | Empty slice behaves like nil |
+| `TestRunWithTargetArgs` | CLI integration with explicit targets |
+| `TestRunWithDefaultTarget` | CLI integration with default target |
+| `TestRunWithFirstTargetAsDefault` | First target as default |
+| `TestRunWithUnknownTarget` | Unknown target error |
+| `TestRunWithNoTargets` | No targets defined error |
+
+### Design Decisions
+
+1. **Phony target without @ prefix**: Users can type `clean` instead of `@clean` for convenience. The resolver automatically adds the `@` prefix when returning the canonical name.
+
+2. **File target priority**: When a name could match both a file target and a phony target (without @), file targets are checked first. This matches Make behavior where phony targets are secondary.
+
+3. **Pattern matching support**: Pattern targets (e.g., `build/{name}.o`) are matched using the planner's `MatchTarget` function, ensuring consistent matching behavior.
+
+4. **Error on first failure**: When resolving multiple targets, the first unresolvable target causes an error. This provides immediate feedback rather than proceeding with partial resolution.
+
+5. **Empty args = default**: Both `nil` and empty slice `[]string{}` trigger default target resolution, matching the common case of running `build` with no arguments.
