@@ -703,3 +703,232 @@ func TestFuncShell_MultilineOutput(t *testing.T) {
 		t.Errorf("Expected '%s', got '%s'", expected, result)
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Shell Caching Tests
+// ----------------------------------------------------------------------------
+
+func TestFuncShell_CachingBasic(t *testing.T) {
+	// Verify that identical shell commands are cached
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	// Create shell call that generates a unique timestamp
+	// Running twice should return same result if cached
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "echo cached"}}},
+				},
+			},
+		},
+	}
+
+	result1, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	result2, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result1 != result2 {
+		t.Errorf("Expected cached result to match: '%s' != '%s'", result1, result2)
+	}
+	if result1 != "cached" {
+		t.Errorf("Expected 'cached', got '%s'", result1)
+	}
+}
+
+func TestFuncShell_CachingWithSameCommand(t *testing.T) {
+	// Verify that the same command called multiple times returns cached result
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	// Use a command that would produce different output each time if not cached
+	// We'll use a file counter approach
+	tmpDir := t.TempDir()
+	counterFile := filepath.Join(tmpDir, "counter")
+	os.WriteFile(counterFile, []byte("0"), 0644)
+
+	// Command increments counter and returns new value
+	// But with caching, second call should return same value
+	cmd := "count=$(cat " + counterFile + "); count=$((count + 1)); echo $count > " + counterFile + "; echo $count"
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: cmd}}},
+				},
+			},
+		},
+	}
+
+	result1, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	result2, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// With caching, both results should be "1" (command only executed once)
+	if result1 != "1" {
+		t.Errorf("Expected first result to be '1', got '%s'", result1)
+	}
+	if result1 != result2 {
+		t.Errorf("Expected cached result, got different values: '%s' vs '%s'", result1, result2)
+	}
+}
+
+func TestFuncShell_CachingDifferentCommands(t *testing.T) {
+	// Different commands should not share cache
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	val1 := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "echo first"}}},
+				},
+			},
+		},
+	}
+
+	val2 := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "echo second"}}},
+				},
+			},
+		},
+	}
+
+	result1, err := e.EvaluateValue(val1)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	result2, err := e.EvaluateValue(val2)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	if result1 != "first" {
+		t.Errorf("Expected 'first', got '%s'", result1)
+	}
+	if result2 != "second" {
+		t.Errorf("Expected 'second', got '%s'", result2)
+	}
+}
+
+func TestFuncShell_CachingWithInterpolation(t *testing.T) {
+	// Verify cache key includes interpolated values
+	ctx := NewContext()
+	ctx.Set("name", "world")
+	e := NewEvaluator(ctx)
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{
+						&ast.LiteralValue{Text: "echo hello "},
+						&ast.Interpolation{Name: "name"},
+					}},
+				},
+			},
+		},
+	}
+
+	result1, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Change the variable value
+	ctx.Set("name", "universe")
+
+	result2, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Different interpolated values should produce different results
+	if result1 != "hello world" {
+		t.Errorf("Expected 'hello world', got '%s'", result1)
+	}
+	if result2 != "hello universe" {
+		t.Errorf("Expected 'hello universe', got '%s'", result2)
+	}
+}
+
+func TestFuncShell_CachingErrorsNotCached(t *testing.T) {
+	// Failing commands should not be cached
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "exit 1"}}},
+				},
+			},
+		},
+	}
+
+	_, err1 := e.EvaluateValue(val)
+	if err1 == nil {
+		t.Fatal("Expected error for failing command")
+	}
+
+	// Second call should also fail (not cached)
+	_, err2 := e.EvaluateValue(val)
+	if err2 == nil {
+		t.Fatal("Expected error for second call to failing command")
+	}
+}
+
+func TestContext_ShellCacheOperations(t *testing.T) {
+	ctx := NewContext()
+
+	// Test GetShellCache returns false for missing key
+	_, ok := ctx.GetShellCache("echo test")
+	if ok {
+		t.Error("Expected GetShellCache to return false for missing key")
+	}
+
+	// Test SetShellCache stores value
+	ctx.SetShellCache("echo test", "test output")
+
+	val, ok := ctx.GetShellCache("echo test")
+	if !ok {
+		t.Error("Expected GetShellCache to return true after SetShellCache")
+	}
+	if val != "test output" {
+		t.Errorf("Expected 'test output', got '%s'", val)
+	}
+
+	// Test ClearShellCache clears cache
+	ctx.ClearShellCache()
+
+	_, ok = ctx.GetShellCache("echo test")
+	if ok {
+		t.Error("Expected GetShellCache to return false after ClearShellCache")
+	}
+}

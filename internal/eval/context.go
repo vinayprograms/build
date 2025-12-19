@@ -26,6 +26,11 @@ type Context struct {
 
 	// builtins holds read-only built-in variables (os, arch).
 	builtins map[string]string
+
+	// shellCache holds cached shell() function results.
+	// Keys are the evaluated command strings, values are the output.
+	// Only successful executions are cached; errors are not cached.
+	shellCache map[string]string
 }
 
 // NewContext creates a new evaluation context with built-in variables initialized.
@@ -34,6 +39,7 @@ func NewContext() *Context {
 		variables:     make(map[string]string),
 		lazyVariables: make(map[string]*ast.Value),
 		lazyCache:     make(map[string]string),
+		shellCache:    make(map[string]string),
 		builtins: map[string]string{
 			"os":   runtime.GOOS,
 			"arch": runtime.GOARCH,
@@ -208,4 +214,36 @@ func (c *Context) LazyVariables() map[string]string {
 		result[k] = "__lazy__"
 	}
 	return result
+}
+
+// ----------------------------------------------------------------------------
+// Shell Cache Operations
+// ----------------------------------------------------------------------------
+
+// GetShellCache retrieves a cached shell() result.
+// Returns the cached output and true if found, or ("", false) otherwise.
+func (c *Context) GetShellCache(cmd string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	val, ok := c.shellCache[cmd]
+	return val, ok
+}
+
+// SetShellCache stores a shell() result in the cache.
+// Only successful executions should be cached; errors should not be cached.
+func (c *Context) SetShellCache(cmd, output string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.shellCache[cmd] = output
+}
+
+// ClearShellCache clears all cached shell() results.
+// This can be used between builds or when the environment changes.
+func (c *Context) ClearShellCache() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.shellCache = make(map[string]string)
 }

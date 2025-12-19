@@ -30,6 +30,7 @@ func (e *Evaluator) evaluateFunction(call *ast.FunctionCall) (string, error) {
 // funcShell executes a shell command and returns stdout.
 // Trailing newlines are trimmed.
 // Interpolated values are shell-quoted by default; use :raw modifier to disable.
+// Results are cached by the evaluated command string within a build.
 func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 	if len(call.Args) < 1 {
 		return "", fmt.Errorf("shell() requires at least one argument")
@@ -41,10 +42,16 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 		return "", err
 	}
 
+	// Check cache first
+	if cached, ok := e.ctx.GetShellCache(cmd); ok {
+		return cached, nil
+	}
+
 	// Execute via shell
 	shellCmd := exec.Command("/bin/sh", "-c", cmd)
 	output, err := shellCmd.Output()
 	if err != nil {
+		// Do NOT cache errors - allow retry on failure
 		return "", &ShellError{Command: cmd, Err: err}
 	}
 
@@ -52,6 +59,9 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 	result := string(output)
 	result = strings.TrimSuffix(result, "\n")
 	result = strings.TrimSuffix(result, "\r\n")
+
+	// Cache the successful result
+	e.ctx.SetShellCache(cmd, result)
 
 	return result, nil
 }
