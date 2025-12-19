@@ -134,6 +134,7 @@ cmd/build/
 ├── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
 ├── output_adapter.go   # Output adapters (OutputReporter, NormalReporter)
 ├── environ_adapter.go  # Environment adapters (RequirementsChecker, RequirementResult)
+├── error_adapter.go    # Error formatting adapters (FormattedError conversion)
 └── environ.go          # Environment commands (--check-env, --list-env)
 ```
 
@@ -244,6 +245,56 @@ Version and commit are embedded at build time via `-ldflags`:
 ```bash
 go build -ldflags "-X main.version=v1.0.0 -X main.commit=abc123" ./cmd/build
 ```
+
+### Error Formatting (`error_adapter.go`)
+
+The CLI integrates with the `internal/errors` package to provide structured, user-friendly error messages with error codes, source context, and help text.
+
+**Key Functions:**
+
+|| Function | Description |
+||----------|-------------|
+|| `initFileReader()` | Initializes the errors package with file reading capability for source context |
+|| `formatParseErrorFromInterface()` | Converts ParseError interface to FormattedError |
+|| `FormatParseError()` | Converts parser.ParseError to FormattedError with source context |
+|| `FormatSemanticError()` | Converts semantic errors to FormattedError |
+|| `FormatEvaluationError()` | Converts evaluation errors to FormattedError |
+
+**Error Category Integration:**
+
+| Category | Error Codes | Implementation |
+|----------|-------------|----------------|
+| Lexical | E001-E099 | Handled by lexer, formatted via FormatParseError |
+| Syntax | E100-E199 | Handled by parser, formatted via FormatParseError |
+| Semantic | E200-E299 | Handled by semantic package, formatted via FormatSemanticError |
+| Evaluation | E300-E399 | Handled by eval package, formatted via FormatEvaluationError |
+| Execution | E400-E499 | Handled by executor package (future) |
+
+**Error Message Format:**
+
+```
+error[E103]: directive '.after' invalid at GLOBAL scope
+ --> Buildfile:2:1
+1 | # Test file
+2 | .after: invalid
+  | ^
+3 | 
+help: .after is only valid in: RECIPE
+```
+
+**Design Decisions:**
+
+1. **File reader initialization**: The `initFileReader()` function is called in `main()` to enable source context extraction from files.
+
+2. **Interface unwrapping**: Parse errors from the BuildfileResult interface are unwrapped to extract the underlying `parser.ParseError` for formatting.
+
+3. **Source context**: All formatting functions accept the source code string to enable extraction of source lines for display.
+
+4. **Error code mapping**: Parse error codes are determined heuristically from error messages using `determineParseErrorCode()`.
+
+5. **Semantic error type switching**: `FormatSemanticError()` uses type switching to handle different semantic error types appropriately.
+
+6. **Evaluation error simplification**: Since evaluation errors often don't have precise source locations, formatting is simplified to show the error message with available context.
 
 ## Lexer Package (`internal/lexer`)
 

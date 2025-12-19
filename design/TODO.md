@@ -751,33 +751,33 @@ User-friendly, actionable error messages.
   - [x] Invalid character
   - [x] Bad indentation (mixed tabs/spaces)
   - [x] Unterminated interpolation
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement syntax errors (E100-E199)**
   - [x] Unexpected token
   - [x] Missing colon in target
   - [x] Missing `end` for conditional
   - [x] Invalid directive at scope
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement semantic errors (E200-E299)**
   - [x] Undefined variable
   - [x] Duplicate definition
   - [x] Circular dependency
   - [x] Capture conflicts
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement evaluation errors (E300-E399)**
   - [x] Shell command failed
   - [x] Glob matched nothing
   - [x] Invalid function arguments
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement execution errors (E400-E499)**
   - [x] Recipe failed
   - [x] Missing dependency file
   - [x] Missing binary
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
 
