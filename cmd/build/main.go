@@ -475,10 +475,41 @@ Debug Options:
   --debug-plan         Dump build planning / target matching (for development)
 
 Examples:
-  build                Build default target
-  build @test          Build phony target
-  build -n             Dry run
-  build -f other.build Use alternate file
+  build                    Build default target
+  build @test              Build phony target
+  build -n                 Dry run (show what would execute)
+  build -v                 Verbose output (show staleness checks)
+  build -f other.build     Use alternate file
+  build -j4                Build with 4 parallel jobs
+  build @clean @build      Build multiple targets in order
+
+Environment Commands:
+  build --list-env         List all defined environments
+  build --check-env        Check if requirements are satisfied
+  build --check-env -e ci  Check named environment "ci"
+  build --check-env --show-install
+                           Show install commands for missing tools
+
+Example Buildfile:
+  .shell: bash
+
+  cc = gcc
+  sources = glob(src/*.c)
+  objects = replace({sources}, .c, .o)
+
+  build/app: {objects}
+      {cc} -o {target} {deps}
+
+  build/{name}.o: src/{name}.c
+      {cc} -c {in} -o {out}
+
+  @clean:
+      rm -rf build/
+
+  @test: build/app
+      ./build/app --test
+
+For more information, see: https://github.com/vinayprograms/build
 `)
 }
 
