@@ -176,6 +176,13 @@ func run(args []string) int {
 		return listEnvironments(result)
 	}
 
+	// Resolve target arguments
+	resolvedTargets, err := ResolveTargetArgs(targets, result)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return exitUsageError
+	}
+
 	// Show what was parsed (verbose mode)
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
@@ -191,8 +198,8 @@ func run(args []string) int {
 			fmt.Printf("  %s: %d\n", stmtType, count)
 		}
 
-		if len(targets) > 0 {
-			fmt.Printf("Requested targets: %v\n", targets)
+		if len(resolvedTargets) > 0 {
+			fmt.Printf("Resolved targets: %v\n", resolvedTargets)
 		}
 	}
 

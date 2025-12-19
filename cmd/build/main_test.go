@@ -242,7 +242,11 @@ func TestRunNoBuildfile(t *testing.T) {
 func TestRunWithBuildfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
-	if err := os.WriteFile(buildfile, []byte("# Test Buildfile\n"), 0644); err != nil {
+	content := `# Test Buildfile
+@all:
+    echo "all"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -265,7 +269,11 @@ func TestRunWithBuildfile(t *testing.T) {
 func TestRunWithExplicitBuildfile(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "custom.build")
-	if err := os.WriteFile(buildfile, []byte("# Custom Buildfile\n"), 0644); err != nil {
+	content := `# Custom Buildfile
+@all:
+    echo "all"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 
