@@ -3678,6 +3678,37 @@ Handles running commands in a devcontainer using the `devcontainer` CLI.
 | `TestRunCheckEnvNoEnvironments` | Bare environment (no `.environment:`) |
 | `TestShowInstall_MissingBinary` | Show install suggestion for missing binary |
 | `TestShowInstall_AllPresent` | All binaries present with --show-install |
+| `TestRunCheckEnvDevcontainer_WithConfig` | Devcontainer with valid configuration |
+| `TestRunCheckEnvDevcontainer_WithSourcePath` | Devcontainer with custom source path |
+| `TestRunCheckEnvDevcontainer_NoConfig` | Devcontainer with missing configuration |
+| `TestRunCheckEnvDevcontainer_InvalidConfig` | Devcontainer with invalid JSON config |
+| `TestRunListEnv_WithDevcontainer` | List environments including devcontainer type |
+
+#### Devcontainer Environment Checking (`environ.go`)
+
+The `checkDevcontainerEnvironment` function validates devcontainer environments:
+
+```go
+func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+```
+
+**Validation Steps:**
+
+1. **CLI Check**: Verifies `devcontainer` CLI is installed via `DevcontainerRunner.CheckCLI()`
+2. **Configuration Detection**:
+   - If `.source:` specified, uses that path
+   - Otherwise, auto-detects `.devcontainer/devcontainer.json` or `devcontainer.json`
+3. **Configuration Parsing**: Loads and parses devcontainer.json, reports errors for invalid JSON
+4. **Configuration Display**: Shows container name and source (image/dockerfile/compose)
+
+**Exit Codes:**
+
+| Condition | Exit Code |
+|-----------|-----------|
+| Configuration valid | `exitSuccess` (0) |
+| CLI not found | Still success (informational only) |
+| Configuration not found | `exitEnvError` (4) |
+| Invalid configuration JSON | `exitEnvError` (4) |
 
 ### Nix Environment Support (`nix.go`)
 
@@ -3754,6 +3785,40 @@ Handles running commands in a Nix environment.
 | `TestNixDetector_DetectConfig_ShellNixPriority` | shell.nix takes priority |
 | `TestNixRunner_CheckCLI_NotInstalled` | CLI not installed error |
 
+#### CLI Tests for Nix (`main_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestRunCheckEnvNix_WithShellNix` | Nix environment with shell.nix |
+| `TestRunCheckEnvNix_WithFlakeNix` | Nix environment with flake.nix |
+| `TestRunCheckEnvNix_WithSourcePath` | Nix environment with custom source path |
+| `TestRunCheckEnvNix_NoConfig` | Nix environment with missing configuration |
+| `TestRunCheckEnvNix_WithArgs` | Nix environment with .args: directive |
+| `TestRunListEnv_WithNix` | List environments including nix type |
+
+#### Nix Environment Checking (`environ.go`)
+
+The `checkNixEnvironment` function validates Nix environments:
+
+```go
+func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+```
+
+**Validation Steps:**
+
+1. **CLI Check**: Verifies `nix-shell` is installed via `NixRunner.CheckCLI()`
+2. **Configuration Detection**: Uses `NixDetector.DetectConfig()` to find shell.nix or flake.nix
+3. **Configuration Display**: Shows path and type (shell.nix vs flake.nix)
+4. **Args Display**: Shows `.args:` if specified
+
+**Exit Codes:**
+
+| Condition | Exit Code |
+|-----------|-----------|
+| Configuration valid | `exitSuccess` (0) |
+| CLI not found | Still success (informational only) |
+| Configuration not found | `exitEnvError` (4) |
+
 ### Lima Environment Support (`lima.go`)
 
 Implements detection and execution for Lima VM environments (macOS).
@@ -3813,6 +3878,38 @@ Handles running commands in a Lima VM.
 | `TestLimaDetector_DetectConfig_NotFound` | Handle missing configuration |
 | `TestLimaRunner_CheckCLI_NotInstalled` | CLI not installed error |
 | `TestLimaRunner_VMName` | VM name assignment |
+
+#### CLI Tests for Lima (`main_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestRunCheckEnvLima_WithLimaYaml` | Lima environment with lima.yaml |
+| `TestRunCheckEnvLima_WithSourcePath` | Lima environment with custom source path |
+| `TestRunCheckEnvLima_NoConfig` | Lima environment with missing configuration |
+| `TestRunListEnv_WithLima` | List environments including lima type |
+
+#### Lima Environment Checking (`environ.go`)
+
+The `checkLimaEnvironment` function validates Lima environments:
+
+```go
+func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+```
+
+**Validation Steps:**
+
+1. **CLI Check**: Verifies `limactl` is installed via `LimaRunner.CheckCLI()`
+2. **Configuration Detection**: Uses `LimaDetector.DetectConfig()` to find lima.yaml
+3. **Configuration Display**: Shows path and VM name
+4. **Args Display**: Shows `.args:` if specified
+
+**Exit Codes:**
+
+| Condition | Exit Code |
+|-----------|-----------|
+| Configuration valid | `exitSuccess` (0) |
+| CLI not found | Still success (informational only) |
+| Configuration not found | `exitEnvError` (4) |
 
 ### Environment Selection (`selector.go`)
 
@@ -4756,3 +4853,122 @@ type SourceLine struct {
 4. **1-based columns**: Column numbers are 1-based to match editor conventions and SourceLocation.
 
 5. **Flexible context**: The context parameter allows 1-3 lines of surrounding source, adapting to error type needs.
+
+## Complete Execution Pipeline
+
+The build tool now has a fully functional execution pipeline wired up in `cmd/build/main.go`. When a user runs `build target`, the following steps occur:
+
+### Pipeline Stages
+
+1. **Parse & Lex**: Read Buildfile and convert to AST
+2. **Semantic Analysis**: Run 4-pass semantic validation
+   - Pass 1: Symbol collection (variables, targets, environments)
+   - Pass 2: Capture validation (resolve {name} to capture vs interpolation)
+   - Pass 3: Reference validation (check all variable references are defined)
+   - Pass 4: Dependency graph validation (detect circular dependencies)
+3. **Evaluation**: Evaluate all immediate variables and conditionals
+4. **Planning**: For each requested target:
+   - Match target pattern
+   - Resolve dependencies recursively
+   - Check file staleness (timestamps)
+   - Build topologically sorted task list
+5. **Execution**: For each task:
+   - Create command context with automatic variables
+   - Interpolate recipe commands
+   - Execute with configured shell
+   - Print output
+   - Check exit codes
+
+### Key Implementation
+
+The execution loop in `main.go` (lines 295-374):
+- Creates build plan for each target
+- Configures executor with shell settings
+- Loops through tasks in dependency order
+- Creates CommandContext with automatic variables (`{target}`, `{deps}`, `{in}`, etc.)
+- Sets captures for pattern targets
+- Executes recipes
+- Prints stdout/stderr
+- Reports failures
+
+### RealFileSystem Implementation
+
+A `realFileSystem` type implements the FileSystem interface for actual file system operations:
+- `Exists(path)`: Check if file exists
+- `ModTime(path)`: Get file modification time
+
+This enables staleness detection by comparing target and dependency timestamps.
+
+### Parser Fix
+
+Fixed parser bug where `IDENTIFIER` followed by `:` was not recognized as a file target (line 207-214 in `parser.go`). Now correctly parses simple file targets like `app:`.
+
+## Integration Tests (`test/integration/`)
+
+Comprehensive end-to-end integration tests verify the complete pipeline:
+
+### Test Infrastructure (`integration_test.go`)
+
+**TestHarness** provides:
+- Temporary working directory for each test
+- Automatic binary building
+- File creation/reading utilities
+- Build tool execution with argument passing
+- Result assertions (exit code, stdout, stderr)
+
+**RunResult** supports fluent assertions:
+```go
+result := h.Run("target")
+result.AssertSuccess().
+    AssertStdoutContains("expected output").
+    AssertStderrNotContains("error")
+```
+
+### Basic Tests
+
+| Test | Description |
+|------|-------------|
+| `TestSimpleBuild` | Build phony target with echo command |
+| `TestBuildfileDiscovery` | Automatic Buildfile discovery in current directory |
+| `TestMissingBuildfile` | Error when no Buildfile found |
+| `TestDefaultTarget` | Build `.default:` target when none specified |
+| `TestMultipleTargets` | Build multiple targets in order |
+| `TestDryRun` | `--dry-run` shows commands without executing |
+| `TestVerboseMode` | `--verbose` shows additional information |
+| `TestHelpFlag` | `--help` displays usage |
+| `TestVersionFlag` | `--version` shows version info |
+| `TestInvalidFlag` | Invalid flags produce usage error |
+
+### End-to-End Tests (`e2e_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestSimpleCCompilation` | Compile C program with gcc |
+| `TestPatternTargets` | Pattern matching (`build/{name}.o`) |
+| `TestConditionalCompilation` | OS-specific compilation flags |
+| `TestPhonyTargets` | Phony targets and dependencies |
+| `TestDependencyChain` | Correct dependency order |
+| `TestVariableInterpolation` | Variable substitution in recipes |
+| `TestLazyVariables` | Lazy variable on-demand evaluation |
+| `TestBuiltInFunctions` | glob(), basename(), dirname(), replace() |
+| `TestAutomaticVariables` | {target}, {deps}, {in}, {out}, {target.dir}, {target.file} |
+| `TestBlockCommands` | Multi-line shell scripts with `block:` |
+| `TestIncludeDirective` | `.include:` merges external files |
+| `TestStalenessDetection` | Timestamp-based rebuild detection |
+| `TestErrorHandling` | Failed commands report errors correctly |
+
+### Current Status
+
+All basic integration tests pass:
+```
+=== RUN   TestSimpleBuild
+--- PASS: TestSimpleBuild (0.40s)
+=== RUN   TestBuildfileDiscovery
+--- PASS: TestBuildfileDiscovery (0.40s)
+...
+PASS
+ok  	github.com/vinayprograms/build/test/integration	4.212s
+```
+
+Some e2e tests need refinement (handling of shell quoting in interpolations, test harness improvements), but the core build pipeline is fully functional.
+

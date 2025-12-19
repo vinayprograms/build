@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/vinayprograms/build/internal/ast"
 )
 
 // Version information (set at build time via -ldflags).
@@ -203,12 +206,180 @@ func run(args []string) int {
 		}
 	}
 
-	// TODO: Wire up semantic analysis, build planning, and execution
-	// The implementations exist in internal/semantic, internal/planner, internal/executor
-	// but are not yet integrated into this main execution path.
-	// Use --debug-plan to see the full pipeline in action.
-	fmt.Fprintln(os.Stderr, "build: execution pipeline not yet wired up")
-	fmt.Fprintln(os.Stderr, "hint: use --debug-plan to see build planning in action")
+	// Run semantic analysis
+	collectResult := CollectSymbols(result)
+	if collectResult.HasErrors() {
+		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		for _, e := range collectResult.Errors() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	captureResult := ValidateCaptures(collectResult)
+	if captureResult.HasErrors() {
+		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		for _, e := range captureResult.Errors() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	// Convert Statement interfaces to ast.Statement for reference validation
+	astStmts := make([]ast.Statement, len(result.Statements()))
+	for i, stmt := range result.Statements() {
+		if sa, ok := stmt.(statementAdapter); ok {
+			astStmts[i] = sa.s
+		}
+	}
+
+	refResult := ValidateReferences(collectResult, astStmts, captureResult)
+	if refResult.HasErrors() {
+		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		for _, e := range refResult.Errors() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	depResult := ValidateDependencies(collectResult)
+	if depResult.HasErrors() {
+		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		for _, e := range depResult.Errors() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	// Evaluate variables
+	evalResult := EvaluateVariables(result)
+	if evalResult.HasErrors() {
+		fmt.Fprintf(os.Stderr, "evaluation errors:\n")
+		for _, e := range evalResult.Errors() {
+			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+		}
+		return exitParseError
+	}
+
+	// Extract targets for planning
+	symbolTable := collectResult.SymbolTable()
+	sta, ok := symbolTable.(*symbolTableAdapter)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "error: unexpected symbol table type")
+		return exitParseError
+	}
+	astTargets := sta.st.Targets
+
+	// Plan and execute builds for each target
+	ctx := evalResult.Context()
+	fs := newRealFileSystem()
+
+	// Get global shell directive
+	globalShell := "/bin/sh"
+	for _, stmt := range result.Statements() {
+		if stmt.StatementType() == "directive" {
+			summary := stmt.Summary()
+			if len(summary) > 7 && summary[:7] == ".shell:" {
+				globalShell = summary[8:] // Skip ".shell: "
+				break
+			}
+		}
+	}
+
+	// Configure executor
+	shellConfig := NewShellConfig()
+	shellConfig.SetShell(globalShell)
+	shellConfig.SetDryRun(f.dryRun)
+	shellConfig.SetVerbose(f.verbose)
+
+	// Process each resolved target
+	hasFailure := false
+	for _, target := range resolvedTargets {
+		// Plan the build
+		planResult := PlanBuild(target, astTargets, ctx, fs)
+		if planResult.Error() != nil {
+			fmt.Fprintf(os.Stderr, "planning error for %s: %v\n", target, planResult.Error())
+			return exitParseError
+		}
+
+		if planResult.TaskCount() == 0 {
+			if f.verbose {
+				fmt.Printf("No work needed for %s\n", target)
+			}
+			continue
+		}
+
+		// Execute tasks
+		executor := NewExecutor(shellConfig)
+		for i := 0; i < planResult.TaskCount(); i++ {
+			task := planResult.Task(i)
+			// Show what we're building
+			if f.verbose || !f.dryRun {
+				fmt.Printf("Building %s\n", task.Target())
+			}
+
+			// Get the recipe
+			recipe := task.Recipe()
+			if recipe == nil {
+				continue
+			}
+
+			// Get recipe shell override if present
+			recipeShell := GetRecipeShell(recipe, globalShell, ctx)
+			if recipeShell != globalShell {
+				executor = NewExecutor(shellConfig.WithOverride(recipeShell))
+			}
+
+			// Create command context with automatic variables
+			cmdCtx := NewCommandContext(
+				ctx,
+				task.Target(),
+				task.Deps(),
+			)
+			// Set captures if present
+			if cca, ok := cmdCtx.(*commandContextAdapter); ok {
+				cca.SetCaptures(task.Captures())
+			}
+
+			// Execute the recipe
+			results, err := executor.ExecuteRecipe(recipe, cmdCtx)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error executing recipe for %s: %v\n", target, err)
+				hasFailure = true
+				break
+			}
+
+			// Print command output and check for failures
+			for _, r := range results {
+				// Print stdout/stderr from the command
+				if r.Stdout() != "" {
+					fmt.Print(r.Stdout())
+				}
+				if r.Stderr() != "" {
+					fmt.Fprint(os.Stderr, r.Stderr())
+				}
+
+				// Check for command failure
+				if r.ExitCode() != 0 {
+					fmt.Fprintf(os.Stderr, "command failed with exit code %d: %s\n", r.ExitCode(), r.Command())
+					hasFailure = true
+					break
+				}
+			}
+
+			if hasFailure {
+				break
+			}
+		}
+
+		if hasFailure {
+			break
+		}
+	}
+
+	if hasFailure {
+		return exitBuildFailure
+	}
 
 	return exitSuccess
 }
@@ -297,6 +468,26 @@ Examples:
   build -n             Dry run
   build -f other.build Use alternate file
 `)
+}
+
+// realFileSystem implements FileSystem using the actual file system.
+type realFileSystem struct{}
+
+func newRealFileSystem() FileSystem {
+	return &realFileSystem{}
+}
+
+func (r *realFileSystem) Exists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func (r *realFileSystem) ModTime(path string) (time.Time, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }
 
 func findBuildfile() string {

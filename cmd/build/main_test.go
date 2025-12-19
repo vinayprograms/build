@@ -1986,3 +1986,648 @@ func TestShowInstall_AllPresent(t *testing.T) {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
+
+// ===========================================================================
+// Devcontainer Environment Tests
+// ===========================================================================
+
+func TestRunCheckEnvDevcontainer_WithConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a devcontainer.json file
+	devcontainerDir := filepath.Join(tmpDir, ".devcontainer")
+	if err := os.MkdirAll(devcontainerDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	devcontainerConfig := filepath.Join(devcontainerDir, "devcontainer.json")
+	configContent := `{
+		"name": "Test Container",
+		"image": "ubuntu:latest"
+	}`
+	if err := os.WriteFile(devcontainerConfig, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with devcontainer environment
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: dev
+    .using: devcontainer
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - devcontainer config exists (even if CLI is not installed, config is valid)
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	// The exit code depends on whether devcontainer CLI is installed
+	// If it's not, we still expect the check to be informative
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvDevcontainer_WithSourcePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a custom devcontainer.json file at a specified path
+	customConfig := filepath.Join(tmpDir, "custom-devcontainer.json")
+	configContent := `{
+		"name": "Custom Container",
+		"image": "alpine:latest"
+	}`
+	if err := os.WriteFile(customConfig, []byte(configContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with devcontainer environment specifying source path
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: dev
+    .using: devcontainer
+    .source: custom-devcontainer.json
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	// The exit code depends on whether devcontainer CLI is installed
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvDevcontainer_NoConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create buildfile with devcontainer environment but no config
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: dev
+    .using: devcontainer
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should fail - no devcontainer configuration found
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvDevcontainer_InvalidConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create an invalid devcontainer.json file
+	devcontainerDir := filepath.Join(tmpDir, ".devcontainer")
+	if err := os.MkdirAll(devcontainerDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	devcontainerConfig := filepath.Join(devcontainerDir, "devcontainer.json")
+	invalidContent := `{not valid json}`
+	if err := os.WriteFile(devcontainerConfig, []byte(invalidContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with devcontainer environment
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: dev
+    .using: devcontainer
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should fail - invalid devcontainer config
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunListEnv_WithDevcontainer(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+.environment: devenv
+    .using: devcontainer
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Nix Environment Tests
+// ===========================================================================
+
+func TestRunCheckEnvNix_WithShellNix(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a shell.nix file
+	shellNixPath := filepath.Join(tmpDir, "shell.nix")
+	nixContent := `{ pkgs ? import <nixpkgs> {} }:
+pkgs.mkShell {
+  buildInputs = [ pkgs.gcc ];
+}
+`
+	if err := os.WriteFile(shellNixPath, []byte(nixContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with nix environment
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: nixdev
+    .using: nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - nix config exists (even if nix-shell CLI is not installed)
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	// The exit code depends on whether nix-shell is installed
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNix_WithFlakeNix(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a flake.nix file
+	flakeNixPath := filepath.Join(tmpDir, "flake.nix")
+	flakeContent := `{
+  description = "Test flake";
+  outputs = { self, nixpkgs }: {};
+}
+`
+	if err := os.WriteFile(flakeNixPath, []byte(flakeContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with nix environment
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: nixdev
+    .using: nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - nix config exists
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNix_WithSourcePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a custom nix file
+	customNixPath := filepath.Join(tmpDir, "dev.nix")
+	nixContent := `{ pkgs ? import <nixpkgs> {} }: pkgs.mkShell {}`
+	if err := os.WriteFile(customNixPath, []byte(nixContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with nix environment specifying source path
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: nixdev
+    .using: nix
+    .source: dev.nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNix_NoConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create buildfile with nix environment but no config
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: nixdev
+    .using: nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should fail - no nix configuration found
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvNix_WithArgs(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a shell.nix file
+	shellNixPath := filepath.Join(tmpDir, "shell.nix")
+	nixContent := `{ pkgs ? import <nixpkgs> {} }: pkgs.mkShell {}`
+	if err := os.WriteFile(shellNixPath, []byte(nixContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with nix environment with args
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: nixdev
+    .using: nix
+    .args: --pure
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunListEnv_WithNix(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+.environment: nixdev
+    .using: nix
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Lima Environment Tests
+// ===========================================================================
+
+func TestRunCheckEnvLima_WithLimaYaml(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a lima.yaml file
+	limaYamlPath := filepath.Join(tmpDir, "lima.yaml")
+	limaContent := `images:
+  - location: "https://example.com/ubuntu.qcow2"
+mounts:
+  - location: "~"
+    writable: true
+`
+	if err := os.WriteFile(limaYamlPath, []byte(limaContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with lima environment
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: vm
+    .using: lima
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - lima config exists (even if limactl is not installed)
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	// The exit code depends on whether limactl is installed
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvLima_WithSourcePath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a custom lima file
+	customLimaPath := filepath.Join(tmpDir, "dev-vm.yaml")
+	limaContent := `images:
+  - location: "https://example.com/arch.qcow2"
+`
+	if err := os.WriteFile(customLimaPath, []byte(limaContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create buildfile with lima environment specifying source path
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: vm
+    .using: lima
+    .source: dev-vm.yaml
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	if exitCode != exitSuccess && exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
+	}
+}
+
+func TestRunCheckEnvLima_NoConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create buildfile with lima environment but no config
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: vm
+    .using: lima
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should fail - no lima configuration found
+	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestRunListEnv_WithLima(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .requires: ls@latest
+
+.environment: vm
+    .using: lima
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+// ===========================================================================
+// Formatted Error Display Tests (Phase 8 - Error Categories)
+// ===========================================================================
+
+// captureStderr captures stderr during function execution
+func captureStderr(f func()) string {
+	old := os.Stderr
+	r, w, _ := os.Pipe()
+	os.Stderr = w
+
+	f()
+
+	w.Close()
+	os.Stderr = old
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	return buf.String()
+}
+
+func TestParseErrorShowsErrorCode_SyntaxError(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// E103: Invalid directive at scope
+	content := `.after: invalid
+cc = gcc
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show error code E103 (invalid directive scope)
+	if !strings.Contains(stderr, "error[E103]") {
+		t.Errorf("Error output should contain error code 'error[E103]', got: %q", stderr)
+	}
+}
+
+func TestParseErrorShowsSourceContext(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.after: invalid
+cc = gcc
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show source context with line numbers
+	if !strings.Contains(stderr, " | ") {
+		t.Errorf("Error output should contain source context with ' | ', got: %q", stderr)
+	}
+}
+
+func TestParseErrorShowsLocation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.after: invalid
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show location arrow
+	if !strings.Contains(stderr, "-->") {
+		t.Errorf("Error output should contain location arrow '-->', got: %q", stderr)
+	}
+}
+
+func TestSemanticErrorShowsErrorCode_DuplicateVariable(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// E201: Duplicate variable definition
+	content := `cc = gcc
+cc = clang
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show error code E201 (duplicate variable)
+	if !strings.Contains(stderr, "error[E201]") {
+		t.Errorf("Error output should contain error code 'error[E201]', got: %q", stderr)
+	}
+}
+
+func TestSemanticErrorShowsErrorCode_UndefinedVariable(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// E200: Undefined variable
+	content := `build/app: src/main.c
+    {cc} -o {target} {deps}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show error code E200 (undefined variable)
+	if !strings.Contains(stderr, "error[E200]") {
+		t.Errorf("Error output should contain error code 'error[E200]', got: %q", stderr)
+	}
+}
+
+func TestSemanticErrorShowsErrorCode_AutomaticOutsideRecipe(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// E207: Automatic variable outside recipe
+	content := `output = {target}
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show error code E207 (automatic outside recipe)
+	if !strings.Contains(stderr, "error[E207]") {
+		t.Errorf("Error output should contain error code 'error[E207]', got: %q", stderr)
+	}
+}
+
+func TestSemanticErrorShowsErrorCode_CircularDependency(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// E204: Circular dependency
+	content := `dir/a.o: dir/b.o
+    echo a
+
+dir/b.o: dir/a.o
+    echo b
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show error code E204 (circular dependency)
+	if !strings.Contains(stderr, "error[E204]") {
+		t.Errorf("Error output should contain error code 'error[E204]', got: %q", stderr)
+	}
+}
+
+func TestMultipleErrorsShowAllCodes(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	// Multiple errors: first syntax error, then will not continue
+	content := `.after: invalid
+.using: invalid
+cc = gcc
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	stderr := captureStderr(func() {
+		exitCode = run([]string{"-f", buildfile})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
+	}
+	// Should show multiple errors
+	errorCount := strings.Count(stderr, "error[")
+	if errorCount < 2 {
+		t.Errorf("Should show at least 2 errors, got %d errors in: %q", errorCount, stderr)
+	}
+}

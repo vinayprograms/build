@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/environ"
@@ -87,6 +88,21 @@ func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verb
 		// Container environments - validate Dockerfile and runtime
 		if *selectedEnv.Runtime == ast.RuntimeDocker || *selectedEnv.Runtime == ast.RuntimePodman {
 			return checkContainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+		}
+
+		// Devcontainer environment
+		if *selectedEnv.Runtime == ast.RuntimeDevcontainer {
+			return checkDevcontainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+		}
+
+		// Nix environment
+		if *selectedEnv.Runtime == ast.RuntimeNix {
+			return checkNixEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+		}
+
+		// Lima environment
+		if *selectedEnv.Runtime == ast.RuntimeLima {
+			return checkLimaEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
 		}
 
 		// Other non-bare environments - just report status for now
@@ -272,5 +288,210 @@ func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbos
 	}
 
 	fmt.Println("\nContainer environment ready")
+	return exitSuccess
+}
+
+// checkDevcontainerEnvironment checks a devcontainer environment.
+func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+	detector := environ.NewDevcontainerDetector()
+	runner := environ.NewDevcontainerRunner(buildfileDir)
+
+	// Check if devcontainer CLI is installed
+	fmt.Println()
+	if err := runner.CheckCLI(); err != nil {
+		fmt.Println("✗ devcontainer CLI not found in PATH")
+		if showInstall {
+			fmt.Println("  Install via: npm install -g @devcontainers/cli")
+		}
+		// Continue checking configuration even if CLI is not installed
+	} else {
+		fmt.Println("✓ devcontainer CLI found")
+	}
+
+	// Determine where to look for devcontainer config
+	var configPath string
+	if env.Source != nil {
+		// Use the specified source path
+		sourcePath := valueToTextSimple(env.Source)
+		configPath = filepath.Join(buildfileDir, sourcePath)
+
+		// Check if the specified file exists
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			fmt.Printf("✗ Source: %s not found\n", configPath)
+			return exitEnvError
+		}
+
+		// Try to load and parse the config
+		cfg, err := detector.LoadConfig(configPath)
+		if err != nil {
+			fmt.Printf("✗ Configuration: failed to parse %s: %v\n", configPath, err)
+			return exitEnvError
+		}
+		fmt.Printf("✓ Configuration: %s\n", configPath)
+
+		// Show configuration details
+		printDevcontainerConfig(cfg, verbose)
+	} else {
+		// Auto-detect devcontainer configuration
+		result, err := detector.DetectConfig(buildfileDir)
+		if err != nil {
+			fmt.Printf("✗ Configuration: error detecting config: %v\n", err)
+			return exitEnvError
+		}
+		if !result.Found {
+			fmt.Println("✗ Configuration: no devcontainer.json found")
+			fmt.Println("  Expected: .devcontainer/devcontainer.json or devcontainer.json")
+			return exitEnvError
+		}
+
+		configPath = result.Path
+		cfg, err := detector.LoadConfig(configPath)
+		if err != nil {
+			fmt.Printf("✗ Configuration: failed to parse %s: %v\n", configPath, err)
+			return exitEnvError
+		}
+		fmt.Printf("✓ Configuration: %s\n", configPath)
+
+		// Show configuration details
+		printDevcontainerConfig(cfg, verbose)
+	}
+
+	// Set the config path on runner for future use
+	runner.SetConfigPath(configPath)
+
+	fmt.Println("\nDevcontainer environment ready")
+	return exitSuccess
+}
+
+// printDevcontainerConfig prints details about the devcontainer configuration.
+func printDevcontainerConfig(cfg *environ.DevcontainerConfig, verbose bool) {
+	if cfg.Name != "" {
+		fmt.Printf("  Name: %s\n", cfg.Name)
+	}
+
+	source := cfg.GetImageOrBuildSource()
+	if source != "" {
+		fmt.Printf("  Source: %s\n", source)
+	}
+
+	if verbose {
+		if cfg.WorkspaceFolder != "" {
+			fmt.Printf("  Workspace: %s\n", cfg.WorkspaceFolder)
+		}
+		if cfg.RemoteUser != "" {
+			fmt.Printf("  User: %s\n", cfg.RemoteUser)
+		}
+	}
+}
+
+// checkNixEnvironment checks a Nix environment.
+func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+	detector := environ.NewNixDetector()
+	runner := environ.NewNixRunner(buildfileDir)
+
+	// Check if nix-shell CLI is installed
+	fmt.Println()
+	if err := runner.CheckCLI(); err != nil {
+		fmt.Println("✗ nix-shell CLI not found in PATH")
+		if showInstall {
+			fmt.Println("  Install Nix: https://nixos.org/download.html")
+		}
+		// Continue checking configuration even if CLI is not installed
+	} else {
+		fmt.Println("✓ nix-shell CLI found")
+	}
+
+	// Detect Nix configuration
+	result, err := detector.DetectConfig(buildfileDir, env.Source)
+	if err != nil {
+		fmt.Printf("✗ Configuration: error detecting config: %v\n", err)
+		return exitEnvError
+	}
+	if !result.Found {
+		fmt.Println("✗ Configuration: no Nix configuration found")
+		fmt.Println("  Expected: shell.nix or flake.nix (or specify with .source:)")
+		return exitEnvError
+	}
+
+	fmt.Printf("✓ Configuration: %s (%s)\n", result.Path, result.Type.String())
+
+	// Set the config on runner for future use
+	runner.SetConfig(result.Path, result.Type)
+
+	// Show args if specified
+	if env.Args != nil {
+		argsStr := valueToTextSimple(env.Args)
+		fmt.Printf("  Args: %s\n", argsStr)
+		if verbose {
+			runner.SetArgs(parseArgs(argsStr))
+		}
+	}
+
+	fmt.Println("\nNix environment ready")
+	return exitSuccess
+}
+
+// parseArgs splits a string into arguments, handling simple space separation.
+func parseArgs(argsStr string) []string {
+	var args []string
+	for _, arg := range strings.Fields(argsStr) {
+		if arg != "" {
+			args = append(args, arg)
+		}
+	}
+	return args
+}
+
+// checkLimaEnvironment checks a Lima VM environment (macOS).
+func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+	detector := environ.NewLimaDetector()
+
+	// Determine VM name from environment name or default
+	vmName := "default"
+	if env.Name != nil {
+		vmName = *env.Name
+	}
+	runner := environ.NewLimaRunner(buildfileDir, vmName)
+
+	// Check if limactl CLI is installed
+	fmt.Println()
+	if err := runner.CheckCLI(); err != nil {
+		fmt.Println("✗ limactl CLI not found in PATH")
+		if showInstall {
+			fmt.Println("  Install via: brew install lima (macOS)")
+		}
+		// Continue checking configuration even if CLI is not installed
+	} else {
+		fmt.Println("✓ limactl CLI found")
+	}
+
+	// Detect Lima configuration
+	result, err := detector.DetectConfig(buildfileDir, env.Source)
+	if err != nil {
+		fmt.Printf("✗ Configuration: error detecting config: %v\n", err)
+		return exitEnvError
+	}
+	if !result.Found {
+		fmt.Println("✗ Configuration: no Lima configuration found")
+		fmt.Println("  Expected: lima.yaml (or specify with .source:)")
+		return exitEnvError
+	}
+
+	fmt.Printf("✓ Configuration: %s\n", result.Path)
+	fmt.Printf("  VM name: %s\n", vmName)
+
+	// Set the config on runner for future use
+	runner.SetConfigPath(result.Path)
+
+	// Show args if specified
+	if env.Args != nil {
+		argsStr := valueToTextSimple(env.Args)
+		fmt.Printf("  Args: %s\n", argsStr)
+		if verbose {
+			runner.SetArgs(parseArgs(argsStr))
+		}
+	}
+
+	fmt.Println("\nLima environment ready")
 	return exitSuccess
 }

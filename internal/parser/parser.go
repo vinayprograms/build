@@ -209,7 +209,8 @@ func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
 		if p.looksLikeVariableLine() {
 			return p.ParseVariable()
 		}
-		// Otherwise could be part of a path-like target
+		// Otherwise it could be a file target (e.g., "app:" or "build/app:")
+		return p.ParseTarget()
 	}
 
 	// Handle phony targets

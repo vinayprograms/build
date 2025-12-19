@@ -219,6 +219,15 @@ type BuildTask interface {
 
 	// HasRecipe returns true if this task has a recipe.
 	HasRecipe() bool
+
+	// Recipe returns the recipe for this task (may be nil).
+	Recipe() *ast.Recipe
+
+	// Captures returns the capture map.
+	Captures() map[string]string
+
+	// Deps returns the dependency list.
+	Deps() []string
 }
 
 // buildTaskAdapter wraps a planner.BuildTask.
@@ -263,6 +272,18 @@ func (t *buildTaskAdapter) CaptureValue(i int) string {
 
 func (t *buildTaskAdapter) HasRecipe() bool {
 	return t.task.Recipe != nil
+}
+
+func (t *buildTaskAdapter) Recipe() *ast.Recipe {
+	return t.task.Recipe
+}
+
+func (t *buildTaskAdapter) Captures() map[string]string {
+	return t.task.Captures
+}
+
+func (t *buildTaskAdapter) Deps() []string {
+	return t.task.Dependencies
 }
 
 // BuildPlanResult represents the result of build planning.

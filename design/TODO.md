@@ -587,37 +587,37 @@ Runtime environments for build isolation.
 - [x] **Implement devcontainer detection**
   - [x] Check for `.devcontainer/` directory or `devcontainer.json`
   - [x] Parse devcontainer configuration
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement devcontainer CLI integration**
   - [x] Use `devcontainer` CLI to start environment
   - [x] Execute build commands inside devcontainer
   - [x] Handle lifecycle (start, stop)
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.4 Nix Environment
 
 - [x] **Implement nix file detection**
   - [x] Locate `shell.nix` or `flake.nix` from `.source:`
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement nix-shell execution**
   - [x] Enter nix-shell with specified configuration
   - [x] Apply `.args:` (e.g., `--pure`)
   - [x] Execute build commands inside nix environment
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.5 Lima Environment (macOS VMs)
 
 - [x] **Implement lima.yaml detection**
   - [x] Locate lima configuration from `.source:`
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement Lima VM management**
   - [x] Start Lima VM
   - [x] Mount workspace
   - [x] Execute build commands inside VM
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.6 Environment Selection Logic
 
@@ -626,7 +626,7 @@ Runtime environments for build isolation.
   - [x] `BUILD_ENV` environment variable second
   - [x] Unnamed `.environment:` as default
   - [x] Error if only named environments and no selection
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `--list-env` flag**
   - [x] List all defined environments
@@ -636,7 +636,7 @@ Runtime environments for build isolation.
 
 - [x] **Implement `--check-env` flag**
   - [x] Verify environment requirements are met
-  - [ ] For containers, verify Dockerfile/runtime exists
+  - [x] For containers, verify Dockerfile/runtime exists
   - [x] Print status for each requirement
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
@@ -796,14 +796,14 @@ Comprehensive test coverage and code quality.
 
 ### 9.2 Integration Tests
 
-- [ ] **End-to-end build tests**
-  - [ ] Simple C compilation example
-  - [ ] Multi-file project with patterns
-  - [ ] Conditional compilation flags
-  - [ ] Phony targets
+- [x] **End-to-end build tests**
+  - [x] Simple C compilation example
+  - [x] Multi-file project with patterns
+  - [x] Conditional compilation flags
+  - [x] Phony targets
 
-- [ ] **Include file tests**
-  - [ ] Single include
+- [x] **Include file tests**
+  - [x] Single include
   - [ ] Nested includes
   - [ ] Circular include detection
 
