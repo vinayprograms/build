@@ -7,18 +7,32 @@ import (
 	"github.com/vinayprograms/build/internal/ast"
 )
 
+// versionCacheEntry holds a cached version detection result.
+type versionCacheEntry struct {
+	version *Version
+	err     error
+}
+
 // RequirementsChecker validates that required binaries are available.
 type RequirementsChecker struct {
 	// lookPath is the function used to find binaries in PATH.
 	// Default is exec.LookPath, but can be overridden for testing.
 	lookPath func(file string) (string, error)
+	// versionCache stores detected versions to avoid repeated lookups.
+	versionCache map[string]versionCacheEntry
 }
 
 // NewRequirementsChecker creates a new RequirementsChecker.
 func NewRequirementsChecker() *RequirementsChecker {
 	return &RequirementsChecker{
-		lookPath: exec.LookPath,
+		lookPath:     exec.LookPath,
+		versionCache: make(map[string]versionCacheEntry),
 	}
+}
+
+// ClearVersionCache clears the cached version detection results.
+func (c *RequirementsChecker) ClearVersionCache() {
+	c.versionCache = make(map[string]versionCacheEntry)
 }
 
 // RequirementResult holds the result of checking a single requirement.

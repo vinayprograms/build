@@ -216,3 +216,63 @@ func TestDetectVersion(t *testing.T) {
 		t.Error("DetectVersion(nonexistent) = nil, want error")
 	}
 }
+
+func TestVersionCache(t *testing.T) {
+	checker := NewRequirementsChecker()
+
+	// First call should populate cache
+	v1, err1 := checker.DetectVersion("sh")
+
+	// Second call should use cached result
+	v2, err2 := checker.DetectVersion("sh")
+
+	// Results should be identical
+	if (err1 == nil) != (err2 == nil) {
+		t.Errorf("cached result differs: first err=%v, second err=%v", err1, err2)
+	}
+
+	if v1 != nil && v2 != nil {
+		if v1.Major != v2.Major || v1.Minor != v2.Minor || v1.Patch != v2.Patch {
+			t.Errorf("cached version differs: first=%v, second=%v", v1, v2)
+		}
+	}
+
+	// Cache should have an entry
+	if checker.versionCache == nil {
+		t.Error("expected version cache to be initialized")
+	}
+
+	if _, ok := checker.versionCache["sh"]; !ok {
+		t.Error("expected 'sh' to be in version cache")
+	}
+}
+
+func TestVersionCacheError(t *testing.T) {
+	checker := NewRequirementsChecker()
+
+	// First call with non-existent binary should cache the error
+	_, err1 := checker.DetectVersion("nonexistent-binary-xyz")
+
+	// Second call should return cached error
+	_, err2 := checker.DetectVersion("nonexistent-binary-xyz")
+
+	// Both should error
+	if err1 == nil || err2 == nil {
+		t.Error("expected error for non-existent binary")
+	}
+}
+
+func TestClearVersionCache(t *testing.T) {
+	checker := NewRequirementsChecker()
+
+	// Populate cache
+	checker.DetectVersion("sh")
+
+	// Clear cache
+	checker.ClearVersionCache()
+
+	// Cache should be empty
+	if len(checker.versionCache) != 0 {
+		t.Error("expected version cache to be empty after clear")
+	}
+}

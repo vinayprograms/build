@@ -88,10 +88,18 @@ func ParseVersion(s string) (*Version, error) {
 
 // DetectVersion attempts to detect the version of a binary.
 // It tries common version flags (--version, -version, -v).
+// Results are cached to avoid repeated lookups.
 func (c *RequirementsChecker) DetectVersion(name string) (*Version, error) {
+	// Check cache first
+	if entry, ok := c.versionCache[name]; ok {
+		return entry.version, entry.err
+	}
+
 	// First check if binary exists
 	path, err := c.lookPath(name)
 	if err != nil {
+		// Cache the error
+		c.versionCache[name] = versionCacheEntry{nil, &BinaryNotFoundError{Name: name}}
 		return nil, &BinaryNotFoundError{Name: name}
 	}
 
@@ -124,24 +132,30 @@ func (c *RequirementsChecker) DetectVersion(name string) (*Version, error) {
 			// Try to parse version from output
 			v, err := ParseVersion(output)
 			if err == nil {
+				// Cache the successful result
+				c.versionCache[name] = versionCacheEntry{v, nil}
 				return v, nil
 			}
 		}
 	}
 
-	// Could not detect version
+	// Could not detect version - cache the error
+	var detectionErr error
 	if lastOutput != "" {
 		// We got output but couldn't parse it
-		return nil, &VersionDetectionError{
+		detectionErr = &VersionDetectionError{
 			Name:    name,
 			Message: fmt.Sprintf("could not parse version from output: %s", strings.TrimSpace(lastOutput)),
 		}
+	} else {
+		detectionErr = &VersionDetectionError{
+			Name:    name,
+			Message: "no version output from any version flag",
+		}
 	}
 
-	return nil, &VersionDetectionError{
-		Name:    name,
-		Message: "no version output from any version flag",
-	}
+	c.versionCache[name] = versionCacheEntry{nil, detectionErr}
+	return nil, detectionErr
 }
 
 // CheckRequirementWithVersion checks a requirement including version validation.
