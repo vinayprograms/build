@@ -253,3 +253,92 @@ func TestCLIWriter_VerboseDuration(t *testing.T) {
 		t.Errorf("expected duration, got %q", got)
 	}
 }
+
+// TestCLIWriter_UnicodeAlways tests that Unicode symbols are used when unicode=always.
+func TestCLIWriter_UnicodeAlways(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Unicode: "always"})
+
+	// Verify Unicode support is enabled
+	if !w.useUnicode {
+		t.Error("expected Unicode to be enabled with unicode=always")
+	}
+
+	// Get symbols and verify they're Unicode
+	sym := w.getSymbols()
+	if sym.checkMark != "✓" {
+		t.Errorf("expected Unicode checkMark, got %q", sym.checkMark)
+	}
+	if sym.arrow != "→" {
+		t.Errorf("expected Unicode arrow, got %q", sym.arrow)
+	}
+}
+
+// TestCLIWriter_UnicodeNever tests that ASCII symbols are used when unicode=never.
+func TestCLIWriter_UnicodeNever(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Unicode: "never"})
+
+	// Verify Unicode support is disabled
+	if w.useUnicode {
+		t.Error("expected Unicode to be disabled with unicode=never")
+	}
+
+	// Get symbols and verify they're ASCII
+	sym := w.getSymbols()
+	if sym.checkMark != "[ok]" {
+		t.Errorf("expected ASCII checkMark, got %q", sym.checkMark)
+	}
+	if sym.arrow != "->" {
+		t.Errorf("expected ASCII arrow, got %q", sym.arrow)
+	}
+	if sym.crossMark != "[FAIL]" {
+		t.Errorf("expected ASCII crossMark, got %q", sym.crossMark)
+	}
+}
+
+// TestCLIWriter_DegradedOutput tests that degraded output uses ASCII symbols.
+func TestCLIWriter_DegradedOutput(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Unicode: "never"})
+
+	// All output should be ASCII-safe
+	sym := w.getSymbols()
+	for _, s := range []string{sym.checkMark, sym.crossMark, sym.arrow, sym.bullet, sym.rightArrow, sym.progressBar} {
+		for _, r := range s {
+			if r > 127 {
+				t.Errorf("expected ASCII-only symbol, got %q with rune %U", s, r)
+			}
+		}
+	}
+}
+
+// TestShouldUseUnicode tests the ShouldUseUnicode function.
+func TestShouldUseUnicode(t *testing.T) {
+	tests := []struct {
+		name     string
+		setting  string
+		expected bool
+	}{
+		{
+			name:     "always",
+			setting:  "always",
+			expected: true,
+		},
+		{
+			name:     "never",
+			setting:  "never",
+			expected: false,
+		},
+		// "auto" depends on locale, so we can't reliably test it
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ShouldUseUnicode(tt.setting)
+			if got != tt.expected {
+				t.Errorf("ShouldUseUnicode(%q) = %v, want %v", tt.setting, got, tt.expected)
+			}
+		})
+	}
+}

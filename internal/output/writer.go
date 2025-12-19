@@ -26,6 +26,10 @@ type WriterConfig struct {
 	// Color controls color output: "auto", "always", "never"
 	Color string
 
+	// Unicode controls Unicode symbol output: "auto", "always", "never"
+	// When disabled, ASCII-only symbols are used.
+	Unicode string
+
 	// LogLevel sets minimum log level for headless mode: "debug", "info", "warn", "error"
 	LogLevel string
 
@@ -39,6 +43,7 @@ func DefaultWriterConfig() WriterConfig {
 		Verbose:   false,
 		Quiet:     false,
 		Color:     "auto",
+		Unicode:   "auto",
 		LogLevel:  "info",
 		LogFormat: "text",
 	}

@@ -8,18 +8,69 @@ import (
 // CLIWriter implements OutputWriter for interactive terminal output.
 // It provides colored output, progress indicators, and formatted messages.
 type CLIWriter struct {
-	w        io.Writer
-	config   WriterConfig
-	useColor bool
+	w          io.Writer
+	config     WriterConfig
+	useColor   bool
+	useUnicode bool
 }
 
 // NewCLIWriter creates a new CLIWriter that writes to w.
 func NewCLIWriter(w io.Writer, config WriterConfig) *CLIWriter {
 	return &CLIWriter{
-		w:        w,
-		config:   config,
-		useColor: ShouldUseColor(config.Color),
+		w:          w,
+		config:     config,
+		useColor:   ShouldUseColor(config.Color),
+		useUnicode: ShouldUseUnicode(config.Unicode),
 	}
+}
+
+// ShouldUseUnicode determines if Unicode should be used based on config.
+func ShouldUseUnicode(unicodeSetting string) bool {
+	switch unicodeSetting {
+	case "always":
+		return true
+	case "never":
+		return false
+	default: // "auto"
+		return DetectUnicodeSupport()
+	}
+}
+
+// Symbols for output - Unicode and ASCII fallbacks.
+type symbols struct {
+	checkMark   string
+	crossMark   string
+	arrow       string
+	bullet      string
+	rightArrow  string
+	progressBar string
+}
+
+var (
+	unicodeSymbols = symbols{
+		checkMark:   "✓",
+		crossMark:   "✗",
+		arrow:       "→",
+		bullet:      "•",
+		rightArrow:  "➜",
+		progressBar: "▓",
+	}
+	asciiSymbols = symbols{
+		checkMark:   "[ok]",
+		crossMark:   "[FAIL]",
+		arrow:       "->",
+		bullet:      "*",
+		rightArrow:  "->",
+		progressBar: "#",
+	}
+)
+
+// getSymbols returns the appropriate symbol set based on Unicode support.
+func (c *CLIWriter) getSymbols() symbols {
+	if c.useUnicode {
+		return unicodeSymbols
+	}
+	return asciiSymbols
 }
 
 // WriteEvent renders an output event to the terminal.
