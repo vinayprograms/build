@@ -2,6 +2,7 @@ package planner
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -104,14 +105,21 @@ func (e *MissingSourceError) Error() string {
 //  4. Staleness detection (determining if rebuild is needed)
 //  5. Topological sorting (ordering tasks for execution)
 func PlanBuild(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem) (*BuildPlan, error) {
+	return PlanBuildWithVerbose(requestedTarget, targets, ctx, fs, nil)
+}
+
+// PlanBuildWithVerbose creates a build plan with optional verbose output.
+// If verboseOutput is non-nil, staleness check decisions are written to it.
+func PlanBuildWithVerbose(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, verboseOutput io.Writer) (*BuildPlan, error) {
 	planner := &buildPlanner{
-		targets:   targets,
-		ctx:       ctx,
-		fs:        fs,
-		visited:   make(map[string]bool),
-		inStack:   make(map[string]bool),
-		tasks:     make([]BuildTask, 0),
-		taskIndex: make(map[string]int),
+		targets:       targets,
+		ctx:           ctx,
+		fs:            fs,
+		visited:       make(map[string]bool),
+		inStack:       make(map[string]bool),
+		tasks:         make([]BuildTask, 0),
+		taskIndex:     make(map[string]int),
+		verboseOutput: verboseOutput,
 	}
 
 	if err := planner.planTarget(requestedTarget); err != nil {
@@ -123,13 +131,14 @@ func PlanBuild(requestedTarget string, targets []*ast.Target, ctx *eval.Context,
 
 // buildPlanner handles the recursive planning process.
 type buildPlanner struct {
-	targets   []*ast.Target
-	ctx       *eval.Context
-	fs        FileSystem
-	visited   map[string]bool // Targets already processed
-	inStack   map[string]bool // Targets in current recursion stack (for cycle detection)
-	tasks     []BuildTask     // Tasks in topological order
-	taskIndex map[string]int  // Index of each target in tasks (for dedup)
+	targets       []*ast.Target
+	ctx           *eval.Context
+	fs            FileSystem
+	visited       map[string]bool // Targets already processed
+	inStack       map[string]bool // Targets in current recursion stack (for cycle detection)
+	tasks         []BuildTask     // Tasks in topological order
+	taskIndex     map[string]int  // Index of each target in tasks (for dedup)
+	verboseOutput io.Writer       // Optional output for verbose mode
 }
 
 // planTarget recursively plans a single target.
@@ -206,6 +215,15 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 
 	// Check if rebuild is needed (based on normal deps and autodeps, not order-only)
 	reason, needsRebuild := p.needsRebuild(targetPath, target, depPaths, autodepsDeps)
+
+	// Verbose output for staleness check decision
+	if p.verboseOutput != nil {
+		if needsRebuild {
+			fmt.Fprintf(p.verboseOutput, "%s: rebuild needed (%s)\n", targetPath, reason.String())
+		} else {
+			fmt.Fprintf(p.verboseOutput, "%s: up to date\n", targetPath)
+		}
+	}
 
 	// Mark as visited
 	p.visited[targetPath] = true

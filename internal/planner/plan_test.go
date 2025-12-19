@@ -1,6 +1,8 @@
 package planner
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 	"time"
 
@@ -649,5 +651,67 @@ func TestPlanBuild_OrderOnlyDeps_InTask(t *testing.T) {
 	// Check order-only dependencies
 	if len(appTask.OrderOnlyDeps) != 1 || appTask.OrderOnlyDeps[0] != "build/" {
 		t.Errorf("expected OrderOnlyDeps=[build/], got %v", appTask.OrderOnlyDeps)
+	}
+}
+
+// ----------------------------------------------------------------------------
+// Verbose Mode Tests
+// ----------------------------------------------------------------------------
+
+func TestPlanBuild_VerboseOutput(t *testing.T) {
+	targets := []*ast.Target{
+		createTargetWithRecipe("build/app", false, false, []string{"src/main.c"}, &ast.Recipe{}),
+	}
+	ctx := eval.NewContext()
+	fs := &mockFileSystem{
+		missing: map[string]bool{"build/app": true},
+		exists:  map[string]bool{"src/main.c": true},
+	}
+
+	var buf bytes.Buffer
+	_, err := PlanBuildWithVerbose("build/app", targets, ctx, fs, &buf)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// Should show staleness check decision
+	if !strings.Contains(output, "build/app") {
+		t.Errorf("expected verbose output to contain target name, got: %s", output)
+	}
+	if !strings.Contains(output, "target missing") {
+		t.Errorf("expected verbose output to contain reason, got: %s", output)
+	}
+}
+
+func TestPlanBuild_VerboseOutput_UpToDate(t *testing.T) {
+	targets := []*ast.Target{
+		createTargetWithRecipe("build/app", false, false, []string{"src/main.c"}, &ast.Recipe{}),
+	}
+	ctx := eval.NewContext()
+	now := time.Now()
+	fs := &mockFileSystem{
+		exists: map[string]bool{
+			"build/app":  true,
+			"src/main.c": true,
+		},
+		mtimes: map[string]time.Time{
+			"build/app":  now,                     // target is newer
+			"src/main.c": now.Add(-1 * time.Hour), // dep is older
+		},
+	}
+
+	var buf bytes.Buffer
+	_, err := PlanBuildWithVerbose("build/app", targets, ctx, fs, &buf)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// Should show that target is up to date
+	if !strings.Contains(output, "up to date") {
+		t.Errorf("expected verbose output to contain 'up to date', got: %s", output)
 	}
 }
