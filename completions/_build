@@ -1,0 +1,88 @@
+#compdef build
+#
+# Zsh completion script for build
+#
+# Installation:
+#   Copy this file to a directory in your $fpath (e.g., /usr/local/share/zsh/site-functions)
+#   or add to your ~/.zshrc:
+#     fpath=(/path/to/completions $fpath)
+#     autoload -Uz compinit && compinit
+
+_build() {
+    local context state state_descr line
+    typeset -A opt_args
+
+    _arguments -C \
+        '(-f --file)'{-f,--file}'[Use alternate Buildfile]:file:_files' \
+        '(-e --env)'{-e,--env}'[Use named environment]:environment:_build_environments' \
+        '(-j --jobs)'{-j,--jobs}'[Parallel jobs]:count:(1 2 4 8 16)' \
+        '(-n --dry-run)'{-n,--dry-run}'[Show what would execute]' \
+        '(-v --verbose)'{-v,--verbose}'[Verbose output]' \
+        '(-q --quiet)'{-q,--quiet}'[Suppress non-error output]' \
+        '--color=[Color output mode]:mode:(auto always never)' \
+        '--progress=[Progress output mode]:mode:(auto always never)' \
+        '--check-env[Verify environment requirements]' \
+        '--show-install[Show install instructions for missing requirements]' \
+        '--list-env[List available environments]' \
+        '--shell[Open shell in sandbox environment]' \
+        '--keep[Keep sandbox running after build]' \
+        '(-V --version)'{-V,--version}'[Show version]' \
+        '(-h --help)'{-h,--help}'[Show help]' \
+        '--debug-lex[Dump lexer tokens]' \
+        '--debug-parse[Dump parser scope validation]' \
+        '--debug-var[Dump variable parsing]' \
+        '--debug-target[Dump target parsing]' \
+        '--debug-recipe[Dump recipe parsing]' \
+        '--debug-env[Dump environment parsing]' \
+        '--debug-cond[Dump conditional parsing]' \
+        '--debug-include[Dump include parsing]' \
+        '--debug-ast[Dump full AST with error recovery]' \
+        '--debug-semantic[Dump semantic analysis]' \
+        '--debug-eval[Dump variable evaluation]' \
+        '--debug-plan[Dump build planning]' \
+        '*:target:_build_targets'
+}
+
+_build_environments() {
+    local buildfile targets
+    
+    # Find Buildfile
+    if [[ -f "Buildfile" ]]; then
+        buildfile="Buildfile"
+    elif [[ -f "buildfile" ]]; then
+        buildfile="buildfile"
+    else
+        return
+    fi
+    
+    # Extract environment names
+    local envs
+    envs=(${(f)"$(grep -E '^\s*\.environment:\s*' "${buildfile}" 2>/dev/null | \
+                  sed -E 's/^.*\.environment:\s*//g' | \
+                  grep -v '^$')"})
+    
+    _describe 'environment' envs
+}
+
+_build_targets() {
+    local buildfile targets
+    
+    # Find Buildfile
+    if [[ -f "Buildfile" ]]; then
+        buildfile="Buildfile"
+    elif [[ -f "buildfile" ]]; then
+        buildfile="buildfile"
+    else
+        return
+    fi
+    
+    # Extract targets (phony and file targets)
+    local targets_array
+    targets_array=(${(f)"$(grep -E '^(@[a-zA-Z_][a-zA-Z0-9_-]*|[a-zA-Z0-9_./-]+):' "${buildfile}" 2>/dev/null | \
+                          sed -E 's/:.*$//' | \
+                          sed 's/^@//')"})
+    
+    _describe 'target' targets_array
+}
+
+_build "$@"
