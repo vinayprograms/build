@@ -21,7 +21,7 @@ go install github.com/vinayprograms/build@latest
 
 ### Prerequisites
 
-- Go 1.21 or later (ensure `$GOPATH/bin` is in your `PATH`)
+- Go 1.25.3 or later (ensure `$GOPATH/bin` is in your `PATH`)
 
 ## Quick Start
 
