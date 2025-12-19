@@ -5246,6 +5246,7 @@ The output beautification system provides context-aware output formatting for CL
 | File | Contents |
 |------|----------|
 | `doc.go` | Package documentation |
+| `emitter.go` | `Emitter` for typed event emission API |
 | `events.go` | `OutputEvent` interface and all event types |
 | `mode.go` | `OutputMode` enum and detection logic |
 | `writer.go` | `OutputWriter` interface and factory functions |
@@ -5254,6 +5255,77 @@ The output beautification system provides context-aware output formatting for CL
 | `headless.go` | `HeadlessWriter` for CI/log collectors |
 | `tui.go` | `TUIWriter` for structured JSON output |
 | `reporter.go` | Legacy `Reporter` interface (to be refactored) |
+
+### Emitter (`emitter.go`)
+
+The `Emitter` provides a typed API for emitting output events. It wraps an `OutputWriter` and provides methods for each event type.
+
+```go
+type Emitter struct {
+    writer OutputWriter
+}
+
+func NewEmitter(writer OutputWriter) *Emitter
+func NoOpEmitter() *Emitter
+```
+
+#### Emitter Methods
+
+| Method | Event Type | Description |
+|--------|------------|-------------|
+| `PhaseStarted(phase)` | `PhaseStarted` | Build phase begins |
+| `PhaseCompleted(phase, duration)` | `PhaseCompleted` | Build phase finishes |
+| `VariableEvaluated(name, expr, result)` | `VariableEvaluated` | Variable evaluated |
+| `TargetStarted(target, index, total)` | `TargetStarted` | Target build begins |
+| `TargetCompleted(target, success, duration, err)` | `TargetCompleted` | Target build finishes |
+| `TargetSkipped(target, reason)` | `TargetSkipped` | Target skipped |
+| `CommandStarted(target, command)` | `CommandStarted` | Command begins |
+| `CommandOutput(target, stdout, stderr)` | `CommandOutput` | Command output |
+| `CommandCompleted(target, cmd, exitCode, duration)` | `CommandCompleted` | Command finishes |
+| `StalenessChecked(target, reason, action)` | `StalenessChecked` | Staleness check result |
+| `BuildSummary(total, succeeded, failed, skipped, duration)` | `BuildSummary` | Build summary |
+| `Error(category, code, message, location, context, hint)` | `ErrorOccurred` | Error occurred |
+| `DryRunTarget(target, index, total)` | `DryRunTarget` | Dry-run target |
+| `DryRunCommand(target, command)` | `DryRunCommand` | Dry-run command |
+
+### Build Pipeline Integration
+
+The emitter is integrated into the build pipeline components:
+
+#### Executor Integration
+
+The `Executor` accepts an emitter via `SetEmitter()` and emits:
+- `CommandStarted` before each command
+- `CommandOutput` when command produces output
+- `CommandCompleted` after each command with duration and exit code
+- `DryRunCommand` in dry-run mode
+
+```go
+executor := NewExecutor(config)
+executor.SetEmitter(emitter)
+executor.ExecuteRecipe(recipe, cmdCtx)
+```
+
+#### Planner Integration
+
+The planner accepts an emitter via `PlanBuildWithEmitter()` and emits:
+- `StalenessChecked` for each target with rebuild reason or skip status
+
+```go
+plan, err := PlanBuildWithEmitter(target, targets, ctx, fs, emitter)
+```
+
+#### Evaluator Integration
+
+The `Evaluator` accepts an emitter via `SetEmitter()` and emits:
+- `VariableEvaluated` for each variable with name, expression, and result
+- Lazy variables show `<lazy>` as result
+
+```go
+evaluator := NewEvaluator(ctx)
+evaluator.SetEmitter(emitter)
+evaluator.EvaluateVariables(statements)
+```
 
 ### Output Events (`events.go`)
 

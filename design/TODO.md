@@ -924,12 +924,12 @@ See DESIGN.md Section 10 for full architecture.
   - [x] Machine-parseable format
   - [x] Timestamps on all events
 
-- [ ] **Integrate output system with build pipeline**
-  - [ ] Emit events from executor (target/command lifecycle)
-  - [ ] Emit events from evaluator (variable evaluation in verbose)
-  - [ ] Emit events from planner (staleness checks in verbose)
-  - [ ] Emit error events from all stages
-  - [ ] Emit summary events at completion
+- [x] **Integrate output system with build pipeline**
+  - [x] Emit events from executor (target/command lifecycle)
+  - [x] Emit events from evaluator (variable evaluation in verbose)
+  - [x] Emit events from planner (staleness checks in verbose)
+  - [x] Emit error events from all stages
+  - [x] Emit summary events at completion
 
 - [x] **Add CLI flags for output control**
   - [x] Add --quiet / -q flag to suppress non-error output
