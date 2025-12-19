@@ -192,14 +192,17 @@ func (c *CLIWriter) writeCommandStarted(e CommandStarted) {
 }
 
 func (c *CLIWriter) writeCommandOutput(e CommandOutput) {
+	// Command output is dimmed (gray) to distinguish from build system messages
 	if e.Stdout != "" {
-		fmt.Fprint(c.w, e.Stdout)
+		output := Dim(e.Stdout, c.useColor)
+		fmt.Fprint(c.w, output)
 		if len(e.Stdout) > 0 && e.Stdout[len(e.Stdout)-1] != '\n' {
 			fmt.Fprintln(c.w)
 		}
 	}
 	if e.Stderr != "" {
-		fmt.Fprint(c.w, e.Stderr)
+		output := Dim(e.Stderr, c.useColor)
+		fmt.Fprint(c.w, output)
 		if len(e.Stderr) > 0 && e.Stderr[len(e.Stderr)-1] != '\n' {
 			fmt.Fprintln(c.w)
 		}
