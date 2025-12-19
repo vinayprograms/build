@@ -7,9 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/build/internal/output"
 )
 
 // ShellConfig holds shell configuration for command execution.
@@ -73,8 +75,10 @@ type ExecResult struct {
 
 // Executor handles shell command execution.
 type Executor struct {
-	config *ShellConfig
-	output io.Writer // Output for dry-run/verbose (defaults to os.Stdout)
+	config  *ShellConfig
+	output  io.Writer       // Output for dry-run/verbose (defaults to os.Stdout)
+	emitter *output.Emitter // Event emitter for output system
+	target  string          // Current target being built (for event context)
 }
 
 // NewExecutor creates a new Executor with the given configuration.
@@ -97,6 +101,16 @@ func NewExecutorWithValidation(config *ShellConfig) (*Executor, error) {
 // SetOutput sets the output writer for dry-run and verbose modes.
 func (e *Executor) SetOutput(w io.Writer) {
 	e.output = w
+}
+
+// SetEmitter sets the event emitter for the output system.
+func (e *Executor) SetEmitter(emitter *output.Emitter) {
+	e.emitter = emitter
+}
+
+// SetTarget sets the current target for event context.
+func (e *Executor) SetTarget(target string) {
+	e.target = target
 }
 
 // ExecuteLine executes a single shell command line.
@@ -196,6 +210,9 @@ func (e *Executor) ExecuteBlock(script string) (*ExecResult, error) {
 func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext) ([]*ExecResult, error) {
 	var results []*ExecResult
 
+	// Get the target for event context
+	target, _ := cmdCtx.Get("target")
+
 	// Determine the shell to use
 	shell := e.config.Shell
 	if recipe.Directives.Shell != nil {
@@ -214,11 +231,11 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 		recipeCfg := e.config.WithOverride(shell)
 		recipeExec = NewExecutor(recipeCfg)
 		recipeExec.output = e.output
+		recipeExec.emitter = e.emitter
 	}
 
 	// In dry-run mode, print "Would build: target" prefix
 	if e.config.DryRun && len(recipe.Commands) > 0 {
-		target, _ := cmdCtx.Get("target")
 		fmt.Fprintf(e.output, "Would build: %s\n", target)
 	}
 
@@ -232,8 +249,27 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 				return results, fmt.Errorf("interpolating command: %w", err)
 			}
 
+			// Emit events
+			start := time.Now()
+			if e.emitter != nil {
+				if e.config.DryRun {
+					e.emitter.DryRunCommand(target, line)
+				} else {
+					e.emitter.CommandStarted(target, line)
+				}
+			}
+
 			result, err := recipeExec.ExecuteLine(line)
 			results = append(results, result)
+
+			// Emit output and completion events
+			if e.emitter != nil && !e.config.DryRun {
+				if result.Stdout != "" || result.Stderr != "" {
+					e.emitter.CommandOutput(target, result.Stdout, result.Stderr)
+				}
+				e.emitter.CommandCompleted(target, line, result.ExitCode, time.Since(start))
+			}
+
 			if err != nil {
 				return results, err
 			}
@@ -245,8 +281,27 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 				return results, fmt.Errorf("interpolating block: %w", err)
 			}
 
+			// Emit events
+			start := time.Now()
+			if e.emitter != nil {
+				if e.config.DryRun {
+					e.emitter.DryRunCommand(target, script)
+				} else {
+					e.emitter.CommandStarted(target, script)
+				}
+			}
+
 			result, err := recipeExec.ExecuteBlock(script)
 			results = append(results, result)
+
+			// Emit output and completion events
+			if e.emitter != nil && !e.config.DryRun {
+				if result.Stdout != "" || result.Stderr != "" {
+					e.emitter.CommandOutput(target, result.Stdout, result.Stderr)
+				}
+				e.emitter.CommandCompleted(target, script, result.ExitCode, time.Since(start))
+			}
+
 			if err != nil {
 				return results, err
 			}

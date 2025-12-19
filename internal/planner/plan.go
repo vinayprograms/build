@@ -9,6 +9,7 @@ import (
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/cache"
 	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/build/internal/output"
 )
 
 // BuildReason indicates why a target needs to be rebuilt.
@@ -115,10 +116,21 @@ func PlanBuildWithVerbose(requestedTarget string, targets []*ast.Target, ctx *ev
 	return PlanBuildWithOptions(requestedTarget, targets, ctx, fs, nil, verboseOutput)
 }
 
+// PlanBuildWithEmitter creates a build plan with event emission.
+// If emitter is non-nil, staleness check events are emitted.
+func PlanBuildWithEmitter(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, emitter *output.Emitter) (*BuildPlan, error) {
+	return planBuildInternal(requestedTarget, targets, ctx, fs, nil, nil, emitter)
+}
+
 // PlanBuildWithOptions creates a build plan with all optional parameters.
 // If autodepsCache is non-nil, .d file parsing results are cached.
 // If verboseOutput is non-nil, staleness check decisions are written to it.
 func PlanBuildWithOptions(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, autodepsCache *cache.AutodepsCache, verboseOutput io.Writer) (*BuildPlan, error) {
+	return planBuildInternal(requestedTarget, targets, ctx, fs, autodepsCache, verboseOutput, nil)
+}
+
+// planBuildInternal is the internal implementation that handles all parameters.
+func planBuildInternal(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, autodepsCache *cache.AutodepsCache, verboseOutput io.Writer, emitter *output.Emitter) (*BuildPlan, error) {
 	planner := &buildPlanner{
 		targets:       targets,
 		targetIndex:   NewTargetIndex(targets),
@@ -130,6 +142,7 @@ func PlanBuildWithOptions(requestedTarget string, targets []*ast.Target, ctx *ev
 		tasks:         make([]BuildTask, 0),
 		taskIndex:     make(map[string]int),
 		verboseOutput: verboseOutput,
+		emitter:       emitter,
 	}
 
 	if err := planner.planTarget(requestedTarget); err != nil {
@@ -151,6 +164,7 @@ type buildPlanner struct {
 	tasks         []BuildTask          // Tasks in topological order
 	taskIndex     map[string]int       // Index of each target in tasks (for dedup)
 	verboseOutput io.Writer            // Optional output for verbose mode
+	emitter       *output.Emitter      // Optional event emitter for output system
 }
 
 // planTarget recursively plans a single target.
@@ -234,6 +248,15 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 			fmt.Fprintf(p.verboseOutput, "%s: rebuild needed (%s)\n", targetPath, reason.String())
 		} else {
 			fmt.Fprintf(p.verboseOutput, "%s: up to date\n", targetPath)
+		}
+	}
+
+	// Emit staleness check event
+	if p.emitter != nil {
+		if needsRebuild {
+			p.emitter.StalenessChecked(targetPath, reason.String(), "rebuild")
+		} else {
+			p.emitter.StalenessChecked(targetPath, "up to date", "skip")
 		}
 	}
 

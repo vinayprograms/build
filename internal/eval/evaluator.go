@@ -6,12 +6,14 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/output"
 )
 
 // Evaluator evaluates AST values and expressions.
 type Evaluator struct {
 	ctx           *Context
-	verboseOutput io.Writer // Optional output for verbose mode
+	verboseOutput io.Writer       // Optional output for verbose mode
+	emitter       *output.Emitter // Optional event emitter for output system
 }
 
 // NewEvaluator creates a new evaluator with the given context.
@@ -23,6 +25,11 @@ func NewEvaluator(ctx *Context) *Evaluator {
 // When set, variable evaluations will be printed to this writer.
 func (e *Evaluator) SetVerboseOutput(w io.Writer) {
 	e.verboseOutput = w
+}
+
+// SetEmitter sets the event emitter for the output system.
+func (e *Evaluator) SetEmitter(emitter *output.Emitter) {
+	e.emitter = emitter
 }
 
 // Context returns the evaluation context.

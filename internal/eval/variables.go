@@ -45,6 +45,10 @@ func (e *Evaluator) evaluateVariable(v *ast.Variable) error {
 		if e.verboseOutput != nil {
 			fmt.Fprintf(e.verboseOutput, "%s = <lazy>\n", v.Name)
 		}
+		// Emit event for lazy variable
+		if e.emitter != nil {
+			e.emitter.VariableEvaluated(v.Name, "", "<lazy>")
+		}
 		return nil
 	}
 
@@ -62,5 +66,25 @@ func (e *Evaluator) evaluateVariable(v *ast.Variable) error {
 		fmt.Fprintf(e.verboseOutput, "%s = %s\n", v.Name, result)
 	}
 
+	// Emit event for evaluated variable
+	if e.emitter != nil {
+		// Check if value has function calls to show expression
+		expr := ""
+		if v.Value != nil && hasFunctionCall(v.Value) {
+			expr = v.Value.String()
+		}
+		e.emitter.VariableEvaluated(v.Name, expr, result)
+	}
+
 	return nil
+}
+
+// hasFunctionCall checks if a value contains a function call.
+func hasFunctionCall(val *ast.Value) bool {
+	for _, part := range val.Parts {
+		if _, ok := part.(*ast.FunctionCall); ok {
+			return true
+		}
+	}
+	return false
 }
