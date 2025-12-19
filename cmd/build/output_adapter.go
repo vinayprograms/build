@@ -2,9 +2,32 @@ package main
 
 import (
 	"io"
+	"os"
 
 	"github.com/vinayprograms/build/internal/output"
 )
+
+// ----------------------------------------------------------------------------
+// Output System Setup
+// ----------------------------------------------------------------------------
+
+// CreateOutputEmitter creates an output emitter based on CLI flags.
+// It sets up the appropriate output writer based on verbosity, quiet mode,
+// and color settings.
+func CreateOutputEmitter(verbose, quiet bool, color string) *output.Emitter {
+	mode := output.DetectOutputMode()
+	config := output.NewWriterConfigFromFlags(verbose, quiet, color)
+	writer := output.NewWriterWithMode(mode, config)
+	return output.NewEmitter(writer)
+}
+
+// CreateOutputWriter creates an output writer based on CLI flags.
+// This is useful when direct writer access is needed.
+func CreateOutputWriter(verbose, quiet bool, color string) output.OutputWriter {
+	mode := output.DetectOutputMode()
+	config := output.NewWriterConfigFromFlags(verbose, quiet, color)
+	return output.NewWriter(mode, os.Stdout, config)
+}
 
 // ----------------------------------------------------------------------------
 // Output Reporter Adapter

@@ -49,6 +49,18 @@ func DefaultWriterConfig() WriterConfig {
 	}
 }
 
+// NewWriterConfigFromFlags creates a WriterConfig from CLI flag values.
+func NewWriterConfigFromFlags(verbose, quiet bool, color string) WriterConfig {
+	return WriterConfig{
+		Verbose:   verbose,
+		Quiet:     quiet,
+		Color:     color,
+		Unicode:   "auto",
+		LogLevel:  "info",
+		LogFormat: "text",
+	}
+}
+
 // NewWriter creates an OutputWriter for the given mode and output stream.
 func NewWriter(mode OutputMode, w io.Writer, config WriterConfig) OutputWriter {
 	switch mode {
@@ -61,6 +73,11 @@ func NewWriter(mode OutputMode, w io.Writer, config WriterConfig) OutputWriter {
 	default:
 		return NewCLIWriter(w, config)
 	}
+}
+
+// NewWriterWithMode creates an OutputWriter for the given mode with auto-detected output stream.
+func NewWriterWithMode(mode OutputMode, config WriterConfig) OutputWriter {
+	return NewWriter(mode, os.Stdout, config)
 }
 
 // NewDefaultWriter creates an OutputWriter with automatic mode detection.
