@@ -342,4 +342,3 @@ func formatShellError(e *eval.ShellError) *errors.FormattedError {
 
 	return formatted
 }
-

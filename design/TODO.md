@@ -787,12 +787,12 @@ Comprehensive test coverage and code quality.
 
 ### 9.1 Unit Tests
 
-- [ ] **Lexer unit tests** (covered in Phase 1)
-- [ ] **Parser unit tests** (covered in Phase 1)
-- [ ] **Semantic analyzer unit tests** (covered in Phase 1)
-- [ ] **Evaluator unit tests** (covered in Phase 2)
-- [ ] **Planner unit tests** (covered in Phase 3)
-- [ ] **Executor unit tests** (covered in Phase 4)
+- [x] **Lexer unit tests** (covered in Phase 1)
+- [x] **Parser unit tests** (covered in Phase 1)
+- [x] **Semantic analyzer unit tests** (covered in Phase 1)
+- [x] **Evaluator unit tests** (covered in Phase 2)
+- [x] **Planner unit tests** (covered in Phase 3)
+- [x] **Executor unit tests** (covered in Phase 4)
 
 ### 9.2 Integration Tests
 
@@ -804,8 +804,8 @@ Comprehensive test coverage and code quality.
 
 - [x] **Include file tests**
   - [x] Single include
-  - [ ] Nested includes
-  - [ ] Circular include detection
+  - [x] Nested includes
+  - [x] Circular include detection
 
 - [ ] **Environment tests**
   - [ ] Bare environment with requirements
@@ -813,15 +813,15 @@ Comprehensive test coverage and code quality.
 
 ### 9.3 Regression Tests
 
-- [ ] **Create test fixture directory**
-  - [ ] Valid Buildfile examples from spec
-  - [ ] Invalid Buildfiles with expected errors
-  - [ ] Complex real-world-like examples
+- [x] **Create test fixture directory**
+  - [x] Valid Buildfile examples from spec
+  - [x] Invalid Buildfiles with expected errors
+  - [x] Complex real-world-like examples
 
-- [ ] **Implement test harness**
-  - [ ] Run build tool on fixtures
-  - [ ] Compare output to expected
-  - [ ] Verify file creation/modification
+- [x] **Implement test harness**
+  - [x] Run build tool on fixtures
+  - [x] Compare output to expected
+  - [x] Verify file creation/modification
 
 ### 9.4 Performance Tests
 
@@ -836,10 +836,10 @@ Comprehensive test coverage and code quality.
 
 ### 9.5 Documentation
 
-- [ ] **Write README**
-  - [ ] Installation instructions
-  - [ ] Quick start guide
-  - [ ] Link to spec
+- [x] **Write README**
+  - [x] Installation instructions
+  - [x] Quick start guide
+  - [x] Link to spec
 
 - [ ] **Write man page or --help text**
   - [ ] All command-line options

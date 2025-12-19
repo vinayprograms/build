@@ -1613,7 +1613,7 @@ The `parseStatement()` function handles all statement types in included files:
 
 1. **Literal paths only**: Currently, interpolation in include paths is not supported. The path must be a literal string. This simplifies implementation and avoids chicken-and-egg issues with variable evaluation order.
 
-2. **Statements returned separately**: `ParseInclude()` returns both the directive node and the parsed statements. This allows the caller to decide how to merge the statements into the parent AST.
+2. **Included statements merged into parent**: `ParseBuildfile()` uses `parseTopLevelStatements()` which handles includes specially. When an include is encountered, the included statements are prepended to the directive statement, ensuring variables/targets from included files are visible to subsequent content in the including file.
 
 3. **Recursive with stack**: The include stack is passed through recursive calls to detect circular includes at any depth.
 
@@ -1630,7 +1630,7 @@ Implements error recovery to collect multiple parse errors and continue parsing 
 | Function | Description |
 |----------|-------------|
 | `ParseBuildfile() ([]Statement, *ParseErrors)` | Parses complete buildfile with error recovery |
-| `parseTopLevelStatement() (Statement, *ParseError)` | Parses a single top-level statement |
+| `parseTopLevelStatements() ([]Statement, *ParseError)` | Parses one or more statements (handles includes) |
 | `recoverToLevel0()` | Skips to next line at indentation level 0 |
 | `looksLikeVariableLine() bool` | Heuristic to detect variable definitions |
 
@@ -5005,8 +5005,40 @@ result.AssertSuccess().
 | `TestAutomaticVariables` | {target}, {deps}, {in}, {out}, {target.dir}, {target.file} |
 | `TestBlockCommands` | Multi-line shell scripts with `block:` |
 | `TestIncludeDirective` | `.include:` merges external files |
+| `TestNestedIncludes` | Nested include chains (A → B → C) |
+| `TestCircularIncludeDetection` | Detects and reports circular includes |
+| `TestDeepNestedIncludes` | 4-level deep include chains |
+| `TestIncludeWithTargets` | Targets from included files are buildable |
 | `TestStalenessDetection` | Timestamp-based rebuild detection |
 | `TestErrorHandling` | Failed commands report errors correctly |
+
+## Test Fixtures
+
+The project includes test fixtures for regression testing:
+
+### Valid Fixtures (`test/integration/fixtures/valid/`)
+
+| Fixture | Description |
+|---------|-------------|
+| `simple.build` | Basic phony target with echo command |
+| `variables.build` | Immediate and lazy variable definitions |
+| `conditionals.build` | OS-based conditional blocks |
+| `patterns.build` | Pattern targets for C compilation |
+| `dependencies.build` | Phony target dependency chains |
+| `functions.build` | Built-in functions (dirname, basename, replace) |
+| `block_commands.build` | Block commands with shell loops |
+| `environment.build` | Environment blocks with requirements |
+
+### Invalid Fixtures (`test/integration/fixtures/invalid/`)
+
+| Fixture | Expected Error |
+|---------|----------------|
+| `missing_end.build` | Missing `end` for conditional |
+| `undefined_var.build` | Reference to undefined variable |
+| `wrong_scope.build` | Directive in wrong scope |
+| `duplicate_target.build` | Duplicate target definition |
+| `circular_dep.build` | Circular dependency chain |
+| `mixed_indent.build` | Mixed tabs and spaces |
 
 ### Current Status
 
