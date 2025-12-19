@@ -133,7 +133,7 @@ func PlanBuildWithOptions(requestedTarget string, targets []*ast.Target, ctx *ev
 func planBuildInternal(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, autodepsCache *cache.AutodepsCache, verboseOutput io.Writer, emitter *output.Emitter) (*BuildPlan, error) {
 	planner := &buildPlanner{
 		targets:       targets,
-		targetIndex:   NewTargetIndex(targets),
+		targetIndex:   NewTargetIndex(targets, ctx),
 		ctx:           ctx,
 		fs:            fs,
 		autodepsCache: autodepsCache,

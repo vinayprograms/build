@@ -13,7 +13,7 @@ func TestNewTargetIndex(t *testing.T) {
 		makeTarget(t, "@clean"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	if idx == nil {
 		t.Fatal("NewTargetIndex returned nil")
@@ -32,7 +32,7 @@ func TestTargetIndex_LookupExact(t *testing.T) {
 		makeTarget(t, "src/main.c"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	// Exact match
 	target, captures, err := idx.Lookup("build/app")
@@ -52,7 +52,7 @@ func TestTargetIndex_LookupPattern(t *testing.T) {
 		makeTarget(t, "build/{name}.o"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	// Pattern match
 	target, captures, err := idx.Lookup("build/main.o")
@@ -73,7 +73,7 @@ func TestTargetIndex_LookupPhony(t *testing.T) {
 		makePhonyTarget(t, "test"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	// Lookup with @ prefix
 	target, _, err := idx.Lookup("@clean")
@@ -104,7 +104,7 @@ func TestTargetIndex_PrefixOptimization(t *testing.T) {
 		makeTarget(t, "src/utils.c"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	// Verify lookup still works correctly
 	target, _, err := idx.Lookup("build/main.o")
@@ -129,7 +129,7 @@ func TestTargetIndex_NotFound(t *testing.T) {
 		makeTarget(t, "build/app"),
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	_, _, err := idx.Lookup("nonexistent")
 	if err == nil {
@@ -145,7 +145,7 @@ func TestTargetIndex_PreferExactOverPattern(t *testing.T) {
 		makeTarget(t, "build/main.o"),   // Exact
 	}
 
-	idx := NewTargetIndex(targets)
+	idx := NewTargetIndex(targets, nil)
 
 	target, captures, err := idx.Lookup("build/main.o")
 	if err != nil {

@@ -4,16 +4,18 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // CompiledPattern is a pre-processed target pattern for faster matching.
 type CompiledPattern struct {
-	Target     *ast.Target
-	Prefix     string   // Literal prefix before first capture (empty if starts with capture)
-	IsLiteral  bool     // True if no captures
-	IsPhony    bool     // True if phony target
-	PatternStr string   // String representation for debugging
-	Captures   []string // Capture names in order
+	Target       *ast.Target
+	Prefix       string   // Literal prefix before first capture (empty if starts with capture)
+	IsLiteral    bool     // True if no captures (after resolving interpolations)
+	IsPhony      bool     // True if phony target
+	PatternStr   string   // String representation for debugging (with interpolations resolved)
+	Captures     []string // Capture names in order (only actual captures, not interpolations)
+	ResolvedPath string   // Fully resolved path for literal patterns
 }
 
 // TargetIndex provides optimized target lookup using pre-compiled patterns.
@@ -34,7 +36,8 @@ type TargetIndex struct {
 }
 
 // NewTargetIndex creates an optimized index for fast target lookup.
-func NewTargetIndex(targets []*ast.Target) *TargetIndex {
+// The context is used to resolve variable interpolations in target patterns.
+func NewTargetIndex(targets []*ast.Target, ctx *eval.Context) *TargetIndex {
 	idx := &TargetIndex{
 		literals: make(map[string]*ast.Target),
 		phonies:  make(map[string]*ast.Target),
@@ -43,16 +46,15 @@ func NewTargetIndex(targets []*ast.Target) *TargetIndex {
 	}
 
 	for _, target := range targets {
-		cp := compilePattern(target)
+		cp := compilePatternWithContext(target, ctx)
 		idx.all = append(idx.all, cp)
 
 		if cp.IsPhony {
-			// Extract phony name
-			name := extractPhonyName(&target.Pattern)
-			idx.phonies[name] = target
+			// Extract phony name (with interpolations resolved)
+			idx.phonies[cp.ResolvedPath] = target
 		} else if cp.IsLiteral {
-			// Exact match path
-			idx.literals[segmentsToString(target.Pattern.Segments)] = target
+			// Exact match path (with interpolations resolved)
+			idx.literals[cp.ResolvedPath] = target
 		} else {
 			// Pattern: index by prefix
 			prefix := extractPrefix(cp.Prefix)
@@ -129,32 +131,59 @@ func (idx *TargetIndex) Lookup(path string) (*ast.Target, map[string]string, err
 	return nil, nil, &TargetNotFoundError{Path: path}
 }
 
-// compilePattern creates a CompiledPattern from a target.
-func compilePattern(target *ast.Target) *CompiledPattern {
+// compilePatternWithContext creates a CompiledPattern from a target,
+// resolving variable interpolations using the context.
+// Variables that exist in context are resolved to literals.
+// Variables that don't exist are treated as captures.
+func compilePatternWithContext(target *ast.Target, ctx *eval.Context) *CompiledPattern {
 	cp := &CompiledPattern{
-		Target:     target,
-		IsPhony:    target.Pattern.IsPhony,
-		PatternStr: segmentsToString(target.Pattern.Segments),
+		Target:  target,
+		IsPhony: target.Pattern.IsPhony,
 	}
 
-	// Check if literal (no captures)
-	cp.IsLiteral = isLiteralPattern(&target.Pattern)
-
-	// Extract prefix and capture names
+	// Build resolved path and identify captures
+	var resolved strings.Builder
 	var prefix strings.Builder
+	hasCapture := false
+
 	for _, seg := range target.Pattern.Segments {
 		switch s := seg.(type) {
 		case *ast.LiteralSegment:
-			if len(cp.Captures) == 0 {
+			resolved.WriteString(s.Text)
+			if !hasCapture {
 				prefix.WriteString(s.Text)
 			}
 		case *ast.BraceExpr:
+			// Check if this is a defined variable
+			if ctx != nil {
+				if val, ok := ctx.Get(s.Identifier); ok {
+					// It's a variable - resolve it
+					resolved.WriteString(val)
+					if !hasCapture {
+						prefix.WriteString(val)
+					}
+					continue
+				}
+			}
+			// Not a variable - treat as capture
 			cp.Captures = append(cp.Captures, s.Identifier)
+			hasCapture = true
+			resolved.WriteString("{" + s.Identifier + "}")
 		}
 	}
+
+	cp.ResolvedPath = resolved.String()
+	cp.PatternStr = cp.ResolvedPath
 	cp.Prefix = prefix.String()
+	cp.IsLiteral = len(cp.Captures) == 0
 
 	return cp
+}
+
+// compilePattern creates a CompiledPattern from a target (without context).
+// Kept for backward compatibility with tests that don't need interpolation.
+func compilePattern(target *ast.Target) *CompiledPattern {
+	return compilePatternWithContext(target, nil)
 }
 
 // extractPrefix returns a prefix key for indexing.
