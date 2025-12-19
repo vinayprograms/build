@@ -136,3 +136,39 @@ func CheckEnvironmentRequirements(env *ast.Environment, withVersion bool) []Requ
 func RequirementFromAST(req ast.Requirement) Requirement {
 	return &requirementAdapter{req: req}
 }
+
+// ----------------------------------------------------------------------------
+// PackageManager Adapter
+// ----------------------------------------------------------------------------
+
+// packageManagerAdapter wraps environ.PackageManager to implement the PackageManager interface.
+type packageManagerAdapter struct {
+	pm environ.PackageManager
+}
+
+func (p *packageManagerAdapter) Name() string {
+	return p.pm.Name()
+}
+
+func (p *packageManagerAdapter) GetInstallCommand(binary string) string {
+	return p.pm.GetInstallCommand(binary)
+}
+
+// DetectPackageManager detects the system's package manager.
+// Returns nil if no supported package manager is found.
+func DetectPackageManager() PackageManager {
+	pm := environ.DetectPackageManager()
+	if pm == nil {
+		return nil
+	}
+	return &packageManagerAdapter{pm: pm}
+}
+
+// GetInstallSuggestion returns the install command for a binary.
+// Returns empty string if package manager is nil.
+func GetInstallSuggestion(binary string, pm PackageManager) string {
+	if pm == nil {
+		return ""
+	}
+	return pm.GetInstallCommand(binary)
+}

@@ -467,10 +467,10 @@ Shell invocation, variable interpolation in commands, and error handling.
   - [x] Clear error message with dependency path
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Handle missing binaries**
-  - [ ] If shell not found, error
-  - [ ] If `.requires:` binary not found, suggest installation
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Handle missing binaries**
+  - [x] If shell not found, error
+  - [x] If `.requires:` binary not found, suggest installation
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Write execution tests**
   - [x] Test line mode execution
@@ -546,11 +546,11 @@ Runtime environments for build isolation.
   - [ ] Cache version checks
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement install suggestions**
-  - [ ] For `--show-install` flag
-  - [ ] Detect OS and suggest package manager command
-  - [ ] Map binary names to package names
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement install suggestions**
+  - [x] For `--show-install` flag
+  - [x] Detect OS and suggest package manager command
+  - [x] Map binary names to package names
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.2 Container Environments (Docker/Podman)
 
@@ -662,26 +662,26 @@ Command-line argument parsing and user interaction.
   - [ ] Multiple targets → build all in order
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement option flags**
-  - [ ] `--env` / `-e` → environment selection
-  - [ ] `--dry-run` / `-n` → show what would execute
-  - [ ] `--verbose` / `-v` → verbose output
-  - [ ] `--jobs N` / `-j N` → parallel jobs
-  - [ ] `--file path` / `-f path` → alternate Buildfile
-  - [ ] `--check-env` → verify environment
-  - [ ] `--show-install` → show install instructions
-  - [ ] `--list-env` → list environments
-  - [ ] `--shell` → open shell in environment
-  - [ ] `--keep` → keep sandbox running
-  - [ ] `--help` / `-h` → show help
-  - [ ] `--version` / `-V` → show version
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement option flags**
+  - [x] `--env` / `-e` → environment selection
+  - [x] `--dry-run` / `-n` → show what would execute
+  - [x] `--verbose` / `-v` → verbose output
+  - [x] `--jobs N` / `-j N` → parallel jobs
+  - [x] `--file path` / `-f path` → alternate Buildfile
+  - [x] `--check-env` → verify environment
+  - [x] `--show-install` → show install instructions
+  - [x] `--list-env` → list environments
+  - [x] `--shell` → open shell in environment
+  - [x] `--keep` → keep sandbox running
+  - [x] `--help` / `-h` → show help
+  - [x] `--version` / `-V` → show version
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Buildfile discovery**
-  - [ ] Look for `Buildfile` in current directory
-  - [ ] Look in parent directories up to root
-  - [ ] Respect `-f` flag override
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Buildfile discovery**
+  - [x] Look for `Buildfile` in current directory
+  - [x] Look in parent directories up to root
+  - [x] Respect `-f` flag override
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 7.2 Output Formatting
 

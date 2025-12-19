@@ -677,3 +677,12 @@ type Requirement interface {
 	// VersionSpec returns the version specification as a string.
 	VersionSpec() string
 }
+
+// PackageManager provides install commands for missing binaries.
+type PackageManager interface {
+	// Name returns the package manager name (e.g., "apt", "brew").
+	Name() string
+
+	// GetInstallCommand returns the command to install a binary.
+	GetInstallCommand(binary string) string
+}

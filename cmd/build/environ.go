@@ -9,8 +9,9 @@ import (
 
 // checkEnvironment verifies the requirements for an environment.
 // If envName is empty, checks the default environment.
+// If showInstall is true, shows install suggestions for missing binaries.
 // Returns exit code.
-func checkEnvironment(result BuildfileResult, envName string, verbose bool) int {
+func checkEnvironment(result BuildfileResult, envName string, verbose, showInstall bool) int {
 	envs := GetEnvironments(result)
 
 	// Find the selected environment
@@ -100,6 +101,12 @@ func checkEnvironment(result BuildfileResult, envName string, verbose bool) int 
 	results := CheckEnvironmentRequirements(selectedEnv, true) // with version checking
 	hasErrors := false
 
+	// Detect package manager for install suggestions
+	var pm PackageManager
+	if showInstall {
+		pm = DetectPackageManager()
+	}
+
 	for _, r := range results {
 		status := "✓"
 		if r.Error() != nil {
@@ -115,10 +122,21 @@ func checkEnvironment(result BuildfileResult, envName string, verbose bool) int 
 		} else {
 			fmt.Printf("  %s %s\n", status, r.String())
 		}
+
+		// Show install suggestion if binary not found and showInstall is enabled
+		if showInstall && !r.Found() && pm != nil {
+			suggestion := GetInstallSuggestion(r.Name(), pm)
+			if suggestion != "" {
+				fmt.Printf("      install: %s\n", suggestion)
+			}
+		}
 	}
 
 	if hasErrors {
 		fmt.Println("\nSome requirements are not met")
+		if showInstall && pm == nil {
+			fmt.Println("(Unable to detect package manager for install suggestions)")
+		}
 		return exitEnvError
 	}
 

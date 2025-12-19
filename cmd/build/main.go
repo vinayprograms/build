@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 // Version information (set at build time via -ldflags).
@@ -166,7 +167,7 @@ func run(args []string) int {
 
 	// Handle --check-env flag
 	if f.checkEnv {
-		return checkEnvironment(result, f.env, f.verbose)
+		return checkEnvironment(result, f.env, f.verbose, f.showInstall)
 	}
 
 	// Handle --list-env flag
@@ -289,10 +290,45 @@ Examples:
 
 func findBuildfile() string {
 	candidates := []string{"Buildfile", "buildfile", "Buildfile.build"}
-	for _, name := range candidates {
-		if _, err := os.Stat(name); err == nil {
-			return name
-		}
+
+	// Start from current directory
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
 	}
+
+	// Search up the directory tree
+	for {
+		// Check each candidate in current directory
+		for _, name := range candidates {
+			path := filepath.Join(dir, name)
+			if _, err := os.Stat(path); err == nil {
+				// If found in current directory, return just the name
+				if dir == mustGetwd() {
+					return name
+				}
+				// Otherwise return the full path
+				return path
+			}
+		}
+
+		// Move to parent directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root
+			break
+		}
+		dir = parent
+	}
+
 	return ""
+}
+
+// mustGetwd returns the current working directory, panicking on error.
+func mustGetwd() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return dir
 }

@@ -622,6 +622,74 @@ func TestFindBuildfileNotFound(t *testing.T) {
 	}
 }
 
+func TestFindBuildfileInParentDirectory(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldDir)
+
+	// Create a directory structure with Buildfile in parent
+	parentDir := t.TempDir()
+	childDir := filepath.Join(parentDir, "subdir")
+	if err := os.MkdirAll(childDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Put Buildfile in parent
+	buildfilePath := filepath.Join(parentDir, "Buildfile")
+	if err := os.WriteFile(buildfilePath, []byte("# test\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Change to child directory
+	if err := os.Chdir(childDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// findBuildfile should find the Buildfile in parent
+	got := findBuildfile()
+	if got == "" {
+		t.Error("findBuildfile() = \"\", want path to parent Buildfile")
+	}
+	if !strings.Contains(got, "Buildfile") {
+		t.Errorf("findBuildfile() = %q, want path containing 'Buildfile'", got)
+	}
+}
+
+func TestFindBuildfileInGrandparentDirectory(t *testing.T) {
+	oldDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(oldDir)
+
+	// Create a directory structure with Buildfile in grandparent
+	grandparentDir := t.TempDir()
+	parentDir := filepath.Join(grandparentDir, "parent")
+	childDir := filepath.Join(parentDir, "child")
+	if err := os.MkdirAll(childDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Put Buildfile in grandparent
+	buildfilePath := filepath.Join(grandparentDir, "Buildfile")
+	if err := os.WriteFile(buildfilePath, []byte("# test\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Change to child directory
+	if err := os.Chdir(childDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// findBuildfile should find the Buildfile in grandparent
+	got := findBuildfile()
+	if got == "" {
+		t.Error("findBuildfile() = \"\", want path to grandparent Buildfile")
+	}
+}
+
 // captureOutput captures stdout during function execution
 func captureOutput(f func()) string {
 	old := os.Stdout
@@ -1862,6 +1930,44 @@ cc = gcc
 
 	// Should succeed - bare environment with no requirements
 	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	if exitCode != exitSuccess {
+		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+	}
+}
+
+func TestShowInstall_MissingBinary(t *testing.T) {
+	// Create a buildfile with a non-existent binary requirement
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .using: bare
+    .requires: this-binary-does-not-exist-xyz123
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should fail because binary doesn't exist
+	exitCode := run([]string{"-f", buildfile, "--check-env", "--show-install"})
+	if exitCode != exitEnvError {
+		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
+	}
+}
+
+func TestShowInstall_AllPresent(t *testing.T) {
+	// Create a buildfile with binaries that should exist
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment:
+    .using: bare
+    .requires: sh ls
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Should succeed - both sh and ls should exist
+	exitCode := run([]string{"-f", buildfile, "--check-env", "--show-install"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}

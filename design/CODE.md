@@ -195,9 +195,20 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `-n, --dry-run` | Show what would execute |
 | `-v, --verbose` | Verbose output |
 | `--check-env` | Verify environment requirements |
+| `--show-install` | Show install instructions for missing requirements |
 | `--list-env` | List available environments |
 | `-V, --version` | Show version |
 | `-h, --help` | Show help |
+
+### Buildfile Discovery
+
+The `findBuildfile()` function searches for Buildfile in the following order:
+
+1. Current directory: `Buildfile`, `buildfile`, `Buildfile.build`
+2. Parent directories: same candidates, up to filesystem root
+3. Returns the first match found
+
+The `-f` / `--file` flag overrides this discovery.
 
 ### Debug Flags
 
@@ -3501,3 +3512,69 @@ Available environments (2):
 | `TestRunCheckEnvNamedNotFound` | Named environment doesn't exist |
 | `TestRunCheckEnvNoDefaultWithNamedOnly` | Error when no default |
 | `TestRunCheckEnvNoEnvironments` | Bare environment (no `.environment:`) |
+| `TestShowInstall_MissingBinary` | Show install suggestion for missing binary |
+| `TestShowInstall_AllPresent` | All binaries present with --show-install |
+
+### Install Suggestions (`install.go`)
+
+Provides installation suggestions for missing binaries.
+
+#### PackageManager Interface
+
+```go
+type PackageManager interface {
+    Name() string                        // Package manager name (e.g., "apt", "brew")
+    GetInstallCommand(binary string) string  // Install command for binary
+}
+```
+
+#### Supported Package Managers
+
+| Manager | OS | Install Command |
+|---------|-----|-----------------|
+| apt | Debian/Ubuntu | `sudo apt install <pkg>` |
+| brew | macOS | `brew install <pkg>` |
+| dnf | Fedora/RHEL | `sudo dnf install <pkg>` |
+| pacman | Arch Linux | `sudo pacman -S <pkg>` |
+| zypper | openSUSE | `sudo zypper install <pkg>` |
+| apk | Alpine Linux | `apk add <pkg>` |
+
+#### DetectPackageManager Function
+
+```go
+func DetectPackageManager() PackageManager
+```
+
+Auto-detects the system's package manager by checking for common binaries in PATH.
+
+#### --show-install Flag
+
+When used with `--check-env`, shows install commands for missing binaries:
+
+```bash
+build --check-env --show-install
+```
+
+**Output:**
+```
+Checking environment: (default)
+Runtime: bare
+
+Checking 2 requirement(s)...
+  ✗ gcc: not found
+      install: sudo apt install gcc
+  ✓ ls: found
+
+Some requirements are not met
+```
+
+#### Install Tests (`install_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestDetectPackageManager` | Package manager detection on different OS |
+| `TestPackageManager_GetInstallCommand` | Install command format for each manager |
+| `TestPackageManager_Name` | Manager name correctness |
+| `TestGetInstallSuggestion` | Full install suggestion generation |
+| `TestBinaryToPackageMapping` | Binary to package name mapping |
+| `TestInstallSuggestions_Integration` | End-to-end install suggestion |
