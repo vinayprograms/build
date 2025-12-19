@@ -4252,6 +4252,243 @@ The adapter wraps `output.NormalReporter` for use in the CLI package.
 | `TestNormalReporter_NothingToBuild` | Up-to-date message |
 | `TestNormalReporter_OutputScenarios` | Table-driven output tests |
 
+### DryRunReporter
+
+The `DryRunReporter` provides output formatting for dry-run mode (`-n` / `--dry-run`), showing what would be built without executing commands.
+
+```go
+type DryRunReporter struct {
+    w           io.Writer
+    targetCount int
+}
+```
+
+#### Key Methods
+
+| Method | Description | Output Format |
+|--------|-------------|---------------|
+| `WouldBuild(target)` | Shows target that would be built | `Would build: <target>` |
+| `ShowCommand(command)` | Shows command that would execute | `  <command>` (2-space indent) |
+| `TargetComplete()` | Marks end of target's commands | Blank line for separation |
+| `Summary(total)` | Shows dry-run summary | `Would build N target(s)` |
+| `NothingToBuild(target)` | Shows up-to-date status | `<target> is up to date` |
+
+#### Output Format
+
+Per spec, dry-run output follows this format:
+
+```
+Would build: build/
+  mkdir -p build/
+
+Would build: build/main.o
+  echo "Compiling main.c..."
+  gcc -Wall -O2 -c src/main.c -o build/main.o
+
+Would build: build/app
+  echo "Linking..."
+  gcc -o build/app build/main.o build/utils.o
+```
+
+Key formatting:
+- Each target starts with `Would build: <target>`
+- Commands are indented with 2 spaces
+- Blank line separates targets (via `TargetComplete()`)
+
+#### CLI Integration
+
+The CLI adapter wraps `output.DryRunReporter`:
+
+```go
+// In cmd/build/output_adapter.go
+type DryRunOutputReporter interface {
+    WouldBuild(target string)
+    ShowCommand(command string)
+    TargetComplete()
+    Summary(total int)
+    NothingToBuild(target string)
+}
+
+func NewDryRunReporter(w io.Writer) DryRunOutputReporter
+```
+
+#### Unit Tests
+
+| Test | Description |
+|------|-------------|
+| `TestDryRunReporter_WouldBuild` | "Would build" prefix |
+| `TestDryRunReporter_ShowCommand` | 2-space indent |
+| `TestDryRunReporter_ShowCommandMultiple` | Multiple commands indented |
+| `TestDryRunReporter_WouldBuildWithCommands` | Complete target output |
+| `TestDryRunReporter_BlankLineBetweenTargets` | Target separation |
+| `TestDryRunReporter_Summary` | Summary with count |
+| `TestDryRunReporter_SummarySingular` | Singular form for 1 target |
+| `TestDryRunReporter_NothingToBuild` | Up-to-date message |
+
+### VerboseReporter
+
+The `VerboseReporter` provides output formatting for verbose mode (`-v` / `--verbose`), showing variable evaluation, staleness checks, and build progress.
+
+```go
+type VerboseReporter struct {
+    w io.Writer
+}
+```
+
+#### Key Methods
+
+| Method | Description | Output Format |
+|--------|-------------|---------------|
+| `StartVariableEvaluation()` | Header for variable phase | `Evaluating variables...` |
+| `VariableEvaluated(name, expr, result)` | Shows evaluation result | `  name = expr → result` or `  name → result` |
+| `StartStalenessChecks()` | Header for staleness phase | `\nChecking targets...` |
+| `StalenessCheck(target, reason, action)` | Shows staleness decision | `  target: reason → action` |
+| `BuildStarted(target)` | Header for building | `\nBuilding target...` |
+| `CommandExecuted(command)` | Shows executed command | `  command` (2-space indent) |
+| `BuildCompleted(target, success, errMsg)` | Shows failure only | `FAILED target: errMsg` |
+| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Raw stdout/stderr |
+| `Summary(total, failed)` | Shows build summary | `Done.` or failure count |
+| `NothingToBuild(target)` | Shows up-to-date status | `target is up to date` |
+
+#### Output Format
+
+Per spec, verbose output follows this format:
+
+```
+Evaluating variables...
+  sources = shell(find src -name "*.c") → src/main.c src/utils.c
+  objects → build/main.o build/utils.o
+
+Checking targets...
+  build/main.o: src/main.c is newer → rebuild
+  build/utils.o: up to date → skip
+  build/app: build/main.o changed → rebuild
+
+Building build/main.o...
+  gcc -Wall -O2 -c src/main.c -o build/main.o
+
+Building build/app...
+  gcc -o build/app build/main.o build/utils.o
+
+Done.
+```
+
+Key formatting:
+- Phase headers are at column 0
+- Details are indented with 2 spaces
+- Arrow `→` shows evaluation/decision results
+- Blank lines separate phases
+
+#### CLI Integration
+
+The CLI adapter wraps `output.VerboseReporter`:
+
+```go
+// In cmd/build/output_adapter.go
+type VerboseOutputReporter interface {
+    StartVariableEvaluation()
+    VariableEvaluated(name, expr, result string)
+    StartStalenessChecks()
+    StalenessCheck(target, reason, action string)
+    BuildStarted(target string)
+    CommandExecuted(command string)
+    BuildCompleted(target string, success bool, errMsg string)
+    CommandOutput(command, stdout, stderr string)
+    Summary(total, failed int)
+    NothingToBuild(target string)
+}
+
+func NewVerboseReporter(w io.Writer) VerboseOutputReporter
+```
+
+#### Unit Tests
+
+| Test | Description |
+|------|-------------|
+| `TestVerboseReporter_VariableEvaluation` | Shows var name and result |
+| `TestVerboseReporter_VariableEvaluationHeader` | Phase header |
+| `TestVerboseReporter_StalenessCheck` | Staleness with reason |
+| `TestVerboseReporter_StalenessCheckUpToDate` | Up-to-date decision |
+| `TestVerboseReporter_StalenessCheckHeader` | Phase header |
+| `TestVerboseReporter_BuildStarted` | Building header |
+| `TestVerboseReporter_CommandExecuted` | Command indentation |
+| `TestVerboseReporter_Summary` | Success message |
+| `TestVerboseReporter_SummaryWithFailures` | Failure counts |
+| `TestVerboseReporter_CompleteOutput` | Full verbose flow |
+
+### ProgressReporter
+
+The `ProgressReporter` provides output formatting for parallel builds (`-j N`), showing progress counts and currently building targets.
+
+```go
+type ProgressReporter struct {
+    w           io.Writer
+    total       int              // Total number of targets to build
+    started     int              // Number of targets started
+    completed   int              // Number of targets completed
+    building    map[string]bool  // Currently building targets
+}
+```
+
+#### Key Methods
+
+| Method | Description | Output Format |
+|--------|-------------|---------------|
+| `BuildStarted(target)` | Shows build progress | `[current/total] Building target` |
+| `BuildCompleted(target, success, errMsg)` | Handles completion | `FAILED target: errMsg` on failure |
+| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Stderr only (for errors) |
+| `Summary(total, failed)` | Shows build summary | Success count or failure count |
+| `NothingToBuild(target)` | Shows up-to-date status | `target is up to date` |
+| `CurrentlyBuilding()` | Returns active targets | List of targets currently building |
+
+#### Output Format
+
+Progress output shows completion count:
+
+```
+[1/5] Building build/a.o
+[2/5] Building build/b.o
+[3/5] Building build/c.o
+[4/5] Building build/main.o
+[5/5] Building build/app
+Build success: 5 targets built
+```
+
+Key formatting:
+- `[current/total]` prefix shows progress
+- Failures are shown with `FAILED target: errMsg`
+- Currently building targets can be queried via `CurrentlyBuilding()`
+
+#### CLI Integration
+
+The CLI adapter wraps `output.ProgressReporter`:
+
+```go
+// In cmd/build/output_adapter.go
+type ProgressOutputReporter interface {
+    BuildStarted(target string)
+    BuildCompleted(target string, success bool, errMsg string)
+    CommandOutput(command, stdout, stderr string)
+    Summary(total, failed int)
+    NothingToBuild(target string)
+    CurrentlyBuilding() []string
+}
+
+func NewProgressReporter(w io.Writer, total int) ProgressOutputReporter
+```
+
+#### Unit Tests
+
+| Test | Description |
+|------|-------------|
+| `TestProgressReporter_BuildStarted` | Progress count on start |
+| `TestProgressReporter_BuildStartedMultiple` | Incremented counts |
+| `TestProgressReporter_BuildCompleted` | Completion handling |
+| `TestProgressReporter_BuildCompletedFailure` | Failure message |
+| `TestProgressReporter_Summary` | Success summary |
+| `TestProgressReporter_SummaryWithFailures` | Failure summary |
+| `TestProgressReporter_CurrentlyBuilding` | Active targets tracking |
+
 ### Design Decisions
 
 1. **Interface-based design**: The `Reporter` interface allows for different output implementations (normal, verbose, quiet, progress-based for parallel builds).

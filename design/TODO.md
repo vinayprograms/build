@@ -691,21 +691,21 @@ Command-line argument parsing and user interaction.
   - [x] Show completion/failure status
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement dry-run output**
-  - [ ] "Would build: target"
-  - [ ] Show each command that would execute
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement dry-run output**
+  - [x] "Would build: target"
+  - [x] Show each command that would execute
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement verbose output**
-  - [ ] Show variable evaluation
-  - [ ] Show staleness check results
-  - [ ] Show dependency resolution
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement verbose output**
+  - [x] Show variable evaluation
+  - [x] Show staleness check results
+  - [x] Show dependency resolution
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement progress for parallel builds**
-  - [ ] Show currently building targets
-  - [ ] Show completion count (e.g., [3/10])
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement progress for parallel builds**
+  - [x] Show currently building targets
+  - [x] Show completion count (e.g., [3/10])
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 7.3 Exit Codes
 
@@ -725,10 +725,10 @@ User-friendly, actionable error messages.
 
 ### 8.1 Error Message Format
 
-- [ ] **Implement source location tracking**
-  - [ ] All AST nodes carry SourceLocation
-  - [ ] Include file path, line number, column number
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement source location tracking**
+  - [x] All AST nodes carry SourceLocation
+  - [x] Include file path, line number, column number
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement error message template**
   - [ ] Error code (E001, E100, etc.)
