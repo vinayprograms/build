@@ -41,6 +41,28 @@ func (c *ShellConfig) WithOverride(shell string) *ShellConfig {
 	}
 }
 
+// Validate checks that the shell exists and is executable.
+// It handles both absolute paths and shells found via PATH lookup.
+func (c *ShellConfig) Validate() error {
+	shell := c.Shell
+
+	// If it's an absolute path, check directly
+	if len(shell) > 0 && shell[0] == '/' {
+		_, err := exec.LookPath(shell)
+		if err != nil {
+			return &ShellNotFoundError{Shell: shell}
+		}
+		return nil
+	}
+
+	// Otherwise, look up in PATH
+	_, err := exec.LookPath(shell)
+	if err != nil {
+		return &ShellNotFoundError{Shell: shell}
+	}
+	return nil
+}
+
 // ExecResult holds the result of a shell command execution.
 type ExecResult struct {
 	Command  string // The command that was executed
@@ -61,6 +83,15 @@ func NewExecutor(config *ShellConfig) *Executor {
 		config: config,
 		output: os.Stdout,
 	}
+}
+
+// NewExecutorWithValidation creates a new Executor and validates the shell.
+// Returns an error if the shell is not found.
+func NewExecutorWithValidation(config *ShellConfig) (*Executor, error) {
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+	return NewExecutor(config), nil
 }
 
 // SetOutput sets the output writer for dry-run and verbose modes.
@@ -236,4 +267,13 @@ func (e *CommandError) Error() string {
 			e.ExitCode, e.Command, e.Stderr)
 	}
 	return fmt.Sprintf("command failed with exit code %d: %s", e.ExitCode, e.Command)
+}
+
+// ShellNotFoundError represents a missing shell error.
+type ShellNotFoundError struct {
+	Shell string
+}
+
+func (e *ShellNotFoundError) Error() string {
+	return fmt.Sprintf("shell not found: %s", e.Shell)
 }

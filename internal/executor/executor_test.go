@@ -489,3 +489,53 @@ func TestVerbose_PrintsCommand(t *testing.T) {
 		t.Errorf("expected verbose output to contain command, got: %s", out)
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Shell Validation Tests
+// ----------------------------------------------------------------------------
+
+func TestValidateShell_ValidShell(t *testing.T) {
+	cfg := NewShellConfig()
+	cfg.Shell = "/bin/sh"
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("expected no error for valid shell, got: %v", err)
+	}
+}
+
+func TestValidateShell_MissingShell(t *testing.T) {
+	cfg := NewShellConfig()
+	cfg.Shell = "/nonexistent/shell"
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected error for missing shell")
+	}
+
+	// Should be a ShellNotFoundError
+	if _, ok := err.(*ShellNotFoundError); !ok {
+		t.Errorf("expected ShellNotFoundError, got %T", err)
+	}
+}
+
+func TestValidateShell_ShellInPath(t *testing.T) {
+	// Validate a shell that exists in PATH (like "sh" or "bash")
+	cfg := NewShellConfig()
+	cfg.Shell = "sh"
+
+	err := cfg.Validate()
+	if err != nil {
+		t.Errorf("expected no error for shell in PATH, got: %v", err)
+	}
+}
+
+func TestNewExecutor_ValidatesShell(t *testing.T) {
+	cfg := NewShellConfig()
+	cfg.Shell = "/nonexistent/shell"
+
+	_, err := NewExecutorWithValidation(cfg)
+	if err == nil {
+		t.Error("expected error for missing shell")
+	}
+}
