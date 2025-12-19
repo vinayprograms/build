@@ -5055,3 +5055,284 @@ ok  	github.com/vinayprograms/build/test/integration	4.212s
 
 Some e2e tests need refinement (handling of shell quoting in interpolations, test harness improvements), but the core build pipeline is fully functional.
 
+## Output Beautification System (`internal/output`)
+
+The output beautification system provides context-aware output formatting for CLI, TUI, and headless (CI) environments.
+
+### Package Structure
+
+| File | Contents |
+|------|----------|
+| `doc.go` | Package documentation |
+| `events.go` | `OutputEvent` interface and all event types |
+| `mode.go` | `OutputMode` enum and detection logic |
+| `writer.go` | `OutputWriter` interface and factory functions |
+| `color.go` | ANSI color utilities |
+| `cli.go` | `CLIWriter` for interactive terminal output |
+| `headless.go` | `HeadlessWriter` for CI/log collectors |
+| `tui.go` | `TUIWriter` for structured JSON output |
+| `reporter.go` | Legacy `Reporter` interface (to be refactored) |
+
+### Output Events (`events.go`)
+
+All output is modeled as events that writers render appropriately:
+
+| Event Type | Description |
+|------------|-------------|
+| `PhaseStarted` | Build phase begins (parse, semantic, eval, plan, execute) |
+| `PhaseCompleted` | Build phase finishes with duration |
+| `VariableEvaluated` | Variable evaluated (verbose mode) |
+| `TargetStarted` | Target build begins with progress (index/total) |
+| `TargetCompleted` | Target build finishes (success/failure) |
+| `TargetSkipped` | Target skipped (up to date, etc.) |
+| `CommandStarted` | Recipe command begins (verbose mode) |
+| `CommandOutput` | Command produces stdout/stderr |
+| `CommandCompleted` | Command finishes with exit code and duration |
+| `StalenessChecked` | Staleness check result (verbose mode) |
+| `BuildSummary` | Final build summary |
+| `ErrorOccurred` | Error with code, location, context, hint |
+| `DryRunTarget` | Target that would be built (dry-run mode) |
+| `DryRunCommand` | Command that would run (dry-run mode) |
+
+### Output Modes (`mode.go`)
+
+| Mode | Description |
+|------|-------------|
+| `ModeCLI` | Interactive terminal with colors and formatting |
+| `ModeTUI` | Structured JSON events for terminal UI |
+| `ModeHeadless` | Plain text with timestamps for CI/logs |
+
+#### Mode Detection
+
+```go
+func DetectOutputMode() OutputMode
+```
+
+Detection order:
+1. `BUILD_OUTPUT_MODE` environment variable (if set)
+2. CI environment indicators (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, etc.)
+3. `TERM=dumb` → headless
+4. TTY status of stdout → CLI if TTY, headless otherwise
+
+### Color Utilities (`color.go`)
+
+| Function | Description |
+|----------|-------------|
+| `ShouldUseColor(setting)` | Determines if colors should be used |
+| `Colorize(text, color, enabled)` | Wraps text with ANSI color codes |
+| `Bold(text, enabled)` | Makes text bold |
+| `Dim(text, enabled)` | Makes text dim |
+| `ColorizeStatus(text, success, enabled)` | Green for success, red for failure |
+
+**Color control:**
+- `NO_COLOR` environment variable disables colors
+- `FORCE_COLOR` environment variable enables colors
+- `--color=auto|always|never` CLI flag (to be integrated)
+
+### CLI Writer (`cli.go`)
+
+Interactive terminal output with colors and progress indicators.
+
+**Features:**
+- Colored target names and status
+- Progress formatting for parallel builds (`[n/total]`)
+- Verbose mode shows variable evaluation and staleness checks
+- Quiet mode suppresses non-error output
+- Error display with source context and hints
+
+**Example output (normal):**
+```
+Building foo.o
+Built foo.o
+
+Build success: 1 target built
+```
+
+**Example output (verbose):**
+```
+Evaluating variables...
+  cc → gcc
+  sources = shell(find src -name "*.c") → src/main.c
+
+Checking targets...
+  foo.o: src/main.c is newer → rebuild
+
+Building foo.o...
+  gcc -c src/main.c -o foo.o
+Built foo.o (0.2s)
+
+Done.
+```
+
+### Headless Writer (`headless.go`)
+
+Plain text output with timestamps for CI/CD and log collectors.
+
+**Features:**
+- RFC3339 timestamps on all log lines
+- Log levels (DEBUG, INFO, WARN, ERROR)
+- Optional JSON log format (`BUILD_LOG_FORMAT=json`)
+- No ANSI escape sequences
+
+**Text format:**
+```
+[2024-01-15T10:30:00Z] [INFO] Building target target=foo.o index=1 total=5
+[2024-01-15T10:30:01Z] [INFO] Target built target=foo.o duration_ms=200
+```
+
+**JSON format:**
+```json
+{"time":"2024-01-15T10:30:00Z","level":"INFO","msg":"Building target","target":"foo.o"}
+```
+
+### TUI Writer (`tui.go`)
+
+Structured JSON events for terminal UI applications.
+
+**Output format:**
+```json
+{"type":"target_started","target":"foo.o","index":1,"total":5,"timestamp":"..."}
+{"type":"target_completed","target":"foo.o","success":true,"duration_ms":200,"timestamp":"..."}
+```
+
+### Writer Configuration
+
+```go
+type WriterConfig struct {
+    Verbose   bool   // Enable detailed output
+    Quiet     bool   // Suppress non-error output
+    Color     string // "auto", "always", "never"
+    LogLevel  string // "debug", "info", "warn", "error"
+    LogFormat string // "text", "json"
+}
+```
+
+### Writer Factory
+
+```go
+func NewWriter(mode OutputMode, w io.Writer, config WriterConfig) OutputWriter
+func NewDefaultWriter(config WriterConfig) OutputWriter
+func NewNoOpWriter() OutputWriter
+```
+
+### Design Decisions
+
+1. **Event-based architecture**: All output is modeled as events, allowing different renderers for different contexts without changing the build pipeline.
+
+2. **Mode detection**: Automatically detects CLI vs headless based on TTY and CI environment, reducing user configuration burden.
+
+3. **Color control**: Follows standards (`NO_COLOR`, `FORCE_COLOR`) and provides explicit control via config.
+
+4. **Verbose as event filtering**: Verbose mode events are always emitted but filtered by the writer, keeping the pipeline simple.
+
+5. **JSON for TUI**: Structured output enables rich terminal UIs without parsing text.
+
+6. **Timestamp format**: RFC3339 for headless mode ensures consistent log parsing.
+
+### Unit Tests
+
+#### Events Tests (`events_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestPhaseStartedEventType` | Event type string |
+| `TestPhaseCompletedEventType` | Event type string |
+| `TestVariableEvaluatedEventType` | Event type string |
+| `TestTargetStartedEventType` | Event type string |
+| `TestTargetCompletedEventType` | Event type string |
+| `TestTargetSkippedEventType` | Event type string |
+| `TestCommandStartedEventType` | Event type string |
+| `TestCommandOutputEventType` | Event type string |
+| `TestCommandCompletedEventType` | Event type string |
+| `TestStalenessCheckedEventType` | Event type string |
+| `TestBuildSummaryEventType` | Event type string |
+| `TestErrorOccurredEventType` | Event type string |
+| `TestDryRunTargetEventType` | Event type string |
+| `TestDryRunCommandEventType` | Event type string |
+| `TestAllEventsImplementInterface` | Compile-time interface check |
+
+#### Mode Tests (`mode_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestOutputModeString` | Mode string representation |
+| `TestParseOutputMode` | Parse mode from string |
+| `TestDetectOutputMode_EnvOverride` | BUILD_OUTPUT_MODE override |
+| `TestDetectOutputMode_CI` | CI environment detection |
+| `TestDetectOutputMode_DumbTerminal` | TERM=dumb detection |
+| `TestIsCI` | CI indicator detection |
+
+#### Color Tests (`color_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestShouldUseColor_Always` | Always enable colors |
+| `TestShouldUseColor_Never` | Always disable colors |
+| `TestShouldUseColor_Auto_NoColor` | NO_COLOR detection |
+| `TestShouldUseColor_Auto_ForceColor` | FORCE_COLOR detection |
+| `TestColorize_Enabled` | Color application |
+| `TestColorize_Disabled` | Color skipped |
+| `TestBold_Enabled` | Bold formatting |
+| `TestDim_Enabled` | Dim formatting |
+| `TestColorizeStatus_Success` | Green for success |
+| `TestColorizeStatus_Failure` | Red for failure |
+
+#### CLI Writer Tests (`cli_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestCLIWriter_TargetStarted` | Target start output |
+| `TestCLIWriter_TargetStarted_Progress` | Progress format [n/total] |
+| `TestCLIWriter_TargetCompleted_Success` | Success output |
+| `TestCLIWriter_TargetCompleted_Failure` | Failure output |
+| `TestCLIWriter_CommandOutput` | Command stdout/stderr |
+| `TestCLIWriter_BuildSummary_Success` | Success summary |
+| `TestCLIWriter_BuildSummary_Failure` | Failure summary |
+| `TestCLIWriter_Error` | Error with code/location/hint |
+| `TestCLIWriter_Verbose_VariableEvaluated` | Verbose variable output |
+| `TestCLIWriter_Verbose_CommandStarted` | Verbose command output |
+| `TestCLIWriter_Quiet_SuppressesNonErrors` | Quiet mode filtering |
+| `TestCLIWriter_Quiet_ShowsErrors` | Errors shown in quiet mode |
+| `TestCLIWriter_DryRun` | Dry-run output format |
+| `TestCLIWriter_WithColor` | ANSI codes present |
+| `TestCLIWriter_StalenessChecked` | Staleness output |
+| `TestCLIWriter_TargetSkipped` | Skip output |
+| `TestCLIWriter_VerboseDuration` | Duration in output |
+
+#### Headless Writer Tests (`headless_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestHeadlessWriter_TargetStarted_Text` | Text log format |
+| `TestHeadlessWriter_TargetStarted_JSON` | JSON log format |
+| `TestHeadlessWriter_Error` | Error logging |
+| `TestHeadlessWriter_LogLevel_Debug` | Debug level output |
+| `TestHeadlessWriter_LogLevel_Info_FiltersDebug` | Level filtering |
+| `TestHeadlessWriter_CommandOutput` | Raw output passthrough |
+| `TestHeadlessWriter_BuildSummary_Success` | Success summary log |
+| `TestHeadlessWriter_BuildSummary_Failure` | Failure summary log |
+| `TestHeadlessWriter_Quiet` | Quiet mode |
+| `TestHeadlessWriter_Timestamp` | Timestamp presence |
+
+#### TUI Writer Tests (`tui_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestTUIWriter_TargetStarted` | JSON event structure |
+| `TestTUIWriter_TargetCompleted` | Success/failure fields |
+| `TestTUIWriter_Error` | Error event structure |
+| `TestTUIWriter_BuildSummary` | Summary fields |
+| `TestTUIWriter_HasTimestamp` | Timestamp field |
+| `TestTUIWriter_PhaseEvents` | Phase event structure |
+| `TestTUIWriter_DryRunEvents` | Dry-run event structure |
+
+#### Writer Factory Tests (`writer_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNewWriter_CLI` | CLI mode creates CLIWriter |
+| `TestNewWriter_TUI` | TUI mode creates TUIWriter |
+| `TestNewWriter_Headless` | Headless mode creates HeadlessWriter |
+| `TestNewNoOpWriter` | NoOp writer discards output |
+| `TestDefaultWriterConfig` | Default config values |
+

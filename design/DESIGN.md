@@ -1444,7 +1444,352 @@ See Section 3.2 for the full EBNF grammar.
 
 ---
 
-## 10. Design Decisions Log
+## 10. Output Beautification System
+
+### 10.1 Overview
+
+The build tool runs in three distinct contexts with different output requirements:
+
+| Context | Characteristics | Output Requirements |
+|---------|----------------|---------------------|
+| **CLI** | Interactive terminal, TTY attached | Colors, progress indicators, carriage returns |
+| **TUI** | Structured terminal UI (future) | Machine-parseable events, structured data |
+| **Headless** | CI/CD pipeline, log collectors | Plain text, timestamps, no escape codes |
+
+### 10.2 Architecture
+
+The output system uses an **OutputMode** enum and **OutputWriter** interface to abstract rendering:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Build Pipeline                            │
+│  (Lexer → Parser → Semantic → Eval → Plan → Execute)            │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        OutputWriter                              │
+│  - WriteEvent(event OutputEvent)                                 │
+│  - Flush()                                                       │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   CLIWriter     │  │   TUIWriter     │  │ HeadlessWriter  │
+│                 │  │                 │  │                 │
+│ - ANSI colors   │  │ - JSON events   │  │ - Plain text    │
+│ - Progress bars │  │ - Structured    │  │ - Timestamps    │
+│ - Spinners      │  │ - Machine-parse │  │ - Log levels    │
+│ - Terminal width│  │                 │  │ - No escape seq │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+```
+
+### 10.3 Output Mode Detection
+
+The output mode is determined automatically unless overridden:
+
+```
+fn detect_output_mode() OutputMode:
+    if env.BUILD_OUTPUT_MODE is set:
+        return parse_mode(env.BUILD_OUTPUT_MODE)
+    
+    if !isatty(stdout) or !isatty(stderr):
+        return OutputMode::Headless
+    
+    if env.TERM == "dumb":
+        return OutputMode::Headless
+    
+    if env.CI or env.GITHUB_ACTIONS or env.GITLAB_CI:
+        return OutputMode::Headless
+    
+    return OutputMode::CLI
+```
+
+**Override via environment**:
+- `BUILD_OUTPUT_MODE=cli` - Force CLI mode
+- `BUILD_OUTPUT_MODE=tui` - Force TUI mode  
+- `BUILD_OUTPUT_MODE=headless` - Force headless mode
+
+### 10.4 Output Events
+
+All output is modeled as events that writers render appropriately:
+
+```go
+type OutputEvent interface {
+    eventType() string
+}
+
+// Phase events
+type PhaseStarted struct {
+    Phase     string    // "parse", "semantic", "eval", "plan", "execute"
+    Timestamp time.Time
+}
+
+type PhaseCompleted struct {
+    Phase     string
+    Timestamp time.Time
+    Duration  time.Duration
+}
+
+// Variable events (verbose mode)
+type VariableEvaluated struct {
+    Name   string
+    Expr   string // Original expression (if function call)
+    Result string
+}
+
+// Target events
+type TargetStarted struct {
+    Target string
+    Index  int // 1-based, for progress like [3/10]
+    Total  int
+}
+
+type TargetCompleted struct {
+    Target   string
+    Success  bool
+    Duration time.Duration
+    Error    string // If Success is false
+}
+
+type TargetSkipped struct {
+    Target string
+    Reason string // "up to date", "already built", etc.
+}
+
+// Command events
+type CommandStarted struct {
+    Target  string
+    Command string
+}
+
+type CommandOutput struct {
+    Target string
+    Stdout string
+    Stderr string
+}
+
+type CommandCompleted struct {
+    Target   string
+    Command  string
+    ExitCode int
+    Duration time.Duration
+}
+
+// Staleness events (verbose mode)
+type StalenessChecked struct {
+    Target string
+    Reason string // "src/main.c is newer", "target missing", etc.
+    Action string // "rebuild", "skip"
+}
+
+// Summary events
+type BuildSummary struct {
+    Total       int
+    Succeeded   int
+    Failed      int
+    Skipped     int
+    Duration    time.Duration
+}
+
+// Error events
+type ErrorOccurred struct {
+    Category string // "parse", "semantic", "eval", "plan", "execute"
+    Code     string // "E001", "E200", etc.
+    Message  string
+    Location string // "Buildfile:10:5"
+    Context  string // Source code snippet
+    Hint     string // Fix suggestion
+}
+```
+
+### 10.5 CLI Writer (Interactive Terminal)
+
+The CLI writer provides rich, human-friendly output with colors and progress.
+
+#### Color Scheme
+
+| Element | Color | ANSI Code |
+|---------|-------|-----------|
+| Target name | Cyan/bold | `\033[1;36m` |
+| Success | Green | `\033[32m` |
+| Failure | Red/bold | `\033[1;31m` |
+| Warning | Yellow | `\033[33m` |
+| Dim/secondary | Gray | `\033[90m` |
+| Progress count | Blue | `\033[34m` |
+| Command | Default | - |
+| Error code | Red | `\033[31m` |
+
+#### Output Formatting
+
+**Normal mode:**
+```
+Building foo.o...
+Built foo.o
+
+Building bar.o...
+Built bar.o
+
+Build success: 2 targets built (0.5s)
+```
+
+**Verbose mode:**
+```
+Evaluating variables...
+  cc = gcc
+  cflags = -Wall -O2
+  sources = shell(find src -name "*.c") → src/main.c src/utils.c
+
+Checking targets...
+  foo.o: src/main.c is newer → rebuild
+  bar.o: up to date → skip
+
+Building foo.o...
+  gcc -c src/main.c -o foo.o
+Built foo.o (0.2s)
+
+Done.
+```
+
+**Parallel mode (with progress):**
+```
+[1/5] Building foo.o...
+[2/5] Building bar.o...
+[3/5] Building baz.o...
+[4/5] Built foo.o
+[4/5] Built bar.o
+[5/5] Building main.o...
+[5/5] Built baz.o
+[5/5] Built main.o
+
+Build success: 5 targets built (1.2s)
+```
+
+**Error display:**
+```
+error[E201]: undefined variable 'cflags'
+ --> Buildfile:10:5
+  |
+9 | cc = gcc
+10|     gcc {cflags} -c {in} -o {out}
+  |         ^^^^^^^^
+  |
+help: did you mean 'CFLAGS'? Define it with: CFLAGS = -Wall
+```
+
+### 10.6 TUI Writer (Structured Terminal UI)
+
+The TUI writer outputs structured JSON events for parsing by TUI applications:
+
+```json
+{"type":"phase_started","phase":"parse","timestamp":"2024-01-15T10:30:00Z"}
+{"type":"phase_completed","phase":"parse","duration_ms":50}
+{"type":"variable_evaluated","name":"cc","result":"gcc"}
+{"type":"target_started","target":"foo.o","index":1,"total":5}
+{"type":"command_started","target":"foo.o","command":"gcc -c src/main.c -o foo.o"}
+{"type":"command_completed","target":"foo.o","exit_code":0,"duration_ms":200}
+{"type":"target_completed","target":"foo.o","success":true,"duration_ms":210}
+{"type":"build_summary","total":5,"succeeded":5,"failed":0,"duration_ms":1200}
+```
+
+### 10.7 Headless Writer (CI/Log Collectors)
+
+The headless writer produces plain text with timestamps and log levels:
+
+```
+[2024-01-15T10:30:00Z] [INFO] Starting build
+[2024-01-15T10:30:00Z] [INFO] Parsing Buildfile...
+[2024-01-15T10:30:00Z] [INFO] Parsed 15 statements
+[2024-01-15T10:30:00Z] [INFO] Building target: foo.o
+[2024-01-15T10:30:00Z] [DEBUG] Command: gcc -c src/main.c -o foo.o
+[2024-01-15T10:30:01Z] [INFO] Built foo.o (200ms)
+[2024-01-15T10:30:02Z] [INFO] Build completed: 5/5 targets succeeded (1.2s)
+```
+
+**Log levels**:
+- `DEBUG` - Commands, verbose info
+- `INFO` - Build progress, target completion
+- `WARN` - Non-fatal issues
+- `ERROR` - Failures with details
+
+**Structured log format option** (`BUILD_LOG_FORMAT=json`):
+```json
+{"time":"2024-01-15T10:30:00Z","level":"INFO","msg":"Building target","target":"foo.o"}
+{"time":"2024-01-15T10:30:01Z","level":"DEBUG","msg":"Command executed","command":"gcc -c src/main.c -o foo.o","duration_ms":200}
+```
+
+### 10.8 Terminal Capabilities
+
+The CLI writer queries terminal capabilities:
+
+```go
+type TerminalInfo struct {
+    Width       int  // Terminal width (default 80)
+    Height      int  // Terminal height (default 24)
+    Colors      int  // 0, 16, 256, or 16777216 (truecolor)
+    Unicode     bool // Can display unicode characters
+}
+```
+
+**Degraded output for limited terminals**:
+- No colors: Skip ANSI codes
+- Narrow terminal: Truncate long paths
+- No unicode: Use ASCII alternatives (✓ → [OK], ✗ → [FAIL])
+
+### 10.9 Configuration
+
+Output behavior is configurable via:
+
+1. **Flags**:
+   - `--verbose` / `-v` - Enable verbose output
+   - `--quiet` / `-q` - Suppress non-error output
+   - `--color=auto|always|never` - Color control
+   - `--progress=auto|always|never` - Progress indicators
+
+2. **Environment variables**:
+   - `BUILD_OUTPUT_MODE` - Force output mode
+   - `BUILD_LOG_FORMAT` - Log format (text|json)
+   - `BUILD_LOG_LEVEL` - Minimum log level
+   - `NO_COLOR` - Disable colors (standard)
+   - `FORCE_COLOR` - Force colors even if not TTY
+
+3. **Buildfile directive** (future):
+   ```
+   .output: verbose
+   ```
+
+### 10.10 Implementation Files
+
+```
+internal/output/
+├── doc.go           # Package documentation
+├── events.go        # OutputEvent types
+├── mode.go          # OutputMode enum and detection
+├── writer.go        # OutputWriter interface
+├── cli.go           # CLIWriter implementation
+├── tui.go           # TUIWriter implementation  
+├── headless.go      # HeadlessWriter implementation
+├── terminal.go      # Terminal capability detection
+├── color.go         # ANSI color utilities
+└── reporter.go      # Existing Reporter (to be refactored)
+```
+
+### 10.11 Integration Points
+
+The output system integrates at these points:
+
+| Pipeline Stage | Events Emitted |
+|---------------|----------------|
+| Lexer | ErrorOccurred (lexical) |
+| Parser | ErrorOccurred (syntax) |
+| Semantic | ErrorOccurred (semantic) |
+| Evaluator | VariableEvaluated, ErrorOccurred |
+| Planner | StalenessChecked, ErrorOccurred |
+| Executor | TargetStarted, CommandStarted, CommandOutput, CommandCompleted, TargetCompleted |
+| Main | PhaseStarted, PhaseCompleted, BuildSummary |
+
+## 11. Design Decisions Log
 
 | Decision | Rationale | Alternatives Considered |
 |----------|-----------|------------------------|

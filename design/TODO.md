@@ -873,24 +873,84 @@ Performance improvements and user experience polish.
   - [ ] Defer shell() calls until value is needed
   - [ ] Cache shell() results within build
 
-### 10.2 User Experience
+### 10.2 Output Beautification System
 
-- [ ] **Colored output**
-  - [ ] Red for errors
-  - [ ] Yellow for warnings
-  - [ ] Green for success
-  - [ ] Detect TTY for automatic disable
+The output system supports three contexts: CLI (interactive), TUI (structured), and Headless (CI/logs).
+See DESIGN.md Section 10 for full architecture.
 
-- [ ] **Progress indication**
-  - [ ] Spinner for long operations
-  - [ ] Progress bar for parallel builds
+- [x] **Implement output event types**
+  - [x] Define OutputEvent interface and all event types (PhaseStarted, TargetStarted, etc.)
+  - [x] Add timestamps and durations to relevant events
+  - [x] Add structured error events with code/location/context/hint
+
+- [x] **Implement OutputMode detection**
+  - [x] Create OutputMode enum (CLI, TUI, Headless)
+  - [x] Detect mode from TTY status and environment variables
+  - [x] Support BUILD_OUTPUT_MODE override
+  - [x] Support CI environment detection (GITHUB_ACTIONS, GITLAB_CI, etc.)
+
+- [x] **Implement OutputWriter interface**
+  - [x] Define WriteEvent(OutputEvent) method
+  - [x] Define Flush() method for buffered output
+  - [x] Create factory function to instantiate correct writer
+
+- [ ] **Implement terminal capability detection**
+  - [ ] Query terminal width/height
+  - [ ] Detect color support (0, 16, 256, truecolor)
+  - [ ] Detect unicode support
+  - [x] Handle TERM=dumb and NO_COLOR
+
+- [x] **Implement ANSI color utilities**
+  - [x] Define color constants (Red, Green, Yellow, Cyan, etc.)
+  - [x] Create color application functions
+  - [x] Support bold, dim, and reset
+  - [x] Respect NO_COLOR and FORCE_COLOR environment variables
+
+- [x] **Implement CLIWriter (interactive terminal)**
+  - [x] Colored output with proper ANSI codes
+  - [x] Progress formatting for parallel builds [n/total]
+  - [x] Command output with proper indentation
+  - [x] Error display with source context and hints
+  - [ ] Degraded output for limited terminals
+
+- [x] **Implement HeadlessWriter (CI/logs)**
+  - [x] Timestamped log lines
+  - [x] Log levels (DEBUG, INFO, WARN, ERROR)
+  - [x] Plain text without escape sequences
+  - [x] Optional JSON log format (BUILD_LOG_FORMAT=json)
+
+- [x] **Implement TUIWriter (structured output)**
+  - [x] JSON event stream output
+  - [x] Machine-parseable format
+  - [x] Timestamps on all events
+
+- [ ] **Integrate output system with build pipeline**
+  - [ ] Emit events from executor (target/command lifecycle)
+  - [ ] Emit events from evaluator (variable evaluation in verbose)
+  - [ ] Emit events from planner (staleness checks in verbose)
+  - [ ] Emit error events from all stages
+  - [ ] Emit summary events at completion
+
+- [ ] **Add CLI flags for output control**
+  - [ ] Add --quiet / -q flag to suppress non-error output
+  - [ ] Add --color=auto|always|never flag
+  - [ ] Add --progress=auto|always|never flag
+  - [ ] Wire flags to output writer selection
+
+- [ ] **Refactor existing Reporter to use new system**
+  - [ ] Migrate NormalReporter to CLIWriter
+  - [ ] Migrate VerboseReporter to CLIWriter (verbose mode)
+  - [ ] Migrate DryRunReporter to use OutputWriter
+  - [ ] Migrate ProgressReporter to CLIWriter (parallel mode)
+
+### 10.3 Tab Completion
 
 - [ ] **Tab completion**
   - [ ] Bash completion script
   - [ ] Zsh completion script
   - [ ] Fish completion script
 
-### 10.3 Platform Support
+### 10.4 Platform Support
 
 - [ ] **Linux support** (primary platform)
 - [ ] **macOS support** (including Lima for VMs)
