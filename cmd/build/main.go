@@ -321,8 +321,8 @@ func run(args []string) int {
 		executor := NewExecutor(shellConfig)
 		for i := 0; i < planResult.TaskCount(); i++ {
 			task := planResult.Task(i)
-			// Show what we're building
-			if f.verbose || !f.dryRun {
+			// Show what we're building (verbose mode only)
+			if f.verbose {
 				fmt.Printf("Building %s\n", task.Target())
 			}
 
