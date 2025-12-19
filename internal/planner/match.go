@@ -25,7 +25,7 @@ func (e *TargetNotFoundError) Error() string {
 //   - Literal segments must match exactly
 //   - Captures match any sequence of characters (including slashes)
 //   - Duplicate capture names must have the same value
-//   - Phony targets must be matched with @ prefix in path
+//   - Phony targets match with or without @ prefix (@ is only for declaration)
 //   - Directory targets can match with or without trailing slash
 func MatchTarget(pattern *ast.TargetPattern, path string) (bool, map[string]string) {
 	// Handle phony targets
@@ -43,15 +43,16 @@ func MatchTarget(pattern *ast.TargetPattern, path string) (bool, map[string]stri
 }
 
 // matchPhonyTarget matches a phony target pattern against a path.
-// Phony targets require the path to start with @.
+// Phony targets match with or without @ prefix - the @ is only used
+// for declaration, not for reference.
 func matchPhonyTarget(pattern *ast.TargetPattern, path string) (bool, map[string]string) {
-	if !strings.HasPrefix(path, "@") {
-		return false, nil
+	// Strip @ prefix if present
+	matchPath := path
+	if strings.HasPrefix(path, "@") {
+		matchPath = path[1:]
 	}
 
-	// Remove @ prefix and match rest
-	phonyPath := path[1:]
-	return matchPattern(pattern.Segments, phonyPath)
+	return matchPattern(pattern.Segments, matchPath)
 }
 
 // matchDirectoryTarget matches a directory target pattern against a path.
@@ -282,7 +283,7 @@ func segmentsToString(segments []ast.PatternSegment) string {
 //  1. Exact literal matches are preferred over pattern matches
 //  2. Among patterns, first match in definition order wins
 //
-// The path should include @ prefix for phony targets.
+// Phony targets can be referenced with or without the @ prefix.
 func LookupTarget(path string, targets []*ast.Target) (*ast.Target, map[string]string, error) {
 	if len(targets) == 0 {
 		return nil, nil, &TargetNotFoundError{Path: path}

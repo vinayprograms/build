@@ -213,6 +213,30 @@ func TestDependencyChain(t *testing.T) {
 	}
 }
 
+// TestPhonyDependenciesWithoutAtPrefix tests that phony targets can be
+// referenced in dependencies without the @ prefix.
+func TestPhonyDependenciesWithoutAtPrefix(t *testing.T) {
+	h := NewTestHarness(t)
+
+	h.WriteFile("Buildfile", `.shell: bash
+
+@first:
+	echo "First target"
+
+@second:
+	echo "Second target"
+
+@all: first second
+	echo "All targets invoked"
+`)
+
+	result := h.Run("all")
+	result.AssertSuccess().
+		AssertStdoutContains("First target").
+		AssertStdoutContains("Second target").
+		AssertStdoutContains("All targets invoked")
+}
+
 // TestVariableInterpolation tests variable substitution in recipes.
 func TestVariableInterpolation(t *testing.T) {
 	h := NewTestHarness(t)

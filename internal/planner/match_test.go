@@ -59,10 +59,19 @@ func TestMatchLiteral_PartialNoMatch(t *testing.T) {
 func TestMatchLiteral_PhonyTarget(t *testing.T) {
 	pattern := createLiteralPattern("all", true, false)
 
+	// Phony targets should match with @ prefix (from CLI)
 	matched, captures := MatchTarget(pattern, "@all")
-
 	if !matched {
 		t.Error("expected phony target to match with @ prefix")
+	}
+	if len(captures) != 0 {
+		t.Errorf("expected no captures for phony match, got %d", len(captures))
+	}
+
+	// Phony targets should also match WITHOUT @ prefix (from dependencies)
+	matched, captures = MatchTarget(pattern, "all")
+	if !matched {
+		t.Error("expected phony target to match without @ prefix (dependency reference)")
 	}
 	if len(captures) != 0 {
 		t.Errorf("expected no captures for phony match, got %d", len(captures))
@@ -72,16 +81,16 @@ func TestMatchLiteral_PhonyTarget(t *testing.T) {
 func TestMatchLiteral_PhonyTargetNoMatch(t *testing.T) {
 	pattern := createLiteralPattern("all", true, false)
 
-	// Without @ prefix should not match
-	matched, _ := MatchTarget(pattern, "all")
-	if matched {
-		t.Error("expected phony target not to match path without @ prefix")
-	}
-
 	// Different phony name should not match
-	matched, _ = MatchTarget(pattern, "@clean")
+	matched, _ := MatchTarget(pattern, "@clean")
 	if matched {
 		t.Error("expected phony target not to match different phony name")
+	}
+
+	// Different name without @ should not match
+	matched, _ = MatchTarget(pattern, "clean")
+	if matched {
+		t.Error("expected phony target not to match different name")
 	}
 }
 
