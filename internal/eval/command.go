@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/platform"
 )
 
 // CommandContext extends Context with automatic variables and captures
@@ -48,11 +49,11 @@ func NewCommandContext(parent *Context, target string, deps []string) *CommandCo
 
 // setTargetDirAndFile sets target.dir and target.file automatic variables.
 func (c *CommandContext) setTargetDirAndFile(target string) {
-	// Handle directory targets (ending with /)
-	if strings.HasSuffix(target, "/") {
-		// For directory targets, target.dir is the directory (without slash)
+	// Handle directory targets (ending with / or \)
+	if platform.IsDirectoryPath(target) {
+		// For directory targets, target.dir is the directory (without separator)
 		// and target.file is empty
-		c.automatic["target.dir"] = strings.TrimSuffix(target, "/")
+		c.automatic["target.dir"] = strings.TrimSuffix(strings.TrimSuffix(target, "/"), "\\")
 		c.automatic["target.file"] = ""
 		return
 	}

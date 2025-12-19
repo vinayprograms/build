@@ -29,6 +29,10 @@ func DetectPackageManager() PackageManager {
 		// Try to detect Linux package manager
 		return detectLinuxPackageManager()
 
+	case "windows":
+		// Try to detect Windows package manager
+		return detectWindowsPackageManager()
+
 	default:
 		return nil
 	}
@@ -46,6 +50,29 @@ func detectLinuxPackageManager() PackageManager {
 		{"pacman", &pacmanPackageManager{}},
 		{"zypper", &zypperPackageManager{}},
 		{"apk", &apkPackageManager{}},
+	}
+
+	for _, m := range managers {
+		if _, err := exec.LookPath(m.binary); err == nil {
+			return m.pm
+		}
+	}
+
+	return nil
+}
+
+// detectWindowsPackageManager detects the Windows package manager.
+func detectWindowsPackageManager() PackageManager {
+	// Check for package managers in order of preference
+	// winget is the official Windows package manager
+	// chocolatey and scoop are popular third-party managers
+	managers := []struct {
+		binary string
+		pm     PackageManager
+	}{
+		{"winget", &wingetPackageManager{}},
+		{"choco", &chocoPackageManager{}},
+		{"scoop", &scoopPackageManager{}},
 	}
 
 	for _, m := range managers {
@@ -161,4 +188,44 @@ func (p *apkPackageManager) Name() string {
 func (p *apkPackageManager) GetInstallCommand(binary string) string {
 	pkg := mapBinaryToPackage(binary, "apk")
 	return fmt.Sprintf("apk add %s", pkg)
+}
+
+// ----------------------------------------------------------------------------
+// Windows Package Manager Implementations
+// ----------------------------------------------------------------------------
+
+// wingetPackageManager is the Windows Package Manager (Windows 10+).
+type wingetPackageManager struct{}
+
+func (p *wingetPackageManager) Name() string {
+	return "winget"
+}
+
+func (p *wingetPackageManager) GetInstallCommand(binary string) string {
+	pkg := mapBinaryToPackage(binary, "winget")
+	return fmt.Sprintf("winget install %s", pkg)
+}
+
+// chocoPackageManager is the Chocolatey package manager (Windows).
+type chocoPackageManager struct{}
+
+func (p *chocoPackageManager) Name() string {
+	return "choco"
+}
+
+func (p *chocoPackageManager) GetInstallCommand(binary string) string {
+	pkg := mapBinaryToPackage(binary, "choco")
+	return fmt.Sprintf("choco install %s", pkg)
+}
+
+// scoopPackageManager is the Scoop package manager (Windows).
+type scoopPackageManager struct{}
+
+func (p *scoopPackageManager) Name() string {
+	return "scoop"
+}
+
+func (p *scoopPackageManager) GetInstallCommand(binary string) string {
+	pkg := mapBinaryToPackage(binary, "scoop")
+	return fmt.Sprintf("scoop install %s", pkg)
 }

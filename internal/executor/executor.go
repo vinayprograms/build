@@ -6,17 +6,17 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"syscall"
 	"time"
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/eval"
 	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/build/internal/platform"
 )
 
 // ShellConfig holds shell configuration for command execution.
 type ShellConfig struct {
-	Shell   string // Path to shell (default: /bin/sh)
+	Shell   string // Path to shell (default: platform-specific)
 	DryRun  bool   // If true, print commands without executing
 	Verbose bool   // If true, print commands before executing
 }
@@ -24,7 +24,7 @@ type ShellConfig struct {
 // NewShellConfig creates a new ShellConfig with default values.
 func NewShellConfig() *ShellConfig {
 	return &ShellConfig{
-		Shell: "/bin/sh",
+		Shell: platform.DefaultShell(),
 	}
 }
 
@@ -46,21 +46,9 @@ func (c *ShellConfig) WithOverride(shell string) *ShellConfig {
 // Validate checks that the shell exists and is executable.
 // It handles both absolute paths and shells found via PATH lookup.
 func (c *ShellConfig) Validate() error {
-	shell := c.Shell
-
-	// If it's an absolute path, check directly
-	if len(shell) > 0 && shell[0] == '/' {
-		_, err := exec.LookPath(shell)
-		if err != nil {
-			return &ShellNotFoundError{Shell: shell}
-		}
-		return nil
-	}
-
-	// Otherwise, look up in PATH
-	_, err := exec.LookPath(shell)
+	err := platform.ValidateShell(c.Shell)
 	if err != nil {
-		return &ShellNotFoundError{Shell: shell}
+		return &ShellNotFoundError{Shell: c.Shell}
 	}
 	return nil
 }
@@ -130,8 +118,9 @@ func (e *Executor) ExecuteLine(cmdLine string) (*ExecResult, error) {
 		return result, nil
 	}
 
-	// Execute the command
-	cmd := exec.Command(e.config.Shell, "-c", cmdLine)
+	// Execute the command using platform-appropriate shell args
+	args := platform.ShellCommandArgs(e.config.Shell, cmdLine)
+	cmd := exec.Command(e.config.Shell, args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -142,12 +131,10 @@ func (e *Executor) ExecuteLine(cmdLine string) (*ExecResult, error) {
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 
-	// Get exit code
+	// Get exit code - use cross-platform ExitCode() method
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				result.ExitCode = status.ExitStatus()
-			}
+			result.ExitCode = exitErr.ExitCode()
 		}
 		return result, &CommandError{
 			Command:  cmdLine,
@@ -176,8 +163,9 @@ func (e *Executor) ExecuteBlock(script string) (*ExecResult, error) {
 		return result, nil
 	}
 
-	// Execute the script as a single command
-	cmd := exec.Command(e.config.Shell, "-c", script)
+	// Execute the script using platform-appropriate shell args
+	args := platform.ShellCommandArgs(e.config.Shell, script)
+	cmd := exec.Command(e.config.Shell, args...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -188,12 +176,10 @@ func (e *Executor) ExecuteBlock(script string) (*ExecResult, error) {
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 
-	// Get exit code
+	// Get exit code - use cross-platform ExitCode() method
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				result.ExitCode = status.ExitStatus()
-			}
+			result.ExitCode = exitErr.ExitCode()
 		}
 		return result, &CommandError{
 			Command:  script,

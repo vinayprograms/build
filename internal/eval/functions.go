@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/platform"
 )
 
 // evaluateFunction evaluates a function call and returns the result.
@@ -47,8 +48,10 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 		return cached, nil
 	}
 
-	// Execute via shell
-	shellCmd := exec.Command("/bin/sh", "-c", cmd)
+	// Execute via shell using platform-appropriate shell and args
+	shell := platform.DefaultShell()
+	args := platform.ShellCommandArgs(shell, cmd)
+	shellCmd := exec.Command(shell, args...)
 	output, err := shellCmd.Output()
 	if err != nil {
 		// Do NOT cache errors - allow retry on failure
