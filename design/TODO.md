@@ -807,8 +807,8 @@ Comprehensive test coverage and code quality.
   - [x] Nested includes
   - [x] Circular include detection
 
-- [ ] **Environment tests**
-  - [ ] Bare environment with requirements
+- [x] **Environment tests**
+  - [x] Bare environment with requirements
   - [ ] Docker environment (CI only, requires Docker)
 
 ### 9.3 Regression Tests
@@ -825,14 +825,14 @@ Comprehensive test coverage and code quality.
 
 ### 9.4 Performance Tests
 
-- [ ] **Large Buildfile parsing**
-  - [ ] 1000+ targets
-  - [ ] Deep include hierarchies
-  - [ ] Many pattern targets
+- [x] **Large Buildfile parsing**
+  - [x] 1000+ targets
+  - [x] Deep include hierarchies
+  - [x] Many pattern targets
 
-- [ ] **Large build planning**
-  - [ ] Deep dependency chains
-  - [ ] Wide dependency graphs
+- [x] **Large build planning**
+  - [x] Deep dependency chains
+  - [x] Wide dependency graphs
 
 ### 9.5 Documentation
 
@@ -841,9 +841,9 @@ Comprehensive test coverage and code quality.
   - [x] Quick start guide
   - [x] Link to spec
 
-- [ ] **Write man page or --help text**
-  - [ ] All command-line options
-  - [ ] Examples for common tasks
+- [x] **Write man page or --help text**
+  - [x] All command-line options
+  - [x] Examples for common tasks
 
 - [ ] **Write migration guide**
   - [ ] Make to Buildfile translation
