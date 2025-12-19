@@ -216,6 +216,12 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 		recipeExec.output = e.output
 	}
 
+	// In dry-run mode, print "Would build: target" prefix
+	if e.config.DryRun && len(recipe.Commands) > 0 {
+		target, _ := cmdCtx.Get("target")
+		fmt.Fprintf(e.output, "Would build: %s\n", target)
+	}
+
 	// Execute each command
 	for _, cmd := range recipe.Commands {
 		switch c := cmd.(type) {

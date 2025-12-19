@@ -436,3 +436,223 @@ func makeEchoRecipe(msg string) *ast.Recipe {
 		},
 	}
 }
+
+// ----------------------------------------------------------------------------
+// Keep-Going Mode Tests
+// ----------------------------------------------------------------------------
+
+func TestScheduler_KeepGoing_ContinuesAfterFailure(t *testing.T) {
+	cfg := NewShellConfig()
+	exec := NewExecutor(cfg)
+	sched := NewScheduler(exec, 1)
+	sched.SetKeepGoing(true)
+
+	ctx := eval.NewContext()
+
+	// Two independent tasks, first fails
+	// With keep-going, second should still run
+	tasks := []planner.BuildTask{
+		{
+			Target:       "fail.txt",
+			Dependencies: nil,
+			Recipe: &ast.Recipe{
+				Commands: []ast.Command{
+					&ast.LineCommand{
+						Parts: []ast.CommandPart{
+							&ast.LiteralCommand{Text: "exit 1"},
+						},
+					},
+				},
+			},
+			Reason: planner.BuildReasonTargetMissing,
+		},
+		{
+			Target:       "success.txt",
+			Dependencies: nil, // No dependency on failing task
+			Recipe:       makeEchoRecipe("success"),
+			Reason:       planner.BuildReasonTargetMissing,
+		},
+	}
+
+	results := sched.Execute(tasks, func(target string) *eval.CommandContext {
+		return eval.NewCommandContext(ctx, target, nil)
+	})
+
+	if len(results) != 2 {
+		t.Fatalf("expected 2 results, got %d", len(results))
+	}
+
+	// First should fail
+	failTask := findResult(results, "fail.txt")
+	if failTask == nil || failTask.Error == nil {
+		t.Error("expected fail.txt to fail")
+	}
+
+	// Second should succeed (not skipped)
+	successTask := findResult(results, "success.txt")
+	if successTask == nil {
+		t.Fatal("success.txt not found in results")
+	}
+	if successTask.Error != nil {
+		t.Errorf("success.txt should succeed, got error: %v", successTask.Error)
+	}
+	if successTask.Skipped {
+		t.Error("success.txt should not be skipped")
+	}
+}
+
+func TestScheduler_KeepGoing_SkipsDependentTasks(t *testing.T) {
+	cfg := NewShellConfig()
+	exec := NewExecutor(cfg)
+	sched := NewScheduler(exec, 1)
+	sched.SetKeepGoing(true)
+
+	ctx := eval.NewContext()
+
+	// First task fails, second depends on it
+	// With keep-going, dependent task should still be skipped
+	tasks := []planner.BuildTask{
+		{
+			Target:       "fail.txt",
+			Dependencies: nil,
+			Recipe: &ast.Recipe{
+				Commands: []ast.Command{
+					&ast.LineCommand{
+						Parts: []ast.CommandPart{
+							&ast.LiteralCommand{Text: "exit 1"},
+						},
+					},
+				},
+			},
+			Reason: planner.BuildReasonTargetMissing,
+		},
+		{
+			Target:       "dependent.txt",
+			Dependencies: []string{"fail.txt"},
+			Recipe:       makeEchoRecipe("dependent"),
+			Reason:       planner.BuildReasonTargetMissing,
+		},
+	}
+
+	results := sched.Execute(tasks, func(target string) *eval.CommandContext {
+		return eval.NewCommandContext(ctx, target, nil)
+	})
+
+	// Dependent task should be skipped even with keep-going
+	depTask := findResult(results, "dependent.txt")
+	if depTask == nil {
+		t.Fatal("dependent.txt not found in results")
+	}
+	if !depTask.Skipped {
+		t.Error("dependent.txt should be skipped due to failed dependency")
+	}
+}
+
+func findResult(results []TaskResult, target string) *TaskResult {
+	for i := range results {
+		if results[i].Target == target {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+// ----------------------------------------------------------------------------
+// Worker Count Resolution Tests
+// ----------------------------------------------------------------------------
+
+func TestResolveWorkerCount(t *testing.T) {
+	tests := []struct {
+		name            string
+		cliJobs         int
+		parallelValue   int
+		expectedWorkers int
+	}{
+		{
+			name:            "cli flag overrides directive",
+			cliJobs:         4,
+			parallelValue:   2,
+			expectedWorkers: 4,
+		},
+		{
+			name:            "use directive when cli is default",
+			cliJobs:         1,
+			parallelValue:   8,
+			expectedWorkers: 8,
+		},
+		{
+			name:            "use cli when directive is zero",
+			cliJobs:         4,
+			parallelValue:   0,
+			expectedWorkers: 4,
+		},
+		{
+			name:            "default to 1 when both unset",
+			cliJobs:         1,
+			parallelValue:   0,
+			expectedWorkers: 1,
+		},
+		{
+			name:            "cli explicitly set to 1 should use 1",
+			cliJobs:         1,
+			parallelValue:   4,
+			expectedWorkers: 4, // When cli is 1 (default), use directive
+		},
+		{
+			name:            "cli explicitly set to higher value overrides",
+			cliJobs:         16,
+			parallelValue:   4,
+			expectedWorkers: 16,
+		},
+		{
+			name:            "negative cli jobs treated as default",
+			cliJobs:         -1,
+			parallelValue:   4,
+			expectedWorkers: 4,
+		},
+		{
+			name:            "negative directive ignored",
+			cliJobs:         1,
+			parallelValue:   -2,
+			expectedWorkers: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := ResolveWorkerCount(tt.cliJobs, tt.parallelValue)
+			if result != tt.expectedWorkers {
+				t.Errorf("ResolveWorkerCount(%d, %d) = %d, want %d",
+					tt.cliJobs, tt.parallelValue, result, tt.expectedWorkers)
+			}
+		})
+	}
+}
+
+func TestScheduler_JobsFlagOverride(t *testing.T) {
+	cfg := NewShellConfig()
+	exec := NewExecutor(cfg)
+
+	// Simulate: Buildfile has .parallel: 2, user runs with -j 4
+	cliJobs := 4
+	parallelDirective := 2
+	workerCount := ResolveWorkerCount(cliJobs, parallelDirective)
+
+	if workerCount != 4 {
+		t.Errorf("expected -j flag to override .parallel, got %d workers", workerCount)
+	}
+
+	sched := NewScheduler(exec, workerCount)
+	if sched.Workers() != 4 {
+		t.Errorf("expected scheduler to have 4 workers, got %d", sched.Workers())
+	}
+
+	// Simulate: Buildfile has .parallel: 8, user uses default -j (1)
+	cliJobs = 1
+	parallelDirective = 8
+	workerCount = ResolveWorkerCount(cliJobs, parallelDirective)
+
+	if workerCount != 8 {
+		t.Errorf("expected .parallel directive to be used when -j is default, got %d workers", workerCount)
+	}
+}

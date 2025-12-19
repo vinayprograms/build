@@ -25,6 +25,7 @@ type TaskCallback func(target string)
 type Scheduler struct {
 	executor   *Executor
 	numWorkers int
+	keepGoing  bool // If true, continue building after failures
 }
 
 // NewScheduler creates a scheduler with the given number of workers.
@@ -36,6 +37,40 @@ func NewScheduler(executor *Executor, numWorkers int) *Scheduler {
 		executor:   executor,
 		numWorkers: numWorkers,
 	}
+}
+
+// ResolveWorkerCount determines the number of workers to use based on CLI -j flag
+// and .parallel: directive value. The -j flag takes precedence when explicitly set
+// (greater than 1), otherwise the .parallel: directive value is used.
+//
+// Parameters:
+//   - cliJobs: value from -j flag (default is 1)
+//   - parallelDirective: value from .parallel: directive in Buildfile (0 if not set)
+//
+// Returns the number of workers to use, minimum 1.
+func ResolveWorkerCount(cliJobs, parallelDirective int) int {
+	// CLI flag explicitly set to value > 1 takes precedence
+	if cliJobs > 1 {
+		return cliJobs
+	}
+
+	// If CLI is default (1) or invalid, use directive if valid
+	if parallelDirective > 0 {
+		return parallelDirective
+	}
+
+	// Default to 1 if nothing valid provided
+	if cliJobs > 0 {
+		return cliJobs
+	}
+	return 1
+}
+
+// SetKeepGoing enables or disables keep-going mode.
+// When enabled, the scheduler continues building independent targets after a failure.
+// Dependent targets are still skipped.
+func (s *Scheduler) SetKeepGoing(keepGoing bool) {
+	s.keepGoing = keepGoing
 }
 
 // Workers returns the number of workers.
@@ -153,7 +188,9 @@ func (s *Scheduler) ExecuteWithCallback(tasks []planner.BuildTask, ctxFactory Co
 
 				if result.Error != nil {
 					failed[task.Target] = true
-					cancelled = true // Cancel remaining tasks
+					if !s.keepGoing {
+						cancelled = true // Cancel remaining tasks only if not in keep-going mode
+					}
 				} else {
 					completed[task.Target] = true
 				}

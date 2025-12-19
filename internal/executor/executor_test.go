@@ -466,6 +466,39 @@ func TestDryRun_DoesNotExecute(t *testing.T) {
 	}
 }
 
+func TestDryRun_WouldBuildPrefix(t *testing.T) {
+	cfg := NewShellConfig()
+	cfg.DryRun = true
+	exec := NewExecutor(cfg)
+
+	var output bytes.Buffer
+	exec.SetOutput(&output)
+
+	ctx := eval.NewContext()
+	cmdCtx := eval.NewCommandContext(ctx, "build/app", []string{"main.c"})
+
+	recipe := &ast.Recipe{
+		Commands: []ast.Command{
+			&ast.LineCommand{
+				Parts: []ast.CommandPart{
+					&ast.LiteralCommand{Text: "gcc -o app main.c"},
+				},
+			},
+		},
+	}
+
+	_, err := exec.ExecuteRecipe(recipe, cmdCtx)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := output.String()
+	// Should have "Would build: target" prefix before command
+	if !strings.Contains(out, "Would build: build/app") {
+		t.Errorf("expected dry-run output to have 'Would build: build/app', got: %s", out)
+	}
+}
+
 // ----------------------------------------------------------------------------
 // Verbose Mode Tests
 // ----------------------------------------------------------------------------
