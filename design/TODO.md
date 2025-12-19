@@ -554,33 +554,33 @@ Runtime environments for build isolation.
 
 ### 6.2 Container Environments (Docker/Podman)
 
-- [ ] **Implement Dockerfile detection**
-  - [ ] Locate file specified in `.source:`
-  - [ ] Validate Dockerfile exists
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement Dockerfile detection**
+  - [x] Locate file specified in `.source:`
+  - [x] Validate Dockerfile exists
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement image building**
-  - [ ] Build Docker/Podman image from Dockerfile
-  - [ ] Tag with project-specific name
-  - [ ] Cache built images
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement image building**
+  - [x] Build Docker/Podman image from Dockerfile
+  - [x] Tag with project-specific name
+  - [x] Cache built images
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement container execution**
-  - [ ] Run container with workspace mounted
-  - [ ] Apply `.args:` (e.g., `--platform linux/amd64`)
-  - [ ] Execute build commands inside container
-  - [ ] Stream output to terminal
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement container execution**
+  - [x] Run container with workspace mounted
+  - [x] Apply `.args:` (e.g., `--platform linux/amd64`)
+  - [x] Execute build commands inside container
+  - [x] Stream output to terminal
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `--shell` flag**
-  - [ ] Open interactive shell in container
-  - [ ] Mount workspace
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement `--shell` flag**
+  - [x] Open interactive shell in container
+  - [x] Mount workspace
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement `--keep` flag**
-  - [ ] Keep container running after build
-  - [ ] Print instructions to enter/stop container
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement `--keep` flag**
+  - [x] Keep container running after build
+  - [x] Print instructions to enter/stop container
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.3 Devcontainer Environment
 

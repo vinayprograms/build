@@ -3578,3 +3578,238 @@ Some requirements are not met
 | `TestGetInstallSuggestion` | Full install suggestion generation |
 | `TestBinaryToPackageMapping` | Binary to package name mapping |
 | `TestInstallSuggestions_Integration` | End-to-end install suggestion |
+
+### Container Environments (`container.go`, `container_env.go`, `image.go`, `runner.go`)
+
+The environ package supports container-based build environments using Docker or Podman.
+
+#### Package Structure for Container Support
+
+| File | Contents |
+|------|----------|
+| `container.go` | `ContainerDetector` for Dockerfile detection and validation |
+| `container_env.go` | `ContainerEnvironment` high-level orchestration |
+| `image.go` | `ImageBuilder` for building and caching container images |
+| `runner.go` | `ContainerRunner` for executing commands in containers |
+
+#### ContainerDetector (`container.go`)
+
+Detects and validates Dockerfiles for container environments.
+
+```go
+type ContainerDetector struct {
+    lookPath func(name string) (string, error)
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NewContainerDetector()` | Creates new detector (uses `exec.LookPath`) |
+| `DetectDockerfile(env, baseDir)` | Locates Dockerfile from `.source:` directive |
+| `ValidateDockerfile(path)` | Validates Dockerfile has FROM instruction |
+| `FindRuntime(runtime)` | Finds docker/podman binary in PATH |
+
+**DockerfileResult Structure:**
+
+```go
+type DockerfileResult struct {
+    Path   string // Absolute path to Dockerfile
+    Exists bool   // True if file exists
+}
+```
+
+**Dockerfile Validation:**
+- Checks that file exists
+- Validates presence of FROM instruction (required for valid Dockerfile)
+- Allows ARG directives before FROM
+- Skips comments and empty lines
+
+#### ImageBuilder (`image.go`)
+
+Builds and manages container images.
+
+```go
+type ImageBuilder struct {
+    runtime    ast.Runtime
+    runtimeCmd string
+    extraArgs  []string
+    runCommand func(name string, args ...string) ([]byte, error)
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NewImageBuilder(runtime, cmd, extraArgs)` | Creates builder for runtime |
+| `BuildCommand(dockerfile, tag)` | Returns exec.Cmd for building |
+| `ImageExists(tag)` | Checks if image exists locally |
+| `Build(dockerfile, tag)` | Builds image from Dockerfile |
+
+**Image Tag Generation:**
+
+```go
+func GenerateImageTag(project, envName string) string
+```
+
+Generates deterministic image tags:
+- `myproject:latest` for default environment
+- `myproject-ci:latest` for named environment "ci"
+
+**Extra Args Parsing:**
+
+```go
+func ParseExtraArgs(argsValue *ast.Value) []string
+```
+
+Parses `.args:` directive value into command-line arguments (e.g., `--platform linux/amd64`).
+
+#### ContainerRunner (`runner.go`)
+
+Executes commands inside containers with workspace mounting.
+
+```go
+type ContainerRunner struct {
+    runtime      ast.Runtime
+    runtimeCmd   string
+    workspaceDir string
+    extraArgs    []string
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NewContainerRunner(runtime, cmd, workspace)` | Creates runner |
+| `SetExtraArgs(args)` | Sets additional container args |
+| `RunCommand(imageTag, command)` | Runs command with auto-cleanup (`--rm`) |
+| `ShellCommand(imageTag, shell)` | Opens interactive shell (`-it`) |
+| `RunCommandKeepAlive(imageTag, command, name)` | Runs without cleanup |
+| `ExecCommand(containerName, command)` | Runs command in existing container |
+| `StopContainer(name)` | Stops running container |
+| `RemoveContainer(name)` | Removes container |
+
+**Container Command Generation:**
+
+All commands include:
+- `-v workspace:/workspace` - Mount project directory
+- `-w /workspace` - Set working directory
+- Extra args from `.args:` directive
+
+| Mode | Flags | Behavior |
+|------|-------|----------|
+| Run | `--rm` | Auto-remove after execution |
+| Shell | `-it --rm` | Interactive TTY, auto-remove |
+| KeepAlive | `--name` | Named container, keeps running |
+
+#### ContainerEnvironment (`container_env.go`)
+
+High-level orchestration of container environment lifecycle.
+
+```go
+type ContainerEnvironment struct {
+    env         *ast.Environment
+    projectDir  string
+    projectName string
+    detector    *ContainerDetector
+    builder     *ImageBuilder
+    runner      *ContainerRunner
+    imageTag    string
+}
+```
+
+**Key Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `NewContainerEnvironment(env, dir, name)` | Creates environment (validates runtime) |
+| `Validate()` | Validates Dockerfile exists and is valid |
+| `EnsureImage()` | Builds image if not already present |
+| `RunCommand(command)` | Executes command in container |
+| `Shell(shellPath)` | Opens interactive shell |
+| `RunCommandKeepAlive(command)` | Runs with `--keep` behavior |
+| `StopContainer(name)` | Stops container |
+| `RemoveContainer(name)` | Removes container |
+| `ImageTag()` | Returns generated image tag |
+| `RuntimeName()` | Returns "docker" or "podman" |
+
+**Lifecycle:**
+
+1. **Create**: `NewContainerEnvironment()` validates runtime, finds binary, generates image tag
+2. **Validate**: `Validate()` checks Dockerfile exists and is valid
+3. **Ensure**: `EnsureImage()` builds image if not cached
+4. **Execute**: `RunCommand()` / `Shell()` / `RunCommandKeepAlive()`
+5. **Cleanup**: `StopContainer()` / `RemoveContainer()` for keep-alive mode
+
+#### Error Types for Containers
+
+| Error Type | Description |
+|------------|-------------|
+| `NoSourceError` | `.source:` directive missing for container runtime |
+| `InvalidRuntimeError` | Runtime not specified or not container type |
+| `DockerfileNotFoundError` | Specified Dockerfile doesn't exist |
+| `InvalidDockerfileError` | Dockerfile is malformed (missing FROM) |
+| `ImageNotFoundError` | Container image not found locally |
+| `ImageBuildError` | Error during image build |
+| `ContainerRunError` | Error running container |
+
+#### CLI Integration for Containers
+
+The `--check-env` flag validates container environments:
+
+```bash
+build --check-env -e ci
+```
+
+**Output:**
+```
+Checking environment: ci
+Runtime: docker
+
+✓ Runtime: docker found
+✓ Source: /path/to/Dockerfile
+✓ Dockerfile is valid
+  Image tag: project-ci:latest
+  Image not yet built (will be built on first run)
+
+Container environment ready
+```
+
+**Keep-Alive Instructions:**
+
+```go
+func PrintKeepInstructions(runtime, containerName string) string
+```
+
+Returns user-friendly instructions for managing kept-alive containers.
+
+#### Container Tests (`container_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestDockerfileDetection` | Dockerfile location and validation |
+| `TestDockerfileValidation` | FROM instruction validation |
+| `TestContainerRuntimeDetection` | Runtime binary detection |
+| `TestImageBuilder` | Image build command generation |
+| `TestImageExists` | Image existence checking |
+| `TestContainerRunner` | Container run command generation |
+| `TestContainerEnvironment` | High-level environment validation |
+| `TestPrintKeepInstructions` | Keep-alive instructions |
+| `TestGenerateContainerName` | Container name generation |
+
+#### Design Decisions
+
+1. **Runtime abstraction**: Both Docker and Podman use the same interface, differing only in binary name.
+
+2. **Image caching**: Images are tagged with project-specific names for reuse across builds.
+
+3. **Workspace mounting**: The project directory is mounted at `/workspace` in the container for consistent paths.
+
+4. **Validation-first**: Dockerfile is validated before any build/run operations.
+
+5. **Keep-alive for debugging**: The `--keep` flag preserves the container for troubleshooting.
+
+6. **Literal paths only**: `.source:` paths must be literal (no interpolation) to avoid chicken-and-egg evaluation issues.

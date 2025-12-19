@@ -1866,6 +1866,12 @@ func TestRunCheckEnvNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create the Dockerfile that the ci environment references
+	dockerfile := filepath.Join(tmpDir, "Dockerfile")
+	if err := os.WriteFile(dockerfile, []byte("FROM alpine\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
 	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "ci"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)

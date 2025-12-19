@@ -167,7 +167,8 @@ func run(args []string) int {
 
 	// Handle --check-env flag
 	if f.checkEnv {
-		return checkEnvironment(result, f.env, f.verbose, f.showInstall)
+		buildfileDir := filepath.Dir(buildfile)
+		return checkEnvironment(result, f.env, buildfileDir, f.verbose, f.showInstall)
 	}
 
 	// Handle --list-env flag

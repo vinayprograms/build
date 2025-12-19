@@ -3,15 +3,18 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/environ"
 )
 
 // checkEnvironment verifies the requirements for an environment.
 // If envName is empty, checks the default environment.
 // If showInstall is true, shows install suggestions for missing binaries.
+// buildfileDir is the directory containing the Buildfile (for resolving relative paths).
 // Returns exit code.
-func checkEnvironment(result BuildfileResult, envName string, verbose, showInstall bool) int {
+func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verbose, showInstall bool) int {
 	envs := GetEnvironments(result)
 
 	// Find the selected environment
@@ -81,12 +84,17 @@ func checkEnvironment(result BuildfileResult, envName string, verbose, showInsta
 	isBare := selectedEnv.Runtime == nil || *selectedEnv.Runtime == ast.RuntimeBare
 
 	if !isBare {
-		// Non-bare environments - just report status for now
+		// Container environments - validate Dockerfile and runtime
+		if *selectedEnv.Runtime == ast.RuntimeDocker || *selectedEnv.Runtime == ast.RuntimePodman {
+			return checkContainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+		}
+
+		// Other non-bare environments - just report status for now
 		fmt.Printf("Source: %s\n", valueToTextSimple(selectedEnv.Source))
 		if selectedEnv.Args != nil {
 			fmt.Printf("Args: %s\n", valueToTextSimple(selectedEnv.Args))
 		}
-		fmt.Println("\nNon-bare environment checking not yet implemented")
+		fmt.Println("\nThis environment type checking not yet implemented")
 		return exitSuccess
 	}
 
@@ -200,4 +208,69 @@ func valueToTextSimple(v *ast.Value) string {
 		}
 	}
 	return text
+}
+
+// checkContainerEnvironment checks a Docker/Podman container environment.
+func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+	detector := environ.NewContainerDetector()
+
+	// Check if runtime binary exists
+	fmt.Println()
+	runtimePath, err := detector.FindRuntime(*env.Runtime)
+	if err != nil {
+		fmt.Printf("✗ Runtime: %s not found in PATH\n", env.Runtime.String())
+		if showInstall {
+			pm := DetectPackageManager()
+			if pm != nil {
+				fmt.Printf("  install: %s\n", pm.GetInstallCommand(env.Runtime.String()))
+			}
+		}
+		return exitEnvError
+	}
+	if verbose {
+		fmt.Printf("✓ Runtime: %s (%s)\n", env.Runtime.String(), runtimePath)
+	} else {
+		fmt.Printf("✓ Runtime: %s found\n", env.Runtime.String())
+	}
+
+	// Check if Dockerfile exists
+	result, err := detector.DetectDockerfile(env, buildfileDir)
+	if err != nil {
+		fmt.Printf("✗ Source: %s\n", err)
+		return exitEnvError
+	}
+	fmt.Printf("✓ Source: %s\n", result.Path)
+
+	// Validate Dockerfile
+	if err := detector.ValidateDockerfile(result.Path); err != nil {
+		fmt.Printf("✗ Dockerfile validation: %s\n", err)
+		return exitEnvError
+	}
+	fmt.Printf("✓ Dockerfile is valid\n")
+
+	// Show extra args if verbose
+	if verbose && env.Args != nil {
+		fmt.Printf("  Args: %s\n", valueToTextSimple(env.Args))
+	}
+
+	// Generate image tag for info
+	projectName := filepath.Base(buildfileDir)
+	envName := ""
+	if env.Name != nil {
+		envName = *env.Name
+	}
+	imageTag := environ.GenerateImageTag(projectName, envName)
+	fmt.Printf("  Image tag: %s\n", imageTag)
+
+	// Check for image (optional, just informational)
+	builder := environ.NewImageBuilder(*env.Runtime, runtimePath, nil)
+	exists, _ := builder.ImageExists(imageTag)
+	if exists {
+		fmt.Printf("✓ Image exists locally\n")
+	} else {
+		fmt.Printf("  Image not yet built (will be built on first run)\n")
+	}
+
+	fmt.Println("\nContainer environment ready")
+	return exitSuccess
 }
