@@ -546,6 +546,132 @@ func TestFuncError_UndefinedInArg(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------------------
+// Shell Quoting Tests for Interpolations in shell()
+// ----------------------------------------------------------------------------
+
+func TestFuncShell_QuotedInterpolation(t *testing.T) {
+	// Per spec: {var} in shell() should be shell-quoted (safe for paths with spaces)
+	// shell(echo {src_dir}) with src_dir="my sources" should execute: echo 'my sources'
+	ctx := NewContext()
+	ctx.Set("src_dir", "my sources")
+	e := NewEvaluator(ctx)
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{
+						&ast.LiteralValue{Text: "echo "},
+						&ast.Interpolation{Name: "src_dir", Raw: false},
+					}},
+				},
+			},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	// With quoting, echo 'my sources' outputs: my sources
+	if result != "my sources" {
+		t.Errorf("Expected 'my sources', got '%s'", result)
+	}
+}
+
+func TestFuncShell_RawInterpolation(t *testing.T) {
+	// Per spec: {var:raw} in shell() should NOT be quoted (allows word splitting)
+	// shell(echo {flags:raw}) with flags="-Wall -O2" should execute: echo -Wall -O2
+	ctx := NewContext()
+	ctx.Set("flags", "-Wall -O2")
+	e := NewEvaluator(ctx)
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{
+						&ast.LiteralValue{Text: "echo "},
+						&ast.Interpolation{Name: "flags", Raw: true},
+					}},
+				},
+			},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	// Without quoting, echo -Wall -O2 outputs: -Wall -O2
+	if result != "-Wall -O2" {
+		t.Errorf("Expected '-Wall -O2', got '%s'", result)
+	}
+}
+
+func TestFuncShell_QuotesHandleEmbeddedQuotes(t *testing.T) {
+	// Test that embedded single quotes are handled correctly
+	ctx := NewContext()
+	ctx.Set("msg", "it's working")
+	e := NewEvaluator(ctx)
+
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{
+						&ast.LiteralValue{Text: "echo "},
+						&ast.Interpolation{Name: "msg", Raw: false},
+					}},
+				},
+			},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if result != "it's working" {
+		t.Errorf("Expected \"it's working\", got '%s'", result)
+	}
+}
+
+func TestFuncShell_QuotedPreservesSpaces(t *testing.T) {
+	// Verify that quoted interpolation preserves the value as a single word
+	ctx := NewContext()
+	ctx.Set("dir", "path with spaces")
+	e := NewEvaluator(ctx)
+
+	// Use printf '%s' which echoes its argument exactly
+	val := &ast.Value{
+		Parts: []ast.ValuePart{
+			&ast.FunctionCall{
+				Name: ast.FuncShell,
+				Args: []*ast.Value{
+					{Parts: []ast.ValuePart{
+						&ast.LiteralValue{Text: "printf '%s' "},
+						&ast.Interpolation{Name: "dir", Raw: false},
+					}},
+				},
+			},
+		},
+	}
+
+	result, err := e.EvaluateValue(val)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	// Should output the value as single string: "path with spaces"
+	if result != "path with spaces" {
+		t.Errorf("Expected 'path with spaces', got '%s'", result)
+	}
+}
+
 // Skip this test on Windows where shell behavior differs
 func TestFuncShell_MultilineOutput(t *testing.T) {
 	if runtime.GOOS == "windows" {

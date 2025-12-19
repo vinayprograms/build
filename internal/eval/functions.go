@@ -29,13 +29,14 @@ func (e *Evaluator) evaluateFunction(call *ast.FunctionCall) (string, error) {
 
 // funcShell executes a shell command and returns stdout.
 // Trailing newlines are trimmed.
+// Interpolated values are shell-quoted by default; use :raw modifier to disable.
 func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 	if len(call.Args) < 1 {
 		return "", fmt.Errorf("shell() requires at least one argument")
 	}
 
-	// Evaluate the command
-	cmd, err := e.EvaluateValue(call.Args[0])
+	// Evaluate the command with shell quoting for interpolations
+	cmd, err := e.evaluateShellCommand(call.Args[0])
 	if err != nil {
 		return "", err
 	}
@@ -53,6 +54,48 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 	result = strings.TrimSuffix(result, "\r\n")
 
 	return result, nil
+}
+
+// evaluateShellCommand evaluates a value for use as a shell command.
+// Unlike EvaluateValue, this applies shell quoting to non-raw interpolations.
+func (e *Evaluator) evaluateShellCommand(val *ast.Value) (string, error) {
+	if val == nil {
+		return "", nil
+	}
+
+	var result strings.Builder
+
+	for _, part := range val.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralValue:
+			result.WriteString(p.Text)
+
+		case *ast.Interpolation:
+			resolved, err := e.resolveVariable(p.Name, p.Location)
+			if err != nil {
+				return "", err
+			}
+			if p.Raw {
+				// Raw: no quoting, allows word splitting
+				result.WriteString(resolved)
+			} else {
+				// Default: shell-quoted for safety
+				result.WriteString(ShellQuote(resolved))
+			}
+
+		case *ast.FunctionCall:
+			evaluated, err := e.evaluateFunction(p)
+			if err != nil {
+				return "", err
+			}
+			result.WriteString(evaluated)
+
+		default:
+			// Unknown part type - skip
+		}
+	}
+
+	return result.String(), nil
 }
 
 // funcGlob matches files against a pattern.
