@@ -605,7 +605,7 @@ func TestEdgeCase_PhonyTargetWithHyphen(t *testing.T) {
     go test -cover ./...
 
 @debug-lex-tokens:
-    go run ./cmd/build --debug-lex
+    go run . --debug-lex
 
 @my-long-target-name: @test-cover @debug-lex-tokens
 `

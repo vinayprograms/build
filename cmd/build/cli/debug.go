@@ -1,5 +1,5 @@
 // Debug commands for the build tool CLI.
-package main
+package cli
 
 import (
 	"fmt"

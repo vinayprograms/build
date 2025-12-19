@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"os"
@@ -28,7 +28,7 @@ func TestBuildSimpleTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "hello"})
+	exitCode := Run([]string{"-f", buildfile, "hello"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -48,7 +48,7 @@ func TestBuildWithVariables(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "hello"})
+	exitCode := Run([]string{"-f", buildfile, "hello"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -92,7 +92,7 @@ func TestBuildWithDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"all"})
+	exitCode := Run([]string{"all"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -116,7 +116,7 @@ func TestBuildRecipeFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "fail"})
+	exitCode := Run([]string{"-f", buildfile, "fail"})
 	if exitCode != exitBuildFailure {
 		t.Errorf("exit code = %d, want %d", exitCode, exitBuildFailure)
 	}
@@ -139,7 +139,7 @@ func TestDryRunShowsCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "-n", "build"})
+	exitCode := Run([]string{"-f", buildfile, "-n", "build"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -179,7 +179,7 @@ func TestDryRunWithDependencies(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-n", "out.txt"})
+	exitCode := Run([]string{"-n", "out.txt"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -209,7 +209,7 @@ flags = -Wall
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "-v", "build"})
+	exitCode := Run([]string{"-f", buildfile, "-v", "build"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -237,7 +237,7 @@ func TestBuildMultipleTargets(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "first", "second", "third"})
+	exitCode := Run([]string{"-f", buildfile, "first", "second", "third"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -262,7 +262,7 @@ func TestBuildWithBlockCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "check"})
+	exitCode := Run([]string{"-f", buildfile, "check"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -304,7 +304,7 @@ func TestBuildPatternTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"build/main.out"})
+	exitCode := Run([]string{"build/main.out"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -357,7 +357,7 @@ func TestBuildSkipsUpToDate(t *testing.T) {
 	originalContent, _ := os.ReadFile(outFile)
 
 	// Run build - should skip since out.txt is newer
-	exitCode := run([]string{"out.txt"})
+	exitCode := Run([]string{"out.txt"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -405,7 +405,7 @@ func TestBuildRebuildsWhenDependencyNewer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"out.txt"})
+	exitCode := Run([]string{"out.txt"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}

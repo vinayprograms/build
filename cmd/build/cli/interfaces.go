@@ -4,7 +4,7 @@
 // Internal packages provide concrete implementations that satisfy these interfaces.
 // This follows the Go idiom of "accept interfaces, return structs" and allows
 // the CLI to remain decoupled from implementation details.
-package main
+package cli
 
 // Token represents a lexical token from source code.
 // The CLI uses this interface to inspect tokens without depending on

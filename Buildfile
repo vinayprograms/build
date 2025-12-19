@@ -1,7 +1,7 @@
 # Build Tool - Buildfile
 #
 # This Buildfile builds the build tool itself.
-# Use: go run ./cmd/build --debug-lex Buildfile
+# Use: go run . --debug-lex Buildfile
 
 # ====================
 # Configuration
@@ -16,7 +16,6 @@
 
 binary = build
 build_dir = bin
-cmd_dir = cmd/build
 go_files = shell(find . -name "*.go" -not -path "./bin/*")
 
 # Platform-specific settings
@@ -66,7 +65,7 @@ commit = shell(git rev-parse --short HEAD 2>/dev/null || echo unknown)
     .after: {build_dir}/
     block:
         echo "Building {binary}..."
-        go build -ldflags "{ldflags:raw} -X main.version={version} -X main.commit={commit}" -o {target} ./{cmd_dir}
+        go build -ldflags "{ldflags:raw} -X main.version={version} -X main.commit={commit}" -o {target} .
         echo "Built {target}"
 
 # ====================
@@ -74,10 +73,10 @@ commit = shell(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 # ====================
 
 @run:
-    go run ./{cmd_dir} --help
+    go run . --help
 
 @debug-lex:
-    go run ./{cmd_dir} --debug-lex Buildfile
+    go run . --debug-lex Buildfile
 
 @install: {build_dir}/{binary}
     cp {build_dir}/{binary} ~/bin/

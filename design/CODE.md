@@ -125,13 +125,13 @@ github.com/vinayprograms/build/
 └── go.mod
 ```
 
-## CLI (`cmd/build/main.go`)
+## CLI (`cmd/build/cli`)
 
 The command-line interface for the build tool.
 
 ### Architecture
 
-The CLI follows interface-based design where `cmd/build` defines the interfaces and internal packages provide implementations:
+The CLI follows interface-based design where `cmd/build/cli` defines the interfaces and internal packages provide implementations:
 
 ```
 cmd/build/

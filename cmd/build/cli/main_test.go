@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -270,21 +270,21 @@ func TestParseFlagsVersion(t *testing.T) {
 }
 
 func TestRunHelp(t *testing.T) {
-	exitCode := run([]string{"--help"})
+	exitCode := Run([]string{"--help"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunVersion(t *testing.T) {
-	exitCode := run([]string{"--version"})
+	exitCode := Run([]string{"--version"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunInvalidFlag(t *testing.T) {
-	exitCode := run([]string{"--invalid-flag"})
+	exitCode := Run([]string{"--invalid-flag"})
 	if exitCode != exitUsageError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitUsageError)
 	}
@@ -303,7 +303,7 @@ func TestRunNoBuildfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{})
+	exitCode := Run([]string{})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -330,7 +330,7 @@ func TestRunWithBuildfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{})
+	exitCode := Run([]string{})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -347,7 +347,7 @@ func TestRunWithExplicitBuildfile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile})
+	exitCode := Run([]string{"-f", buildfile})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -367,14 +367,14 @@ build/app: build/main.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-lex"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-lex"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugLexMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-lex"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-lex"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -399,14 +399,14 @@ build/app: build/main.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-parse"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-parse"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugParseMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-parse"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-parse"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -465,14 +465,14 @@ sources = shell(find src -name *.c)
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-var"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-var"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugVarMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-var"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-var"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -500,14 +500,14 @@ build/:
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-target"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-target"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugTargetMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-target"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-target"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -548,14 +548,14 @@ build/complex: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-recipe"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-recipe"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugRecipeMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-recipe"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-recipe"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -593,14 +593,14 @@ func TestRunDebugEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-env"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugEnvMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-env"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-env"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -618,7 +618,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-env"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -849,14 +849,14 @@ end
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-cond"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-cond"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugCondMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-cond"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-cond"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -874,7 +874,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-cond"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-cond"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -918,14 +918,14 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-ast"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugASTMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-ast"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-ast"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -944,7 +944,7 @@ cflags = -Wall
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-ast"})
 	// Should return exitParseError because there are parse errors
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -959,7 +959,7 @@ func TestRunDebugASTEmptyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-ast"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-ast"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -998,14 +998,14 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugSemanticMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-semantic"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-semantic"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -1022,7 +1022,7 @@ cc = clang
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because there are semantic errors (duplicate variable)
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1037,7 +1037,7 @@ func TestRunDebugSemanticEmptyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1066,7 +1066,7 @@ base = build
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1084,7 +1084,7 @@ build/{target}.o: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because {target} is an automatic variable
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1103,7 +1103,7 @@ build/app: src/{name}.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because {name} is in dependency but not in target
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1126,7 +1126,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1146,7 +1146,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because undefined_flags is not defined
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1164,7 +1164,7 @@ output = {target}
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because {target} is only valid in recipe
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1182,7 +1182,7 @@ platform = {os}-{arch}
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1215,7 +1215,7 @@ build/utils.o: src/utils.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1239,7 +1239,7 @@ dir/c.o: dir/a.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because of circular dependency
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1258,7 +1258,7 @@ build/app.o: build/app.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	// Should return exitParseError because of self-loop
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1279,7 +1279,7 @@ build/{name}.o: src/{name}.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1306,7 +1306,7 @@ build/common.o: src/common.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-semantic"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-semantic"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1344,14 +1344,14 @@ install_path = {prefix}/bin
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugEvalMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-eval"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-eval"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -1370,7 +1370,7 @@ cflags = -Wall
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1387,7 +1387,7 @@ platform = {os}-{arch}
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1401,7 +1401,7 @@ func TestRunDebugEvalEmptyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1421,7 +1421,7 @@ result = replace(foo.c, .c, .o)
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1439,7 +1439,7 @@ bar = value
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	// Should return exitParseError because foo references bar before it's defined
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
@@ -1469,7 +1469,7 @@ end
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-eval"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-eval"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1524,14 +1524,14 @@ build/:
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
 }
 
 func TestRunDebugPlanMissingFile(t *testing.T) {
-	exitCode := run([]string{"-f", "/nonexistent/Buildfile", "--debug-plan"})
+	exitCode := Run([]string{"-f", "/nonexistent/Buildfile", "--debug-plan"})
 	if exitCode != exitParseError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitParseError)
 	}
@@ -1552,7 +1552,7 @@ build/app: build/main.o build/utils.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1566,7 +1566,7 @@ func TestRunDebugPlanEmptyFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1600,7 +1600,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1619,7 +1619,7 @@ build/{name}.o: src/{name}.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1639,7 +1639,7 @@ build/output/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1658,7 +1658,7 @@ build/{name}.o: src/{name}.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1678,7 +1678,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1700,7 +1700,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1718,7 +1718,7 @@ build/app: src/main.c src/utils.c src/helper.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1740,7 +1740,7 @@ build_dir = build
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1764,7 +1764,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1785,7 +1785,7 @@ build/app: src/main.c
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1815,7 +1815,7 @@ build/app: build/a.o build/b.o
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1842,7 +1842,7 @@ build/common.h: src/common.h
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--debug-plan"})
+	exitCode := Run([]string{"-f", buildfile, "--debug-plan"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1868,7 +1868,7 @@ func TestRunListEnv(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	exitCode := Run([]string{"-f", buildfile, "--list-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1886,7 +1886,7 @@ cc = gcc
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	exitCode := Run([]string{"-f", buildfile, "--list-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1904,7 +1904,7 @@ func TestRunCheckEnvDefaultSuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1922,7 +1922,7 @@ func TestRunCheckEnvDefaultMissing(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -1950,7 +1950,7 @@ func TestRunCheckEnvNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "ci"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "ci"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -1968,7 +1968,7 @@ func TestRunCheckEnvNamedNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nonexistent"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nonexistent"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -1993,7 +1993,7 @@ func TestRunCheckEnvNoDefaultWithNamedOnly(t *testing.T) {
 	}
 
 	// Should error when trying to check without specifying --env
-	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2013,7 +2013,7 @@ cc = gcc
 	}
 
 	// Should succeed - bare environment with no requirements
-	exitCode := run([]string{"-f", buildfile, "--check-env"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -2032,7 +2032,7 @@ func TestShowInstall_MissingBinary(t *testing.T) {
 	}
 
 	// Should fail because binary doesn't exist
-	exitCode := run([]string{"-f", buildfile, "--check-env", "--show-install"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "--show-install"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2051,7 +2051,7 @@ func TestShowInstall_AllPresent(t *testing.T) {
 	}
 
 	// Should succeed - both sh and ls should exist
-	exitCode := run([]string{"-f", buildfile, "--check-env", "--show-install"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "--show-install"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -2090,7 +2090,7 @@ func TestRunCheckEnvDevcontainer_WithConfig(t *testing.T) {
 	}
 
 	// Should succeed - devcontainer config exists (even if CLI is not installed, config is valid)
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
 	// The exit code depends on whether devcontainer CLI is installed
 	// If it's not, we still expect the check to be informative
 	if exitCode != exitSuccess && exitCode != exitEnvError {
@@ -2123,7 +2123,7 @@ func TestRunCheckEnvDevcontainer_WithSourcePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
 	// The exit code depends on whether devcontainer CLI is installed
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
@@ -2145,7 +2145,7 @@ func TestRunCheckEnvDevcontainer_NoConfig(t *testing.T) {
 	}
 
 	// Should fail - no devcontainer configuration found
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2177,7 +2177,7 @@ func TestRunCheckEnvDevcontainer_InvalidConfig(t *testing.T) {
 	}
 
 	// Should fail - invalid devcontainer config
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "dev"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2198,7 +2198,7 @@ func TestRunListEnv_WithDevcontainer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	exitCode := Run([]string{"-f", buildfile, "--list-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -2234,7 +2234,7 @@ pkgs.mkShell {
 	}
 
 	// Should succeed - nix config exists (even if nix-shell CLI is not installed)
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
 	// The exit code depends on whether nix-shell is installed
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
@@ -2267,7 +2267,7 @@ func TestRunCheckEnvNix_WithFlakeNix(t *testing.T) {
 	}
 
 	// Should succeed - nix config exists
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
 	}
@@ -2295,7 +2295,7 @@ func TestRunCheckEnvNix_WithSourcePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
 	}
@@ -2316,7 +2316,7 @@ func TestRunCheckEnvNix_NoConfig(t *testing.T) {
 	}
 
 	// Should fail - no nix configuration found
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2344,7 +2344,7 @@ func TestRunCheckEnvNix_WithArgs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "nixdev"})
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
 	}
@@ -2365,7 +2365,7 @@ func TestRunListEnv_WithNix(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	exitCode := Run([]string{"-f", buildfile, "--list-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -2402,7 +2402,7 @@ mounts:
 	}
 
 	// Should succeed - lima config exists (even if limactl is not installed)
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
 	// The exit code depends on whether limactl is installed
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
@@ -2433,7 +2433,7 @@ func TestRunCheckEnvLima_WithSourcePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
 	if exitCode != exitSuccess && exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d or %d", exitCode, exitSuccess, exitEnvError)
 	}
@@ -2454,7 +2454,7 @@ func TestRunCheckEnvLima_NoConfig(t *testing.T) {
 	}
 
 	// Should fail - no lima configuration found
-	exitCode := run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
+	exitCode := Run([]string{"-f", buildfile, "--check-env", "-e", "vm"})
 	if exitCode != exitEnvError {
 		t.Errorf("exit code = %d, want %d", exitCode, exitEnvError)
 	}
@@ -2475,7 +2475,7 @@ func TestRunListEnv_WithLima(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	exitCode := run([]string{"-f", buildfile, "--list-env"})
+	exitCode := Run([]string{"-f", buildfile, "--list-env"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
@@ -2514,7 +2514,7 @@ cc = gcc
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2538,7 +2538,7 @@ cc = gcc
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2561,7 +2561,7 @@ func TestParseErrorShowsLocation(t *testing.T) {
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2590,7 +2590,7 @@ cc = clang
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2615,7 +2615,7 @@ func TestSemanticErrorShowsErrorCode_UndefinedVariable(t *testing.T) {
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2643,7 +2643,7 @@ output = {target}
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2671,7 +2671,7 @@ dir/b.o: dir/a.o
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {
@@ -2697,7 +2697,7 @@ cc = gcc
 
 	var exitCode int
 	stderr := captureStderr(func() {
-		exitCode = run([]string{"-f", buildfile})
+		exitCode = Run([]string{"-f", buildfile})
 	})
 
 	if exitCode != exitParseError {

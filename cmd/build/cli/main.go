@@ -1,5 +1,5 @@
 // Command build is a Make-inspired build tool with readable syntax.
-package main
+package cli
 
 import (
 	"flag"
@@ -57,13 +57,13 @@ type flags struct {
 	debugPlan     bool // Debug: dump build planning (target matching)
 }
 
-func main() {
+func Main() {
 	// Initialize error package file reader for source context
 	initFileReader()
-	os.Exit(run(os.Args[1:]))
+	os.Exit(Run(os.Args[1:]))
 }
 
-func run(args []string) int {
+func Run(args []string) int {
 	f, targets, err := parseFlags(args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)

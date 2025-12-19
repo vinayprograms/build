@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"os"
@@ -441,25 +441,25 @@ func TestRunWithTargetArgs(t *testing.T) {
 	}
 
 	// Test with explicit phony target
-	exitCode := run([]string{"-f", buildfile, "-v", "build"})
+	exitCode := Run([]string{"-f", buildfile, "-v", "build"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for @build target)", exitCode, exitSuccess)
 	}
 
 	// Test with explicit phony target (with @)
-	exitCode = run([]string{"-f", buildfile, "-v", "@clean"})
+	exitCode = Run([]string{"-f", buildfile, "-v", "@clean"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for @clean target)", exitCode, exitSuccess)
 	}
 
 	// Test with phony target (without @)
-	exitCode = run([]string{"-f", buildfile, "-v", "clean"})
+	exitCode = Run([]string{"-f", buildfile, "-v", "clean"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for clean target without @)", exitCode, exitSuccess)
 	}
 
 	// Test with multiple targets
-	exitCode = run([]string{"-f", buildfile, "-v", "clean", "build", "test"})
+	exitCode = Run([]string{"-f", buildfile, "-v", "clean", "build", "test"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for multiple targets)", exitCode, exitSuccess)
 	}
@@ -483,7 +483,7 @@ func TestRunWithDefaultTarget(t *testing.T) {
 	}
 
 	// Test with no target arguments
-	exitCode := run([]string{"-f", buildfile, "-v"})
+	exitCode := Run([]string{"-f", buildfile, "-v"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for default target)", exitCode, exitSuccess)
 	}
@@ -506,7 +506,7 @@ func TestRunWithFirstTargetAsDefault(t *testing.T) {
 	}
 
 	// Test with no target arguments - should use first target (@build)
-	exitCode := run([]string{"-f", buildfile, "-v"})
+	exitCode := Run([]string{"-f", buildfile, "-v"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for first target as default)", exitCode, exitSuccess)
 	}
@@ -524,7 +524,7 @@ func TestRunWithUnknownTarget(t *testing.T) {
 	}
 
 	// Test with unknown target - should fail with usage error
-	exitCode := run([]string{"-f", buildfile, "nonexistent"})
+	exitCode := Run([]string{"-f", buildfile, "nonexistent"})
 	if exitCode != exitUsageError {
 		t.Errorf("exit code = %d, want %d (for unknown target)", exitCode, exitUsageError)
 	}
@@ -543,7 +543,7 @@ cflags = -Wall
 	}
 
 	// Test with no targets defined - should fail with usage error
-	exitCode := run([]string{"-f", buildfile})
+	exitCode := Run([]string{"-f", buildfile})
 	if exitCode != exitUsageError {
 		t.Errorf("exit code = %d, want %d (for no targets)", exitCode, exitUsageError)
 	}

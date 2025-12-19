@@ -238,7 +238,7 @@ func buildBinary(t *testing.T) string {
 	binDir := t.TempDir()
 	binPath := filepath.Join(binDir, "build")
 
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/build")
+	cmd := exec.Command("go", "build", "-o", binPath, ".")
 	cmd.Dir = projectRoot
 
 	var stderr bytes.Buffer

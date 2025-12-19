@@ -16,7 +16,7 @@
 ## Installation
 
 ```bash
-go install github.com/vinayprograms/build/cmd/build@latest
+go install github.com/vinayprograms/build@latest
 ```
 
 ### Prerequisites
