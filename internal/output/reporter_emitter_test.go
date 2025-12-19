@@ -16,7 +16,7 @@ import (
 
 func TestEmitterBackedNormalReporter_BuildStarted(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.BuildStarted("build/app")
 
@@ -31,7 +31,7 @@ func TestEmitterBackedNormalReporter_BuildStarted(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_BuildCompleted(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.BuildCompleted("build/app", true, "")
 
@@ -46,7 +46,7 @@ func TestEmitterBackedNormalReporter_BuildCompleted(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_BuildCompletedFailure(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.BuildCompleted("build/app", false, "compile error: undefined reference")
 
@@ -64,7 +64,7 @@ func TestEmitterBackedNormalReporter_BuildCompletedFailure(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_CommandOutput(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.CommandOutput("gcc -c main.c", "main.c:10: warning: unused variable", "")
 
@@ -76,7 +76,7 @@ func TestEmitterBackedNormalReporter_CommandOutput(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_CommandOutputStderr(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.CommandOutput("gcc -c main.c", "", "error: expected ';'")
 
@@ -88,7 +88,7 @@ func TestEmitterBackedNormalReporter_CommandOutputStderr(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_SuppressesEmptyOutput(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	// Empty output should not produce any output
 	r.CommandOutput("echo test", "", "")
@@ -101,7 +101,7 @@ func TestEmitterBackedNormalReporter_SuppressesEmptyOutput(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_Summary(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.Summary(5, 1)
 
@@ -113,7 +113,7 @@ func TestEmitterBackedNormalReporter_Summary(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_SummaryAllSuccess(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.Summary(5, 0)
 
@@ -125,7 +125,7 @@ func TestEmitterBackedNormalReporter_SummaryAllSuccess(t *testing.T) {
 
 func TestEmitterBackedNormalReporter_NothingToBuild(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedNormalReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.NothingToBuild("build/app")
 
@@ -144,7 +144,7 @@ func TestEmitterBackedNormalReporter_NothingToBuild(t *testing.T) {
 
 func TestEmitterBackedDryRunReporter_WouldBuild(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.WouldBuild("build/app")
 
@@ -156,7 +156,7 @@ func TestEmitterBackedDryRunReporter_WouldBuild(t *testing.T) {
 
 func TestEmitterBackedDryRunReporter_ShowCommand(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	// Need to set target context first
 	r.WouldBuild("build/app")
@@ -171,7 +171,7 @@ func TestEmitterBackedDryRunReporter_ShowCommand(t *testing.T) {
 
 func TestEmitterBackedDryRunReporter_NothingToBuild(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never"})
+	r := NewEmitterBackedDryRunReporter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	r.NothingToBuild("build/app")
 
@@ -291,7 +291,7 @@ func TestEmitterBackedVerboseReporter_Summary(t *testing.T) {
 
 func TestEmitterBackedProgressReporter_BuildStarted(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never"}, 10)
+	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never", Verbose: true}, 10)
 
 	r.BuildStarted("build/main.o")
 
@@ -307,7 +307,7 @@ func TestEmitterBackedProgressReporter_BuildStarted(t *testing.T) {
 
 func TestEmitterBackedProgressReporter_BuildStartedMultiple(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never"}, 5)
+	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never", Verbose: true}, 5)
 
 	r.BuildStarted("build/a.o")
 	r.BuildStarted("build/b.o")
@@ -322,7 +322,7 @@ func TestEmitterBackedProgressReporter_BuildStartedMultiple(t *testing.T) {
 
 func TestEmitterBackedProgressReporter_BuildCompletedFailure(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never"}, 5)
+	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never", Verbose: true}, 5)
 
 	r.BuildStarted("build/main.o")
 	buf.Reset()
@@ -339,7 +339,7 @@ func TestEmitterBackedProgressReporter_BuildCompletedFailure(t *testing.T) {
 
 func TestEmitterBackedProgressReporter_Summary(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never"}, 5)
+	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never", Verbose: true}, 5)
 
 	r.Summary(5, 0)
 
@@ -351,7 +351,7 @@ func TestEmitterBackedProgressReporter_Summary(t *testing.T) {
 
 func TestEmitterBackedProgressReporter_CurrentlyBuilding(t *testing.T) {
 	var buf bytes.Buffer
-	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never"}, 10)
+	r := NewEmitterBackedProgressReporter(&buf, WriterConfig{Color: "never", Verbose: true}, 10)
 
 	// Simulate parallel builds
 	r.BuildStarted("build/a.o")
@@ -386,7 +386,7 @@ func TestReporterCompatibility_NormalBuildFlow(t *testing.T) {
 	oldR.Summary(1, 0)
 
 	// New reporter
-	newR := NewEmitterBackedNormalReporter(&newBuf, WriterConfig{Color: "never"})
+	newR := NewEmitterBackedNormalReporter(&newBuf, WriterConfig{Color: "never", Verbose: true})
 	newR.BuildStarted("build/app")
 	newR.BuildCompleted("build/app", true, "")
 	newR.Summary(1, 0)

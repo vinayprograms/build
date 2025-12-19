@@ -9,7 +9,7 @@ import (
 
 func TestCLIWriter_TargetStarted(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "never"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	w.WriteEvent(TargetStarted{Target: "foo.o", Index: 1, Total: 1})
 
@@ -21,7 +21,7 @@ func TestCLIWriter_TargetStarted(t *testing.T) {
 
 func TestCLIWriter_TargetStarted_Progress(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "never"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	w.WriteEvent(TargetStarted{Target: "foo.o", Index: 3, Total: 5})
 
@@ -33,7 +33,7 @@ func TestCLIWriter_TargetStarted_Progress(t *testing.T) {
 
 func TestCLIWriter_TargetCompleted_Success(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "never"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	w.WriteEvent(TargetCompleted{Target: "foo.o", Success: true})
 
@@ -72,7 +72,7 @@ func TestCLIWriter_CommandOutput(t *testing.T) {
 
 func TestCLIWriter_BuildSummary_Success(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "never"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	w.WriteEvent(BuildSummary{Total: 5, Succeeded: 5, Failed: 0})
 
@@ -198,7 +198,7 @@ func TestCLIWriter_DryRun(t *testing.T) {
 
 func TestCLIWriter_WithColor(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "always"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "always", Verbose: true})
 
 	w.WriteEvent(TargetStarted{Target: "foo.o", Index: 1, Total: 1})
 
@@ -229,7 +229,7 @@ func TestCLIWriter_StalenessChecked(t *testing.T) {
 
 func TestCLIWriter_TargetSkipped(t *testing.T) {
 	var buf bytes.Buffer
-	w := NewCLIWriter(&buf, WriterConfig{Color: "never"})
+	w := NewCLIWriter(&buf, WriterConfig{Color: "never", Verbose: true})
 
 	w.WriteEvent(TargetSkipped{Target: "foo.o", Reason: "up to date"})
 

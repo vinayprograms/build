@@ -92,11 +92,17 @@ func (c *CLIWriter) WriteEvent(event OutputEvent) {
 			c.writeVariableEvaluated(e)
 		}
 	case TargetStarted:
-		c.writeTargetStarted(e)
+		if c.config.Verbose {
+			c.writeTargetStarted(e)
+		}
 	case TargetCompleted:
-		c.writeTargetCompleted(e)
+		if c.config.Verbose || !e.Success {
+			c.writeTargetCompleted(e)
+		}
 	case TargetSkipped:
-		c.writeTargetSkipped(e)
+		if c.config.Verbose {
+			c.writeTargetSkipped(e)
+		}
 	case CommandStarted:
 		if c.config.Verbose {
 			c.writeCommandStarted(e)
@@ -110,7 +116,9 @@ func (c *CLIWriter) WriteEvent(event OutputEvent) {
 			c.writeStalenessChecked(e)
 		}
 	case BuildSummary:
-		c.writeBuildSummary(e)
+		if c.config.Verbose || e.Failed > 0 {
+			c.writeBuildSummary(e)
+		}
 	case ErrorOccurred:
 		c.writeError(e)
 	case DryRunTarget:
