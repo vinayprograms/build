@@ -54,3 +54,69 @@ func (e *NoDefaultEnvironmentError) Error() string {
 	}
 	return fmt.Sprintf("no default environment; use --env with one of: %v", e.Available)
 }
+
+// NoSourceError indicates .source: directive is missing for a container runtime.
+type NoSourceError struct {
+	Runtime string // Runtime name (docker, podman)
+}
+
+func (e *NoSourceError) Error() string {
+	return fmt.Sprintf("%s environment requires .source: directive specifying Dockerfile path", e.Runtime)
+}
+
+// InvalidRuntimeError indicates an invalid or unsupported runtime.
+type InvalidRuntimeError struct {
+	Message string
+}
+
+func (e *InvalidRuntimeError) Error() string {
+	return fmt.Sprintf("invalid runtime: %s", e.Message)
+}
+
+// DockerfileNotFoundError indicates the specified Dockerfile was not found.
+type DockerfileNotFoundError struct {
+	Path string // Path to the missing Dockerfile
+}
+
+func (e *DockerfileNotFoundError) Error() string {
+	return fmt.Sprintf("Dockerfile not found: %s", e.Path)
+}
+
+// InvalidDockerfileError indicates the Dockerfile is malformed.
+type InvalidDockerfileError struct {
+	Path   string // Path to the Dockerfile
+	Reason string // Reason for invalidation
+}
+
+func (e *InvalidDockerfileError) Error() string {
+	return fmt.Sprintf("invalid Dockerfile %s: %s", e.Path, e.Reason)
+}
+
+// ImageNotFoundError indicates a container image was not found locally.
+type ImageNotFoundError struct {
+	Name string // Image name/tag
+}
+
+func (e *ImageNotFoundError) Error() string {
+	return fmt.Sprintf("image not found: %s", e.Name)
+}
+
+// ImageBuildError indicates an error during image build.
+type ImageBuildError struct {
+	ImageTag string
+	Message  string
+}
+
+func (e *ImageBuildError) Error() string {
+	return fmt.Sprintf("failed to build image %s: %s", e.ImageTag, e.Message)
+}
+
+// ContainerRunError indicates an error running a container.
+type ContainerRunError struct {
+	ImageTag string
+	Message  string
+}
+
+func (e *ContainerRunError) Error() string {
+	return fmt.Sprintf("failed to run container from %s: %s", e.ImageTag, e.Message)
+}
