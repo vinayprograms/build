@@ -706,3 +706,373 @@ func TestDockerEnvironmentMixedRuntimes(t *testing.T) {
 		AssertStdoutContains("docker").
 		AssertStdoutContains("container")
 }
+
+// ===========================================================================
+// Podman Environment Integration Tests
+// These tests require Podman to be available.
+// ===========================================================================
+
+// skipIfNoPodman skips the test if Podman is not available.
+func skipIfNoPodman(t *testing.T) {
+	t.Helper()
+	h := NewTestHarness(t)
+	result := h.RunShell("podman version >/dev/null 2>&1")
+	if result.exitCode != 0 {
+		t.Skip("Podman is not available, skipping Podman integration test")
+	}
+}
+
+// TestPodmanEnvironmentCheckEnv tests --check-env with a Podman environment.
+func TestPodmanEnvironmentCheckEnv(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	// Create a simple Containerfile (Podman's equivalent)
+	h.WriteFile("Containerfile", `FROM alpine:latest
+RUN echo "test"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "Hello from Podman"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment").
+		AssertStdoutContains("Runtime: podman").
+		AssertStdoutContains("Containerfile")
+}
+
+// TestPodmanEnvironmentCheckEnvMissingContainerfile tests --check-env with missing Containerfile.
+func TestPodmanEnvironmentCheckEnvMissingContainerfile(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./NonexistentContainerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStdoutContains("not found")
+}
+
+// TestPodmanEnvironmentCheckEnvInvalidContainerfile tests --check-env with invalid Containerfile.
+func TestPodmanEnvironmentCheckEnvInvalidContainerfile(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	// Create a Containerfile without FROM instruction
+	h.WriteFile("Containerfile", `RUN echo "no FROM instruction"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStdoutContains("missing FROM instruction")
+}
+
+// TestPodmanEnvironmentListEnv tests --list-env with Podman environment.
+func TestPodmanEnvironmentListEnv(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./Containerfile
+
+.environment: ci
+	.using: podman
+	.source: ./Containerfile
+	.args: --platform linux/amd64
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Available environments").
+		AssertStdoutContains("podman").
+		AssertStdoutContains("ci")
+}
+
+// TestPodmanEnvironmentDryRun tests --dry-run with Podman environment.
+func TestPodmanEnvironmentDryRun(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test output"
+`)
+
+	result := h.Run("--dry-run", "test")
+	result.AssertSuccess().
+		AssertStdoutContains("echo")
+}
+
+// TestPodmanEnvironmentVerbose tests --verbose with Podman environment.
+func TestPodmanEnvironmentVerbose(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--verbose", "--check-env")
+	result.AssertSuccess()
+}
+
+// TestPodmanEnvironmentNamedEnvironmentCheckEnv tests --check-env with named Podman environments.
+func TestPodmanEnvironmentNamedEnvironmentCheckEnv(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile.dev", `FROM alpine:latest
+`)
+
+	h.WriteFile("Containerfile.prod", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: dev
+	.using: podman
+	.source: ./Containerfile.dev
+
+.environment: prod
+	.using: podman
+	.source: ./Containerfile.prod
+
+@test:
+	echo "test"
+`)
+
+	// Check dev environment
+	result := h.Run("--env", "dev", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: dev").
+		AssertStdoutContains("Runtime: podman")
+
+	// Check prod environment
+	result = h.Run("--env", "prod", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: prod").
+		AssertStdoutContains("Runtime: podman")
+}
+
+// TestPodmanEnvironmentSourceInSubdirectory tests Containerfile in subdirectory.
+func TestPodmanEnvironmentSourceInSubdirectory(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.Mkdir("containers")
+	h.WriteFile("containers/Containerfile.ci", `FROM alpine:latest
+RUN echo "CI image"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: ci
+	.using: podman
+	.source: ./containers/Containerfile.ci
+
+@test:
+	echo "Running in CI container"
+`)
+
+	result := h.Run("--env", "ci", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: ci").
+		AssertStdoutContains("containers/Containerfile.ci")
+}
+
+// TestPodmanEnvironmentWithArgsInListEnv tests that .args shows in --list-env.
+func TestPodmanEnvironmentWithArgsInListEnv(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: linux-amd64
+	.using: podman
+	.source: ./Containerfile
+	.args: --platform linux/amd64
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("linux-amd64").
+		AssertStdoutContains("podman")
+}
+
+// TestPodmanEnvironmentNoDefaultWithNamedOnly tests error when only named environments exist.
+func TestPodmanEnvironmentNoDefaultWithNamedOnly(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile.dev", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: dev
+	.using: podman
+	.source: ./Containerfile.dev
+
+@test:
+	echo "test"
+`)
+
+	// No --env flag, no default environment - should error
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStderrContains("no default environment")
+}
+
+// TestPodmanEnvironmentMixedRuntimes tests --list-env with mixed environment types.
+func TestPodmanEnvironmentMixedRuntimes(t *testing.T) {
+	skipIfNoPodman(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: bare
+	.requires: bash
+
+.environment: container
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("bare").
+		AssertStdoutContains("podman").
+		AssertStdoutContains("container")
+}
+
+// TestMixedDockerPodmanEnvironments tests --list-env with both Docker and Podman environments.
+func TestMixedDockerPodmanEnvironments(t *testing.T) {
+	// Skip if neither Docker nor Podman is available
+	h := NewTestHarness(t)
+	dockerResult := h.RunShell("docker version >/dev/null 2>&1")
+	podmanResult := h.RunShell("podman version >/dev/null 2>&1")
+	if dockerResult.exitCode != 0 && podmanResult.exitCode != 0 {
+		t.Skip("Neither Docker nor Podman is available, skipping mixed container test")
+	}
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+	h.WriteFile("Containerfile", `FROM alpine:latest
+`)
+
+	// Build a Buildfile with both Docker and Podman environments
+	// Note: Only use the available runtime(s)
+	var buildfileContent string
+	if dockerResult.exitCode == 0 && podmanResult.exitCode == 0 {
+		buildfileContent = `.shell: sh
+
+.environment: docker-env
+	.using: docker
+	.source: ./Dockerfile
+
+.environment: podman-env
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test"
+`
+	} else if dockerResult.exitCode == 0 {
+		buildfileContent = `.shell: sh
+
+.environment: docker-env
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "test"
+`
+	} else {
+		buildfileContent = `.shell: sh
+
+.environment: podman-env
+	.using: podman
+	.source: ./Containerfile
+
+@test:
+	echo "test"
+`
+	}
+
+	h.WriteFile("Buildfile", buildfileContent)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Available environments")
+
+	// Check that at least one container runtime is listed
+	stdout := result.Stdout()
+	if !strings.Contains(stdout, "docker") && !strings.Contains(stdout, "podman") {
+		t.Error("expected at least one container runtime in output")
+	}
+}
