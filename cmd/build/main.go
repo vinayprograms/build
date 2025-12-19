@@ -33,6 +33,9 @@ type flags struct {
 	jobs          int
 	dryRun        bool
 	verbose       bool
+	quiet         bool   // Suppress non-error output
+	color         string // Color mode: auto, always, never
+	progress      string // Progress mode: auto, always, never
 	checkEnv      bool
 	showInstall   bool
 	listEnv       bool
@@ -392,7 +395,10 @@ func run(args []string) int {
 }
 
 func parseFlags(args []string) (*flags, []string, error) {
-	f := &flags{}
+	f := &flags{
+		color:    "auto", // Default value
+		progress: "auto", // Default value
+	}
 
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
@@ -407,6 +413,10 @@ func parseFlags(args []string) (*flags, []string, error) {
 	fs.BoolVar(&f.dryRun, "n", false, "Show what would execute (shorthand)")
 	fs.BoolVar(&f.verbose, "verbose", false, "Verbose output")
 	fs.BoolVar(&f.verbose, "v", false, "Verbose output (shorthand)")
+	fs.BoolVar(&f.quiet, "quiet", false, "Suppress non-error output")
+	fs.BoolVar(&f.quiet, "q", false, "Suppress non-error output (shorthand)")
+	fs.StringVar(&f.color, "color", "auto", "Color output (auto, always, never)")
+	fs.StringVar(&f.progress, "progress", "auto", "Progress output (auto, always, never)")
 	fs.BoolVar(&f.checkEnv, "check-env", false, "Verify environment requirements")
 	fs.BoolVar(&f.showInstall, "show-install", false, "Show install instructions")
 	fs.BoolVar(&f.listEnv, "list-env", false, "List available environments")
@@ -447,6 +457,9 @@ Options:
   -j, --jobs N         Parallel jobs (default: 1)
   -n, --dry-run        Show what would execute without running
   -v, --verbose        Verbose output
+  -q, --quiet          Suppress non-error output
+  --color=MODE         Color output: auto, always, never (default: auto)
+  --progress=MODE      Progress output: auto, always, never (default: auto)
   --check-env          Verify environment requirements
   --show-install       Show install instructions for missing requirements
   --list-env           List available environments

@@ -155,6 +155,76 @@ func TestParseFlags(t *testing.T) {
 	}
 }
 
+func TestParseFlagsQuiet(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"quiet long", []string{"--quiet"}},
+		{"quiet short", []string{"-q"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _, err := parseFlags(tt.args)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !f.quiet {
+				t.Error("quiet should be true")
+			}
+		})
+	}
+}
+
+func TestParseFlagsColor(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		wantColor string
+	}{
+		{"color auto", []string{"--color=auto"}, "auto"},
+		{"color always", []string{"--color=always"}, "always"},
+		{"color never", []string{"--color=never"}, "never"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _, err := parseFlags(tt.args)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if f.color != tt.wantColor {
+				t.Errorf("color = %q, want %q", f.color, tt.wantColor)
+			}
+		})
+	}
+}
+
+func TestParseFlagsProgress(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		wantProgress string
+	}{
+		{"progress auto", []string{"--progress=auto"}, "auto"},
+		{"progress always", []string{"--progress=always"}, "always"},
+		{"progress never", []string{"--progress=never"}, "never"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, _, err := parseFlags(tt.args)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if f.progress != tt.wantProgress {
+				t.Errorf("progress = %q, want %q", f.progress, tt.wantProgress)
+			}
+		})
+	}
+}
+
 func TestParseFlagsHelp(t *testing.T) {
 	tests := []struct {
 		name string
