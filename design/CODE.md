@@ -5087,7 +5087,30 @@ The `skipIfNoDocker(t)` helper function skips tests when Docker is not available
 | `TestDockerEnvironmentNoDefaultWithNamedOnly` | Error when only named environments defined and no `--env` flag |
 | `TestDockerEnvironmentMixedRuntimes` | `--list-env` shows both bare and Docker environments correctly |
 
-**Note on Container Execution:** The container execution infrastructure exists (`internal/environ/container_env.go`, `runner.go`, `image.go`) but is not yet wired into the main build execution path. The Docker tests focus on environment validation (`--check-env`, `--list-env`) which is fully implemented.
+### Podman Environment Tests (`environment_test.go`)
+
+Podman environment integration tests mirror the Docker tests but use Podman as the container runtime. These tests require Podman to be available on the host system.
+
+**Skip Helper:**
+
+The `skipIfNoPodman(t)` helper function skips tests when Podman is not available, enabling graceful test execution in environments without Podman.
+
+| Test | Description |
+|------|-------------|
+| `TestPodmanEnvironmentCheckEnv` | `--check-env` validates Podman environment with valid Containerfile |
+| `TestPodmanEnvironmentCheckEnvMissingContainerfile` | Error when `.source:` references missing Containerfile (exit code 4) |
+| `TestPodmanEnvironmentCheckEnvInvalidContainerfile` | Error when Containerfile lacks FROM instruction |
+| `TestPodmanEnvironmentListEnv` | `--list-env` shows Podman environments with runtime type |
+| `TestPodmanEnvironmentDryRun` | `--dry-run` with Podman environment shows commands without executing |
+| `TestPodmanEnvironmentVerbose` | `--verbose --check-env` shows verbose Podman validation |
+| `TestPodmanEnvironmentNamedEnvironmentCheckEnv` | `--check-env --env name` validates named Podman environments |
+| `TestPodmanEnvironmentSourceInSubdirectory` | Containerfile in subdirectory path resolved correctly |
+| `TestPodmanEnvironmentWithArgsInListEnv` | `--list-env` shows environments with `.args:` directive |
+| `TestPodmanEnvironmentNoDefaultWithNamedOnly` | Error when only named environments defined and no `--env` flag |
+| `TestPodmanEnvironmentMixedRuntimes` | `--list-env` shows both bare and Podman environments correctly |
+| `TestMixedDockerPodmanEnvironments` | `--list-env` correctly lists environments using both Docker and Podman |
+
+**Note on Container Execution:** The container execution infrastructure exists (`internal/environ/container_env.go`, `runner.go`, `image.go`) but is not yet wired into the main build execution path. The Docker and Podman tests focus on environment validation (`--check-env`, `--list-env`) which is fully implemented.
 
 ### Performance Tests (`performance_test.go`)
 
@@ -5212,6 +5235,58 @@ Detection order:
 - `FORCE_COLOR` environment variable enables colors
 - `--color=auto|always|never` CLI flag (to be integrated)
 
+### Terminal Capabilities (`terminal.go`)
+
+Detects terminal capabilities for adaptive output formatting.
+
+**Color Levels:**
+
+| Level | Description |
+|-------|-------------|
+| `ColorLevelNone` | No color support |
+| `ColorLevelBasic` | 16-color ANSI support |
+| `ColorLevel256` | 256-color support |
+| `ColorLevelTruecolor` | 24-bit truecolor support |
+
+**Detection Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `DetectCapabilities()` | Returns full terminal capabilities |
+| `DetectColorLevel()` | Detects color support level |
+| `DetectUnicodeSupport()` | Checks for UTF-8 locale |
+| `GetTerminalSize()` | Returns terminal width/height |
+| `DefaultTerminalSize()` | Returns default 80x24 |
+
+**TerminalCapabilities struct:**
+
+```go
+type TerminalCapabilities struct {
+    Width       int        // Terminal width (0 if unknown)
+    Height      int        // Terminal height (0 if unknown)
+    ColorLevel  ColorLevel // Supported color level
+    Unicode     bool       // Unicode support
+    Interactive bool       // Is an interactive terminal
+}
+```
+
+**Helper methods:**
+- `SupportsColor()` → true if any color support
+- `Supports256Color()` → true if 256+ colors
+- `SupportsTruecolor()` → true if 24-bit color
+- `SizeWithFallback()` → uses 80x24 defaults if unknown
+
+**Color level detection order:**
+1. `NO_COLOR` → none
+2. `TERM=dumb` → none
+3. `COLORTERM=truecolor` or `24bit` → truecolor
+4. `TERM` contains `256color` → 256
+5. `TERM` matches known color terminals → basic
+6. Otherwise → none
+
+**Unicode detection:**
+- Checks `LC_ALL`, `LC_CTYPE`, `LANG` for `UTF-8` or `utf8`
+
 ### CLI Writer (`cli.go`)
 
 Interactive terminal output with colors and progress indicators.
@@ -5222,6 +5297,21 @@ Interactive terminal output with colors and progress indicators.
 - Verbose mode shows variable evaluation and staleness checks
 - Quiet mode suppresses non-error output
 - Error display with source context and hints
+- Degraded output for limited terminals (ASCII fallback when Unicode unsupported)
+
+**Symbol Sets:**
+
+| Context | Unicode | ASCII Fallback |
+|---------|---------|----------------|
+| Success | ✓ | [ok] |
+| Failure | ✗ | [FAIL] |
+| Arrow | → | -> |
+| Bullet | • | * |
+
+**Unicode Control:**
+- `--unicode=auto` (default): Detect from locale
+- `--unicode=always`: Force Unicode symbols
+- `--unicode=never`: Use ASCII-only symbols
 
 **Example output (normal):**
 ```
@@ -5418,4 +5508,49 @@ func NewNoOpWriter() OutputWriter
 | `TestNewWriter_Headless` | Headless mode creates HeadlessWriter |
 | `TestNewNoOpWriter` | NoOp writer discards output |
 | `TestDefaultWriterConfig` | Default config values |
+
+## Documentation
+
+### Design Documents
+
+| File | Description |
+|------|-------------|
+| `design/BUILDFILE_SPEC.md` | Complete language specification |
+| `design/DESIGN.md` | System architecture and design decisions |
+| `design/CODE.md` | Implementation documentation (this file) |
+| `design/TODO.md` | Implementation task tracking |
+| `design/MIGRATION.md` | Guide for migrating from Make to Buildfile |
+
+### Migration Guide (`design/MIGRATION.md`)
+
+The migration guide provides comprehensive documentation for users transitioning from GNU Make to Buildfile. It covers:
+
+**Quick Reference Table:**
+- Variable syntax mapping (`$(VAR)` → `{var}`)
+- Automatic variable mapping (`$@` → `{target}`, etc.)
+- Pattern rule conversion (`%` → `{name}`)
+- Function mapping (`$(shell)` → `shell()`, etc.)
+
+**Detailed Sections:**
+- Variable assignment (simple vs lazy)
+- Target and dependency syntax
+- Pattern rules with named captures
+- Phony and directory targets
+- Automatic variables comparison
+- Shell commands and block mode
+- Built-in functions
+- Conditionals (`ifeq` → `if`)
+- Include directive
+- Common patterns (C project example)
+- Auto-dependencies
+- Migration checklist
+
+**Key Differences Highlighted:**
+- No tab requirement (use any consistent indent)
+- Readable automatic variable names
+- Named pattern captures vs `%`
+- Built-in `{os}` and `{arch}` variables
+- Block mode for multi-line scripts
+- Environment management features
+
 

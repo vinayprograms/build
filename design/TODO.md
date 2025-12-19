@@ -642,7 +642,7 @@ Runtime environments for build isolation.
 
 - [x] **Write environment tests**
   - [x] Test bare environment requirements checking
-  - [ ] Test container environment (requires Docker/Podman)
+  - [x] Test container environment (requires Docker/Podman)
   - [x] Test environment selection logic
   - [x] Test --list-env and --check-env output
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
@@ -845,9 +845,9 @@ Comprehensive test coverage and code quality.
   - [x] All command-line options
   - [x] Examples for common tasks
 
-- [ ] **Write migration guide**
-  - [ ] Make to Buildfile translation
-  - [ ] Common patterns
+- [x] **Write migration guide**
+  - [x] Make to Buildfile translation
+  - [x] Common patterns
 
 ---
 
@@ -894,10 +894,10 @@ See DESIGN.md Section 10 for full architecture.
   - [x] Define Flush() method for buffered output
   - [x] Create factory function to instantiate correct writer
 
-- [ ] **Implement terminal capability detection**
-  - [ ] Query terminal width/height
-  - [ ] Detect color support (0, 16, 256, truecolor)
-  - [ ] Detect unicode support
+- [x] **Implement terminal capability detection**
+  - [x] Query terminal width/height
+  - [x] Detect color support (0, 16, 256, truecolor)
+  - [x] Detect unicode support
   - [x] Handle TERM=dumb and NO_COLOR
 
 - [x] **Implement ANSI color utilities**
@@ -911,7 +911,7 @@ See DESIGN.md Section 10 for full architecture.
   - [x] Progress formatting for parallel builds [n/total]
   - [x] Command output with proper indentation
   - [x] Error display with source context and hints
-  - [ ] Degraded output for limited terminals
+  - [x] Degraded output for limited terminals
 
 - [x] **Implement HeadlessWriter (CI/logs)**
   - [x] Timestamped log lines
