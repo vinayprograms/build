@@ -152,23 +152,22 @@ func (p *Parser) ParseBuildfile() ([]ast.Statement, *ParseErrors) {
 			break
 		}
 
-		stmt, err := p.parseTopLevelStatement()
+		stmts, err := p.parseTopLevelStatements()
 		if err != nil {
 			p.addError(err)
 			p.recoverToLevel0()
 			continue
 		}
 
-		if stmt != nil {
-			statements = append(statements, stmt)
-		}
+		statements = append(statements, stmts...)
 	}
 
 	return statements, p.errors
 }
 
-// parseTopLevelStatement parses a single top-level statement with error handling.
-func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
+// parseTopLevelStatements parses one or more top-level statements.
+// Returns multiple statements when parsing includes (included statements are merged).
+func (p *Parser) parseTopLevelStatements() ([]ast.Statement, *ParseError) {
 	// Skip leading indentation at global scope (shouldn't happen, but be safe)
 	if p.current.Type == lexer.INDENT {
 		p.nextToken()
@@ -185,47 +184,75 @@ func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
 
 	// Handle comments
 	if p.current.Type == lexer.COMMENT {
-		return p.parseComment(), nil
+		return []ast.Statement{p.parseComment()}, nil
 	}
 
 	// Handle directives
 	if p.current.Type.IsDotKeyword() {
-		return p.parseTopLevelDirective()
+		return p.parseTopLevelDirectiveWithIncludes()
 	}
 
 	// Handle conditionals
 	if p.IsConditionalLine() {
-		return p.ParseConditional()
+		stmt, err := p.ParseConditional()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Handle lazy variables
 	if p.current.Type == lexer.LAZY {
-		return p.ParseVariable()
+		stmt, err := p.ParseVariable()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Handle variables or targets
 	if p.current.Type == lexer.IDENTIFIER {
 		// Check if this is a variable (= before :)
 		if p.looksLikeVariableLine() {
-			return p.ParseVariable()
+			stmt, err := p.ParseVariable()
+			if err != nil {
+				return nil, err
+			}
+			return []ast.Statement{stmt}, nil
 		}
 		// Otherwise it could be a file target (e.g., "app:" or "build/app:")
-		return p.ParseTarget()
+		stmt, err := p.ParseTarget()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Handle phony targets
 	if p.current.Type == lexer.AT_IDENTIFIER {
-		return p.ParseTarget()
+		stmt, err := p.ParseTarget()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Handle file targets
 	if p.current.Type == lexer.PATH {
-		return p.ParseTarget()
+		stmt, err := p.ParseTarget()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Handle targets starting with interpolation (e.g., {build_dir}/app:)
 	if p.current.Type == lexer.INTERP_START {
-		return p.ParseTarget()
+		stmt, err := p.ParseTarget()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	}
 
 	// Unrecognized token - generate error
@@ -236,8 +263,9 @@ func (p *Parser) parseTopLevelStatement() (ast.Statement, *ParseError) {
 	}
 }
 
-// parseTopLevelDirective handles directives at global scope with scope validation.
-func (p *Parser) parseTopLevelDirective() (ast.Statement, *ParseError) {
+// parseTopLevelDirectiveWithIncludes handles directives at global scope with scope validation.
+// For includes, it returns the included statements along with the directive.
+func (p *Parser) parseTopLevelDirectiveWithIncludes() ([]ast.Statement, *ParseError) {
 	// Validate scope first
 	if err := p.validateDirectiveScope(p.current); err != nil {
 		return nil, err
@@ -245,18 +273,29 @@ func (p *Parser) parseTopLevelDirective() (ast.Statement, *ParseError) {
 
 	switch p.current.Type {
 	case lexer.DOT_SHELL, lexer.DOT_PARALLEL, lexer.DOT_DEFAULT:
-		return p.parseGlobalDirective()
-	case lexer.DOT_INCLUDE:
-		directive, stmts, err := p.ParseInclude()
+		stmt, err := p.parseGlobalDirective()
 		if err != nil {
 			return nil, err
 		}
-		// For now, return the directive; the caller would need to handle included statements
-		// In a full implementation, we'd merge stmts into the statement list
-		_ = stmts // Include statements are handled separately
-		return directive, nil
+		return []ast.Statement{stmt}, nil
+	case lexer.DOT_INCLUDE:
+		directive, includedStmts, err := p.ParseInclude()
+		if err != nil {
+			return nil, err
+		}
+		// Return included statements first, then the directive marker
+		// This ensures variables/targets from included files are visible
+		// before any subsequent content in the including file
+		result := make([]ast.Statement, 0, len(includedStmts)+1)
+		result = append(result, includedStmts...)
+		result = append(result, directive)
+		return result, nil
 	case lexer.DOT_ENVIRONMENT:
-		return p.ParseEnvironment()
+		stmt, err := p.ParseEnvironment()
+		if err != nil {
+			return nil, err
+		}
+		return []ast.Statement{stmt}, nil
 	default:
 		// Other directives invalid at global scope
 		return nil, NewScopeError(p.current.Type, p.CurrentScope(), p.current.Location)
