@@ -2694,7 +2694,7 @@ Matches a concrete path against a target pattern. Returns whether the pattern ma
 - Literal segments must match exactly
 - Captures (`{name}`) match any sequence of characters (including slashes)
 - Duplicate capture names must have the same value
-- Phony targets must be matched with `@` prefix in path
+- Phony targets match with or without `@` prefix (@ is only for declaration)
 - Directory targets can match with or without trailing slash
 
 #### LookupTarget Function
@@ -2727,7 +2727,7 @@ Returns the matching target, capture values, and any error.
 
 4. **Directory target flexibility**: Directory targets (`build/`) match both `build/` and `build` for convenience.
 
-5. **Phony target prefix**: Phony targets require the `@` prefix in the path for lookup (e.g., `@all` to match `@all` target).
+5. **Phony target reference flexibility**: Phony targets can be referenced with or without the `@` prefix. The `@` is only required when *declaring* a phony target, not when referencing it in dependencies. This allows natural syntax like `@all: build test` where `build` and `test` are phony targets.
 
 6. **Exact match preference**: When both a literal target and a pattern target could match, the literal target is preferred. This allows overriding pattern rules for specific files.
 
@@ -2740,8 +2740,8 @@ Returns the matching target, capture values, and any error.
 | `TestMatchLiteral_ExactMatch` | Exact literal path matching |
 | `TestMatchLiteral_NoMatch` | Different path doesn't match |
 | `TestMatchLiteral_PartialNoMatch` | Partial matches don't count |
-| `TestMatchLiteral_PhonyTarget` | Phony target with @ prefix |
-| `TestMatchLiteral_PhonyTargetNoMatch` | Phony without prefix fails |
+| `TestMatchLiteral_PhonyTarget` | Phony target with or without @ prefix |
+| `TestMatchLiteral_PhonyTargetNoMatch` | Different phony name doesn't match |
 | `TestMatchLiteral_DirectoryTarget` | Directory with trailing slash |
 | `TestMatchLiteral_DirectoryTargetNoTrailingSlash` | Directory without slash |
 | `TestMatchLiteral_EmptyPath` | Empty path handling |

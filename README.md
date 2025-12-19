@@ -122,6 +122,11 @@ output.txt: input.txt
 @test:
     go test ./...
 
+# Phony target with phony dependencies
+# Note: @ prefix is only needed for declaration, not for references
+@all: build test
+    echo "Done"
+
 # Pattern target
 build/{name}.o: src/{name}.c
     gcc -c {in} -o {out}
