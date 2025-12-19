@@ -809,7 +809,7 @@ Comprehensive test coverage and code quality.
 
 - [x] **Environment tests**
   - [x] Bare environment with requirements
-  - [ ] Docker environment (CI only, requires Docker)
+  - [x] Docker environment (CI only, requires Docker)
 
 ### 9.3 Regression Tests
 

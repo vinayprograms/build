@@ -378,9 +378,9 @@ func TestShellQuote_Simple(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"hello", "hello"},           // no special chars - not quoted
+		{"hello", "hello"},               // no special chars - not quoted
 		{"path/to/file", "path/to/file"}, // slashes are fine - not quoted
-		{"", ""},                     // empty string - not quoted
+		{"", ""},                         // empty string - not quoted
 	}
 
 	for _, tt := range tests {

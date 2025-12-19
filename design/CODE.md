@@ -5063,6 +5063,32 @@ End-to-end tests for bare environment functionality and CLI environment commands
 | `TestListEnvShowsRequirementCount` | Environment list shows requirement counts |
 | `TestBuildWithBareEnvironmentSucceeds` | Full build succeeds with satisfied requirements |
 
+### Docker Environment Tests (`environment_test.go`)
+
+Docker environment integration tests verify the container environment CLI commands. These tests require Docker to be available on the host system.
+
+**Skip Helper:**
+
+The `skipIfNoDocker(t)` helper function skips tests when Docker is not available, enabling graceful test execution in environments without Docker.
+
+| Test | Description |
+|------|-------------|
+| `TestDockerEnvironmentCheckEnv` | `--check-env` validates Docker environment with valid Dockerfile |
+| `TestDockerEnvironmentCheckEnvMissingDockerfile` | Error when `.source:` references missing Dockerfile (exit code 4) |
+| `TestDockerEnvironmentCheckEnvInvalidDockerfile` | Error when Dockerfile lacks FROM instruction |
+| `TestDockerEnvironmentListEnv` | `--list-env` shows Docker environments with runtime type |
+| `TestDockerEnvironmentDryRun` | `--dry-run` with Docker environment shows commands without executing |
+| `TestDockerEnvironmentVerbose` | `--verbose --check-env` shows verbose Docker validation |
+| `TestDockerEnvironmentRecipeFailure` | Recipe failures return exit code 1 |
+| `TestDockerEnvironmentWithVariables` | Variable interpolation works in Docker environment recipes |
+| `TestDockerEnvironmentSourceInSubdirectory` | Dockerfile in subdirectory path resolved correctly |
+| `TestDockerEnvironmentNamedEnvironmentCheckEnv` | `--check-env --env name` validates named Docker environments |
+| `TestDockerEnvironmentWithArgsInListEnv` | `--list-env` shows environments with `.args:` directive |
+| `TestDockerEnvironmentNoDefaultWithNamedOnly` | Error when only named environments defined and no `--env` flag |
+| `TestDockerEnvironmentMixedRuntimes` | `--list-env` shows both bare and Docker environments correctly |
+
+**Note on Container Execution:** The container execution infrastructure exists (`internal/environ/container_env.go`, `runner.go`, `image.go`) but is not yet wired into the main build execution path. The Docker tests focus on environment validation (`--check-env`, `--list-env`) which is fully implemented.
+
 ### Performance Tests (`performance_test.go`)
 
 Performance tests validate that the parser and planner handle real-world scale Buildfiles efficiently:

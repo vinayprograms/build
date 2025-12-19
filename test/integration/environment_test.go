@@ -353,3 +353,356 @@ func TestBuildWithBareEnvironmentSucceeds(t *testing.T) {
 		AssertStdoutContains("Hello, World!").
 		AssertStdoutContains("Build complete")
 }
+
+// ===========================================================================
+// Docker Environment Integration Tests
+// These tests require Docker to be available and running.
+// ===========================================================================
+
+// skipIfNoDocker skips the test if Docker is not available.
+func skipIfNoDocker(t *testing.T) {
+	t.Helper()
+	h := NewTestHarness(t)
+	result := h.RunShell("docker version >/dev/null 2>&1")
+	if result.exitCode != 0 {
+		t.Skip("Docker is not available, skipping Docker integration test")
+	}
+}
+
+// TestDockerEnvironmentCheckEnv tests --check-env with a Docker environment.
+func TestDockerEnvironmentCheckEnv(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	// Create a simple Dockerfile
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+RUN echo "test"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "Hello from Docker"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment").
+		AssertStdoutContains("Runtime: docker").
+		AssertStdoutContains("Dockerfile")
+}
+
+// TestDockerEnvironmentCheckEnvMissingDockerfile tests --check-env with missing Dockerfile.
+func TestDockerEnvironmentCheckEnvMissingDockerfile(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./NonexistentDockerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStdoutContains("not found") // Error goes to stdout in this tool
+}
+
+// TestDockerEnvironmentCheckEnvInvalidDockerfile tests --check-env with invalid Dockerfile.
+func TestDockerEnvironmentCheckEnvInvalidDockerfile(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	// Create a Dockerfile without FROM instruction
+	h.WriteFile("Dockerfile", `RUN echo "no FROM instruction"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStdoutContains("missing FROM instruction")
+}
+
+// TestDockerEnvironmentListEnv tests --list-env with Docker environment.
+func TestDockerEnvironmentListEnv(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+.environment: ci
+	.using: docker
+	.source: ./Dockerfile
+	.args: --platform linux/amd64
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Available environments").
+		AssertStdoutContains("docker").
+		AssertStdoutContains("ci")
+}
+
+// TestDockerEnvironmentDryRun tests --dry-run with Docker environment.
+// Note: Dry run shows what commands would execute but doesn't actually run them.
+func TestDockerEnvironmentDryRun(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "test output"
+`)
+
+	result := h.Run("--dry-run", "test")
+	result.AssertSuccess().
+		AssertStdoutContains("echo")
+}
+
+// TestDockerEnvironmentVerbose tests --verbose with Docker environment.
+func TestDockerEnvironmentVerbose(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--verbose", "--check-env")
+	result.AssertSuccess()
+	// Verbose mode should show docker info
+}
+
+// TestDockerEnvironmentRecipeFailure tests that recipe failures are reported correctly.
+func TestDockerEnvironmentRecipeFailure(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	exit 42
+`)
+
+	result := h.Run("test")
+	result.AssertExitCode(1) // Build failure
+}
+
+// TestDockerEnvironmentWithVariables tests variable interpolation with Docker environments.
+// Note: Variables work in commands regardless of environment type.
+func TestDockerEnvironmentWithVariables(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: docker
+	.source: ./Dockerfile
+
+greeting = Hello Docker
+
+@test:
+	echo "{greeting}"
+`)
+
+	result := h.Run("test")
+	result.AssertSuccess().
+		AssertStdoutContains("Hello Docker")
+}
+
+// TestDockerEnvironmentSourceInSubdirectory tests Dockerfile in subdirectory.
+func TestDockerEnvironmentSourceInSubdirectory(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.Mkdir("docker")
+	h.WriteFile("docker/Dockerfile.ci", `FROM alpine:latest
+RUN echo "CI image"
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: ci
+	.using: docker
+	.source: ./docker/Dockerfile.ci
+
+@test:
+	echo "Running in CI container"
+`)
+
+	result := h.Run("--env", "ci", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: ci").
+		AssertStdoutContains("docker/Dockerfile.ci")
+}
+
+// TestDockerEnvironmentNamedEnvironmentCheckEnv tests --check-env with named Docker environments.
+func TestDockerEnvironmentNamedEnvironmentCheckEnv(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile.dev", `FROM alpine:latest
+`)
+
+	h.WriteFile("Dockerfile.prod", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: dev
+	.using: docker
+	.source: ./Dockerfile.dev
+
+.environment: prod
+	.using: docker
+	.source: ./Dockerfile.prod
+
+@test:
+	echo "test"
+`)
+
+	// Check dev environment
+	result := h.Run("--env", "dev", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: dev").
+		AssertStdoutContains("Runtime: docker")
+
+	// Check prod environment
+	result = h.Run("--env", "prod", "--check-env")
+	result.AssertSuccess().
+		AssertStdoutContains("Checking environment: prod").
+		AssertStdoutContains("Runtime: docker")
+}
+
+// TestDockerEnvironmentWithArgsInListEnv tests that .args shows in --list-env.
+func TestDockerEnvironmentWithArgsInListEnv(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: linux-amd64
+	.using: docker
+	.source: ./Dockerfile
+	.args: --platform linux/amd64
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("linux-amd64").
+		AssertStdoutContains("docker")
+}
+
+// TestDockerEnvironmentNoDefaultWithNamedOnly tests error when only named environments exist.
+func TestDockerEnvironmentNoDefaultWithNamedOnly(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile.dev", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment: dev
+	.using: docker
+	.source: ./Dockerfile.dev
+
+@test:
+	echo "test"
+`)
+
+	// No --env flag, no default environment - should error
+	result := h.Run("--check-env")
+	result.AssertExitCode(4). // Environment error
+					AssertStderrContains("no default environment")
+}
+
+// TestDockerEnvironmentMixedRuntimes tests --list-env with mixed environment types.
+func TestDockerEnvironmentMixedRuntimes(t *testing.T) {
+	skipIfNoDocker(t)
+	h := NewTestHarness(t)
+
+	h.WriteFile("Dockerfile", `FROM alpine:latest
+`)
+
+	h.WriteFile("Buildfile", `.shell: sh
+
+.environment:
+	.using: bare
+	.requires: bash
+
+.environment: container
+	.using: docker
+	.source: ./Dockerfile
+
+@test:
+	echo "test"
+`)
+
+	result := h.Run("--list-env")
+	result.AssertSuccess().
+		AssertStdoutContains("bare").
+		AssertStdoutContains("docker").
+		AssertStdoutContains("container")
+}
