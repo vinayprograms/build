@@ -148,21 +148,16 @@ func run(args []string) int {
 		return debugPlan(buildfile)
 	}
 
-	// Parse the buildfile
-	content, err := os.ReadFile(buildfile)
+	// Parse the buildfile (with caching)
+	result, content, err := ParseBuildfileWithCache(buildfile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading %s: %v\n", buildfile, err)
 		return exitParseError
 	}
 
-	l := NewLexer(buildfile, string(content))
-	p := NewParser(l)
-	bp := NewBuildfileParser(p)
-	result := bp.ParseBuildfile()
-
 	// Report parse errors
 	if result.HasErrors() {
-		source := string(content)
+		source := content
 		for i := 0; i < result.ErrorCount(); i++ {
 			e := result.GetError(i)
 			formatted := formatParseErrorFromInterface(e, source)
@@ -212,7 +207,7 @@ func run(args []string) int {
 	// Run semantic analysis
 	collectResult := CollectSymbols(result)
 	if collectResult.HasErrors() {
-		source := string(content)
+		source := content
 		for _, e := range collectResult.Errors() {
 			formatted := FormatSemanticError(e, source)
 			fmt.Fprint(os.Stderr, formatted.Format())
@@ -222,7 +217,7 @@ func run(args []string) int {
 
 	captureResult := ValidateCaptures(collectResult)
 	if captureResult.HasErrors() {
-		source := string(content)
+		source := content
 		for _, e := range captureResult.Errors() {
 			formatted := FormatSemanticError(e, source)
 			fmt.Fprint(os.Stderr, formatted.Format())
@@ -240,7 +235,7 @@ func run(args []string) int {
 
 	refResult := ValidateReferences(collectResult, astStmts, captureResult)
 	if refResult.HasErrors() {
-		source := string(content)
+		source := content
 		for _, e := range refResult.Errors() {
 			formatted := FormatSemanticError(e, source)
 			fmt.Fprint(os.Stderr, formatted.Format())
@@ -250,7 +245,7 @@ func run(args []string) int {
 
 	depResult := ValidateDependencies(collectResult)
 	if depResult.HasErrors() {
-		source := string(content)
+		source := content
 		for _, e := range depResult.Errors() {
 			formatted := FormatSemanticError(e, source)
 			fmt.Fprint(os.Stderr, formatted.Format())
@@ -261,7 +256,7 @@ func run(args []string) int {
 	// Evaluate variables
 	evalResult := EvaluateVariables(result)
 	if evalResult.HasErrors() {
-		source := string(content)
+		source := content
 		for _, e := range evalResult.Errors() {
 			formatted := FormatEvaluationError(e, source)
 			fmt.Fprint(os.Stderr, formatted.Format())
