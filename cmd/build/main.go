@@ -203,9 +203,12 @@ func run(args []string) int {
 		}
 	}
 
-	// TODO: Semantic analysis, build planning, and execution not yet implemented
-	fmt.Println("build: semantic analysis and execution not yet implemented")
-	fmt.Println("use --debug-ast to see parsed AST")
+	// TODO: Wire up semantic analysis, build planning, and execution
+	// The implementations exist in internal/semantic, internal/planner, internal/executor
+	// but are not yet integrated into this main execution path.
+	// Use --debug-plan to see the full pipeline in action.
+	fmt.Fprintln(os.Stderr, "build: execution pipeline not yet wired up")
+	fmt.Fprintln(os.Stderr, "hint: use --debug-plan to see build planning in action")
 
 	return exitSuccess
 }
