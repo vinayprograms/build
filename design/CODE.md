@@ -101,6 +101,10 @@ github.com/vinayprograms/build/
 │   │   ├── doc.go         # Package documentation
 │   │   ├── reporter.go    # Reporter interface and NormalReporter
 │   │   └── reporter_test.go
+│   ├── errors/         # Error formatting
+│   │   ├── doc.go         # Package documentation
+│   │   ├── format.go      # FormattedError and source extraction
+│   │   └── format_test.go
 │   └── planner/        # Build planning
 │       ├── doc.go         # Package documentation
 │       ├── match.go        # Target pattern matching
@@ -4585,3 +4589,102 @@ if err != nil {
 4. **Error on first failure**: When resolving multiple targets, the first unresolvable target causes an error. This provides immediate feedback rather than proceeding with partial resolution.
 
 5. **Empty args = default**: Both `nil` and empty slice `[]string{}` trigger default target resolution, matching the common case of running `build` with no arguments.
+
+
+## Error Formatting Package (`internal/errors`)
+
+The errors package provides structured error formatting for user-friendly error messages with source context.
+
+### Package Structure
+
+| File | Contents |
+|------|----------|
+| `doc.go` | Package documentation |
+| `format.go` | `FormattedError`, `SourceLine`, extraction functions |
+| `format_test.go` | Unit tests |
+
+### FormattedError Structure
+
+```go
+type FormattedError struct {
+    Code        string             // Error code (E001, E100, etc.)
+    Message     string             // Brief error description
+    Location    ast.SourceLocation // Source location
+    SourceLines []SourceLine       // Source context (1-3 lines)
+    CaretLine   int                // Line to show caret on
+    CaretColumn int                // Column for caret (1-based)
+    Note        string             // Additional context (optional)
+    Help        string             // Fix suggestion (optional)
+}
+```
+
+### Error Format
+
+Errors are formatted in a Rust-like style:
+
+```
+error[E100]: missing ':' in target definition
+ --> Buildfile:3:10
+2 | cc = gcc
+3 | build/app deps
+  |          ^
+4 |     gcc -o build/app deps
+note: targets require ':' before dependencies
+help: change to: build/app: deps
+```
+
+### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewFormattedError(code, msg, loc)` | Creates basic error |
+| `WithNote(note)` | Adds note to error |
+| `WithHelp(help)` | Adds help suggestion |
+| `WithSourceContext(lines, line, col)` | Adds source lines with caret |
+| `ExtractSourceLines(source, line, ctx)` | Extracts lines from source string |
+| `FormatCaret(width, column)` | Creates caret line |
+
+### SourceLine Structure
+
+```go
+type SourceLine struct {
+    Number int    // Line number (1-based)
+    Text   string // Line content
+}
+```
+
+### Error Code Categories
+
+| Range | Category | Examples |
+|-------|----------|----------|
+| E001-E099 | Lexical | Invalid character, mixed indentation |
+| E100-E199 | Syntax | Unexpected token, missing colon |
+| E200-E299 | Semantic | Undefined variable, duplicate definition |
+| E300-E399 | Evaluation | Shell failure, bad function args |
+| E400-E499 | Execution | Recipe failed, missing file |
+
+### Unit Tests
+
+| Test | Description |
+|------|-------------|
+| `TestFormattedError_Basic` | Error with code, message, location |
+| `TestFormattedError_WithNote` | Error with note section |
+| `TestFormattedError_WithHelp` | Error with help section |
+| `TestFormattedError_WithSourceContext` | Error with source lines |
+| `TestFormattedError_CaretPosition` | Caret positioning |
+| `TestFormattedError_Format` | Complete error format |
+| `TestSourceLine_Format` | Line number formatting |
+| `TestFormatCaret` | Caret line generation |
+| `TestExtractSourceLines_*` | Source extraction cases |
+
+### Design Decisions
+
+1. **Rust-like format**: The error format follows Rust's excellent error messages with `error[CODE]: message`, source context, and caret pointers.
+
+2. **Fluent interface**: Methods like `WithNote` and `WithHelp` return the error, enabling chained calls for building errors.
+
+3. **Separate extraction**: Source extraction is separate from error creation, allowing errors to be created without file access (useful for testing).
+
+4. **1-based columns**: Column numbers are 1-based to match editor conventions and SourceLocation.
+
+5. **Flexible context**: The context parameter allows 1-3 lines of surrounding source, adapting to error type needs.

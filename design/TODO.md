@@ -730,20 +730,20 @@ User-friendly, actionable error messages.
   - [x] Include file path, line number, column number
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement error message template**
-  - [ ] Error code (E001, E100, etc.)
-  - [ ] Brief description
-  - [ ] Source context with line numbers
-  - [ ] Pointer to error location (^^^)
-  - [ ] "note:" for additional context
-  - [ ] "help:" for fix suggestions
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement error message template**
+  - [x] Error code (E001, E100, etc.)
+  - [x] Brief description
+  - [x] Source context with line numbers
+  - [x] Pointer to error location (^^^)
+  - [x] "note:" for additional context
+  - [x] "help:" for fix suggestions
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement source snippet extraction**
-  - [ ] Read relevant lines from source file
-  - [ ] Show 1-3 lines of context around error
-  - [ ] Highlight error location with carets
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement source snippet extraction**
+  - [x] Read relevant lines from source file
+  - [x] Show 1-3 lines of context around error
+  - [x] Highlight error location with carets
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 8.2 Error Categories
 
