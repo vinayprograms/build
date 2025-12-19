@@ -104,9 +104,7 @@ func (c *CLIWriter) WriteEvent(event OutputEvent) {
 			c.writeTargetSkipped(e)
 		}
 	case CommandStarted:
-		if c.config.Verbose {
-			c.writeCommandStarted(e)
-		}
+		c.writeCommandStarted(e)
 	case CommandOutput:
 		c.writeCommandOutput(e)
 	case CommandCompleted:
@@ -187,8 +185,14 @@ func (c *CLIWriter) writeTargetSkipped(e TargetSkipped) {
 }
 
 func (c *CLIWriter) writeCommandStarted(e CommandStarted) {
-	cmd := Dim("  "+e.Command, c.useColor)
-	fmt.Fprintln(c.w, cmd)
+	// In verbose mode, indent commands under "Building X"
+	// In normal mode, show commands at start of line (like make)
+	if c.config.Verbose {
+		cmd := Dim("  "+e.Command, c.useColor)
+		fmt.Fprintln(c.w, cmd)
+	} else {
+		fmt.Fprintln(c.w, e.Command)
+	}
 }
 
 func (c *CLIWriter) writeCommandOutput(e CommandOutput) {

@@ -40,6 +40,11 @@ func (r *EmitterBackedNormalReporter) BuildCompleted(target string, success bool
 	r.emitter.TargetCompleted(target, success, 0, errMsg)
 }
 
+// CommandStarted is called before a command is executed.
+func (r *EmitterBackedNormalReporter) CommandStarted(target, command string) {
+	r.emitter.CommandStarted(target, command)
+}
+
 // CommandOutput is called to display command output.
 func (r *EmitterBackedNormalReporter) CommandOutput(command, stdout, stderr string) {
 	if stdout == "" && stderr == "" {

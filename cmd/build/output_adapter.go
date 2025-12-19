@@ -42,6 +42,9 @@ type OutputReporter interface {
 	// BuildCompleted is called when a target build finishes.
 	BuildCompleted(target string, success bool, errMsg string)
 
+	// CommandStarted is called before a command is executed.
+	CommandStarted(target, command string)
+
 	// CommandOutput is called to display command output.
 	CommandOutput(command, stdout, stderr string)
 
@@ -83,6 +86,11 @@ func (a *normalReporterAdapter) BuildStarted(target string) {
 // BuildCompleted implements OutputReporter.
 func (a *normalReporterAdapter) BuildCompleted(target string, success bool, errMsg string) {
 	a.reporter.BuildCompleted(target, success, errMsg)
+}
+
+// CommandStarted implements OutputReporter.
+func (a *normalReporterAdapter) CommandStarted(target, command string) {
+	a.reporter.CommandStarted(target, command)
 }
 
 // CommandOutput implements OutputReporter.

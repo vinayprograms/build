@@ -52,6 +52,16 @@ func (c *ShellConfig) Verbose() bool {
 	return c.cfg.Verbose
 }
 
+// SetQuiet enables or disables quiet mode.
+func (c *ShellConfig) SetQuiet(quiet bool) {
+	c.cfg.Quiet = quiet
+}
+
+// Quiet returns whether quiet mode is enabled.
+func (c *ShellConfig) Quiet() bool {
+	return c.cfg.Quiet
+}
+
 // WithOverride returns a new config with the shell overridden.
 func (c *ShellConfig) WithOverride(shell string) *ShellConfig {
 	return &ShellConfig{

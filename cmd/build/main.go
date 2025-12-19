@@ -297,6 +297,7 @@ func run(args []string) int {
 	shellConfig.SetShell(globalShell)
 	shellConfig.SetDryRun(f.dryRun)
 	shellConfig.SetVerbose(f.verbose)
+	shellConfig.SetQuiet(f.quiet)
 
 	// Create output reporter based on flags
 	reporter := NewNormalReporterWithConfig(os.Stdout, f.verbose, f.quiet, f.color)
@@ -360,7 +361,7 @@ func run(args []string) int {
 			// Execute the recipe
 			results, err := executor.ExecuteRecipe(recipe, cmdCtx)
 
-			// Report command output
+			// Report command output (commands are printed by executor during execution)
 			for _, r := range results {
 				reporter.CommandOutput(r.Command(), r.Stdout(), r.Stderr())
 			}

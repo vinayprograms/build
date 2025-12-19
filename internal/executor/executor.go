@@ -19,6 +19,7 @@ type ShellConfig struct {
 	Shell   string // Path to shell (default: platform-specific)
 	DryRun  bool   // If true, print commands without executing
 	Verbose bool   // If true, print commands before executing
+	Quiet   bool   // If true, suppress command output (only show errors)
 }
 
 // NewShellConfig creates a new ShellConfig with default values.
@@ -40,6 +41,7 @@ func (c *ShellConfig) WithOverride(shell string) *ShellConfig {
 		Shell:   shell,
 		DryRun:  c.DryRun,
 		Verbose: c.Verbose,
+		Quiet:   c.Quiet,
 	}
 }
 
@@ -107,15 +109,17 @@ func (e *Executor) ExecuteLine(cmdLine string) (*ExecResult, error) {
 		Command: cmdLine,
 	}
 
-	// Verbose mode: print command
-	if e.config.Verbose && !e.config.DryRun {
-		fmt.Fprintln(e.output, cmdLine)
+	// Dry-run mode: print and return without executing
+	if e.config.DryRun {
+		if !e.config.Quiet {
+			fmt.Fprintln(e.output, cmdLine)
+		}
+		return result, nil
 	}
 
-	// Dry-run mode: don't execute
-	if e.config.DryRun {
+	// Print command before executing (like make does), unless quiet
+	if !e.config.Quiet {
 		fmt.Fprintln(e.output, cmdLine)
-		return result, nil
 	}
 
 	// Execute the command using platform-appropriate shell args
