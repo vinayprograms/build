@@ -141,7 +141,7 @@ cmd/build/
 ├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult, CommandContext)
 ├── planner_adapter.go  # Planner adapters (MatchResult, LookupResult, BuildTask)
 ├── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
-├── output_adapter.go   # Output adapters (OutputReporter, NormalReporter)
+├── output_adapter.go   # Output adapters (OutputReporter, NormalReporter, CreateOutputEmitter)
 ├── environ_adapter.go  # Environment adapters (RequirementsChecker, RequirementResult)
 ├── error_adapter.go    # Error formatting adapters (FormattedError conversion)
 └── environ.go          # Environment commands (--check-env, --list-env)
@@ -5532,8 +5532,18 @@ type WriterConfig struct {
 
 ```go
 func NewWriter(mode OutputMode, w io.Writer, config WriterConfig) OutputWriter
+func NewWriterWithMode(mode OutputMode, config WriterConfig) OutputWriter
+func NewWriterConfigFromFlags(verbose, quiet bool, color string) WriterConfig
 func NewDefaultWriter(config WriterConfig) OutputWriter
 func NewNoOpWriter() OutputWriter
+```
+
+**CLI Integration:**
+
+```go
+// In cmd/build/output_adapter.go
+func CreateOutputEmitter(verbose, quiet bool, color string) *output.Emitter
+func CreateOutputWriter(verbose, quiet bool, color string) output.OutputWriter
 ```
 
 ### Design Decisions

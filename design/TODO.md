@@ -935,7 +935,7 @@ See DESIGN.md Section 10 for full architecture.
   - [x] Add --quiet / -q flag to suppress non-error output
   - [x] Add --color=auto|always|never flag
   - [x] Add --progress=auto|always|never flag
-  - [ ] Wire flags to output writer selection
+  - [x] Wire flags to output writer selection
 
 - [ ] **Refactor existing Reporter to use new system**
   - [ ] Migrate NormalReporter to CLIWriter
