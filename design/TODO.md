@@ -937,11 +937,11 @@ See DESIGN.md Section 10 for full architecture.
   - [x] Add --progress=auto|always|never flag
   - [x] Wire flags to output writer selection
 
-- [ ] **Refactor existing Reporter to use new system**
-  - [ ] Migrate NormalReporter to CLIWriter
-  - [ ] Migrate VerboseReporter to CLIWriter (verbose mode)
-  - [ ] Migrate DryRunReporter to use OutputWriter
-  - [ ] Migrate ProgressReporter to CLIWriter (parallel mode)
+- [x] **Refactor existing Reporter to use new system**
+  - [x] Migrate NormalReporter to CLIWriter
+  - [x] Migrate VerboseReporter to CLIWriter (verbose mode)
+  - [x] Migrate DryRunReporter to use OutputWriter
+  - [x] Migrate ProgressReporter to CLIWriter (parallel mode)
 
 ### 10.3 Tab Completion
 
@@ -952,11 +952,11 @@ See DESIGN.md Section 10 for full architecture.
 
 ### 10.4 Platform Support
 
-- [ ] **Linux support** (primary platform)
-- [ ] **macOS support** (including Lima for VMs)
-- [ ] **Windows support** (PowerShell? WSL?)
-  - [ ] Path separator handling
-  - [ ] Shell selection (cmd.exe? PowerShell? bash via WSL?)
+- [x] **Linux support** (primary platform)
+- [x] **macOS support** (including Lima for VMs)
+- [x] **Windows support** (PowerShell? WSL?)
+  - [x] Path separator handling
+  - [x] Shell selection (cmd.exe? PowerShell? bash via WSL?)
 
 ---
 

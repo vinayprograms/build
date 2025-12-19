@@ -109,6 +109,10 @@ github.com/vinayprograms/build/
 │   │   ├── doc.go         # Package documentation
 │   │   ├── format.go      # FormattedError and source extraction
 │   │   └── format_test.go
+│   ├── platform/       # Cross-platform utilities
+│   │   ├── doc.go         # Package documentation
+│   │   ├── shell.go       # Shell detection, path handling, quoting
+│   │   └── platform_test.go
 │   └── planner/        # Build planning
 │       ├── doc.go         # Package documentation
 │       ├── match.go        # Target pattern matching
@@ -4381,91 +4385,204 @@ Returns user-friendly instructions for managing kept-alive containers.
 
 ## Output Package (`internal/output`)
 
-The output package provides build output formatting and reporting, implementing the normal output mode for displaying build progress and results.
+The output package provides build output formatting and reporting. It uses an event-based architecture with `OutputWriter` and `Emitter` for flexible output across different contexts (CLI, TUI, headless/CI).
 
 ### Package Structure
 
 | File | Contents |
 |------|----------|
 | `doc.go` | Package documentation |
-| `reporter.go` | `Reporter` interface and `NormalReporter` implementation |
-| `reporter_test.go` | Unit tests for reporters |
+| `events.go` | `OutputEvent` interface and event types |
+| `writer.go` | `OutputWriter` interface and factory functions |
+| `emitter.go` | `Emitter` for typed event emission |
+| `cli.go` | `CLIWriter` for interactive terminal output |
+| `headless.go` | `HeadlessWriter` for CI/log output |
+| `tui.go` | `TUIWriter` for JSON event stream output |
+| `reporter.go` | Legacy `Reporter` interface implementations |
+| `reporter_emitter.go` | Emitter-backed reporter implementations |
+| `reporter_test.go` | Unit tests for legacy reporters |
+| `reporter_emitter_test.go` | Unit tests for emitter-backed reporters |
 
-### Reporter Interface
+### Event-Based Output System
+
+The output system uses events for all build output, enabling different rendering contexts.
+
+#### OutputEvent Interface
+
+```go
+type OutputEvent interface {
+    eventType() string
+}
+```
+
+#### Event Types
+
+| Event | Description |
+|-------|-------------|
+| `PhaseStarted` | Build phase begins (parse, semantic, eval, plan, execute) |
+| `PhaseCompleted` | Build phase finishes |
+| `VariableEvaluated` | Variable evaluation result (verbose mode) |
+| `TargetStarted` | Target build begins |
+| `TargetCompleted` | Target build finishes |
+| `TargetSkipped` | Target is up to date |
+| `CommandStarted` | Recipe command begins |
+| `CommandOutput` | Command stdout/stderr |
+| `CommandCompleted` | Command finishes |
+| `StalenessChecked` | Staleness check result (verbose mode) |
+| `BuildSummary` | Build completion summary |
+| `ErrorOccurred` | Error during any phase |
+| `DryRunTarget` | Target in dry-run mode |
+| `DryRunCommand` | Command in dry-run mode |
+
+#### OutputWriter Interface
+
+```go
+type OutputWriter interface {
+    WriteEvent(event OutputEvent)
+    Flush()
+}
+```
+
+#### Emitter
+
+The `Emitter` wraps an `OutputWriter` and provides typed methods for event emission:
+
+```go
+type Emitter struct {
+    writer OutputWriter
+}
+
+func (e *Emitter) TargetStarted(target string, index, total int)
+func (e *Emitter) TargetCompleted(target string, success bool, duration time.Duration, errMsg string)
+func (e *Emitter) CommandOutput(target, stdout, stderr string)
+func (e *Emitter) BuildSummary(total, succeeded, failed, skipped int, duration time.Duration)
+// ... etc
+```
+
+### Emitter-Backed Reporters
+
+All reporter implementations now delegate to the event-based output system while maintaining backward-compatible interfaces.
+
+#### EmitterBackedNormalReporter
+
+The `EmitterBackedNormalReporter` implements the `Reporter` interface using events:
+
+```go
+type EmitterBackedNormalReporter struct {
+    emitter *Emitter
+    index   int
+    total   int
+}
+```
+
+| Method | Event Emitted |
+|--------|---------------|
+| `BuildStarted(target)` | `TargetStarted` |
+| `BuildCompleted(target, success, errMsg)` | `TargetCompleted` |
+| `CommandOutput(cmd, stdout, stderr)` | `CommandOutput` |
+| `Summary(total, failed)` | `BuildSummary` |
+| `NothingToBuild(target)` | `TargetSkipped` |
+
+#### EmitterBackedDryRunReporter
+
+```go
+type EmitterBackedDryRunReporter struct {
+    emitter       *Emitter
+    index         int
+    total         int
+    currentTarget string
+}
+```
+
+| Method | Event Emitted |
+|--------|---------------|
+| `WouldBuild(target)` | `DryRunTarget` |
+| `ShowCommand(command)` | `DryRunCommand` |
+| `NothingToBuild(target)` | `TargetSkipped` |
+
+#### EmitterBackedVerboseReporter
+
+```go
+type EmitterBackedVerboseReporter struct {
+    emitter       *Emitter
+    index         int
+    total         int
+    currentTarget string
+}
+```
+
+| Method | Event Emitted |
+|--------|---------------|
+| `StartVariableEvaluation()` | `PhaseStarted("eval")` |
+| `VariableEvaluated(name, expr, result)` | `VariableEvaluated` |
+| `StartStalenessChecks()` | `PhaseStarted("plan")` |
+| `StalenessCheck(target, reason, action)` | `StalenessChecked` |
+| `BuildStarted(target)` | `TargetStarted` |
+| `CommandExecuted(command)` | `CommandStarted` |
+
+#### EmitterBackedProgressReporter
+
+```go
+type EmitterBackedProgressReporter struct {
+    emitter   *Emitter
+    total     int
+    started   int
+    completed int
+    building  map[string]bool
+}
+```
+
+| Method | Event Emitted |
+|--------|---------------|
+| `BuildStarted(target)` | `TargetStarted` (with progress) |
+| `BuildCompleted(target, success, errMsg)` | `TargetCompleted` |
+| `CurrentlyBuilding()` | Returns active targets map |
+
+### Legacy Reporter Interface
+
+The original `Reporter` interface is still available for backward compatibility:
 
 ```go
 type Reporter interface {
-    // BuildStarted is called when a target build begins.
     BuildStarted(target string)
-
-    // BuildCompleted is called when a target build finishes.
     BuildCompleted(target string, success bool, errMsg string)
-
-    // CommandOutput is called to display command output.
     CommandOutput(command, stdout, stderr string)
-
-    // Summary is called at the end to show build summary.
     Summary(total, failed int)
-
-    // NothingToBuild is called when a target is already up to date.
     NothingToBuild(target string)
 }
 ```
 
-### NormalReporter
-
-The `NormalReporter` implements the `Reporter` interface for normal (non-verbose) output mode:
-
-```go
-type NormalReporter struct {
-    w io.Writer
-}
-```
-
-#### Key Methods
-
-| Method | Description | Output Format |
-|--------|-------------|---------------|
-| `BuildStarted(target)` | Logs target build start | `Building <target>` |
-| `BuildCompleted(target, success, errMsg)` | Logs build result | `Built <target>` or `FAILED <target>: <msg>` |
-| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Raw stdout/stderr (empty suppressed) |
-| `Summary(total, failed)` | Shows build summary | `Build success: N target(s) built` or `Build failed: N of M targets failed` |
-| `NothingToBuild(target)` | Shows up-to-date status | `<target> is up to date` |
-
-#### Output Behaviors
-
-| Scenario | Output |
-|----------|--------|
-| Build starts | `Building build/app` |
-| Build succeeds | `Built build/app` |
-| Build fails | `FAILED build/app: compile error` |
-| Command has stdout | Stdout content (preserves trailing newline) |
-| Command has stderr | Stderr content (preserves trailing newline) |
-| Command has no output | No output (empty suppressed) |
-| All targets built | `Build success: 5 targets built` |
-| Some targets failed | `Build failed: 2 of 5 targets failed` |
-| Target up to date | `build/app is up to date` |
+The legacy `NormalReporter`, `DryRunReporter`, `VerboseReporter`, and `ProgressReporter` remain in `reporter.go` for direct use without the event system.
 
 ### CLI Integration
 
-The output package is integrated into the CLI via the `OutputReporter` adapter:
+The CLI adapters in `cmd/build/output_adapter.go` now use emitter-backed reporters:
 
 ```go
-// In cmd/build/output_adapter.go
-type OutputReporter interface {
-    BuildStarted(target string)
-    BuildCompleted(target string, success bool, errMsg string)
-    CommandOutput(command, stdout, stderr string)
-    Summary(total, failed int)
-    NothingToBuild(target string)
-}
-
+// Creates an emitter-backed normal reporter
 func NewNormalReporter(w io.Writer) OutputReporter
+
+// Creates an emitter-backed dry-run reporter
+func NewDryRunReporter(w io.Writer) DryRunOutputReporter
+
+// Creates an emitter-backed verbose reporter
+func NewVerboseReporter(w io.Writer) VerboseOutputReporter
+
+// Creates an emitter-backed progress reporter
+func NewProgressReporter(w io.Writer, total int) ProgressOutputReporter
 ```
 
-The adapter wraps `output.NormalReporter` for use in the CLI package.
+Additional factory functions with config support:
+```go
+func NewNormalReporterWithConfig(w io.Writer, verbose, quiet bool, color string) OutputReporter
+func NewDryRunReporterWithConfig(w io.Writer, verbose, quiet bool, color string) DryRunOutputReporter
+func NewVerboseReporterWithConfig(w io.Writer, quiet bool, color string) VerboseOutputReporter
+func NewProgressReporterWithConfig(w io.Writer, total int, verbose, quiet bool, color string) ProgressOutputReporter
+```
 
-### Unit Tests (`reporter_test.go`)
+### Unit Tests
+
+#### Legacy Reporter Tests (`reporter_test.go`)
 
 | Test | Description |
 |------|-------------|
@@ -4478,256 +4595,33 @@ The adapter wraps `output.NormalReporter` for use in the CLI package.
 | `TestNormalReporter_Summary` | Summary with counts |
 | `TestNormalReporter_SummaryAllSuccess` | Success message |
 | `TestNormalReporter_NothingToBuild` | Up-to-date message |
-| `TestNormalReporter_OutputScenarios` | Table-driven output tests |
+| `TestDryRunReporter_*` | Dry-run output tests |
+| `TestVerboseReporter_*` | Verbose output tests |
+| `TestProgressReporter_*` | Progress output tests |
 
-### DryRunReporter
-
-The `DryRunReporter` provides output formatting for dry-run mode (`-n` / `--dry-run`), showing what would be built without executing commands.
-
-```go
-type DryRunReporter struct {
-    w           io.Writer
-    targetCount int
-}
-```
-
-#### Key Methods
-
-| Method | Description | Output Format |
-|--------|-------------|---------------|
-| `WouldBuild(target)` | Shows target that would be built | `Would build: <target>` |
-| `ShowCommand(command)` | Shows command that would execute | `  <command>` (2-space indent) |
-| `TargetComplete()` | Marks end of target's commands | Blank line for separation |
-| `Summary(total)` | Shows dry-run summary | `Would build N target(s)` |
-| `NothingToBuild(target)` | Shows up-to-date status | `<target> is up to date` |
-
-#### Output Format
-
-Per spec, dry-run output follows this format:
-
-```
-Would build: build/
-  mkdir -p build/
-
-Would build: build/main.o
-  echo "Compiling main.c..."
-  gcc -Wall -O2 -c src/main.c -o build/main.o
-
-Would build: build/app
-  echo "Linking..."
-  gcc -o build/app build/main.o build/utils.o
-```
-
-Key formatting:
-- Each target starts with `Would build: <target>`
-- Commands are indented with 2 spaces
-- Blank line separates targets (via `TargetComplete()`)
-
-#### CLI Integration
-
-The CLI adapter wraps `output.DryRunReporter`:
-
-```go
-// In cmd/build/output_adapter.go
-type DryRunOutputReporter interface {
-    WouldBuild(target string)
-    ShowCommand(command string)
-    TargetComplete()
-    Summary(total int)
-    NothingToBuild(target string)
-}
-
-func NewDryRunReporter(w io.Writer) DryRunOutputReporter
-```
-
-#### Unit Tests
+#### Emitter-Backed Reporter Tests (`reporter_emitter_test.go`)
 
 | Test | Description |
 |------|-------------|
-| `TestDryRunReporter_WouldBuild` | "Would build" prefix |
-| `TestDryRunReporter_ShowCommand` | 2-space indent |
-| `TestDryRunReporter_ShowCommandMultiple` | Multiple commands indented |
-| `TestDryRunReporter_WouldBuildWithCommands` | Complete target output |
-| `TestDryRunReporter_BlankLineBetweenTargets` | Target separation |
-| `TestDryRunReporter_Summary` | Summary with count |
-| `TestDryRunReporter_SummarySingular` | Singular form for 1 target |
-| `TestDryRunReporter_NothingToBuild` | Up-to-date message |
-
-### VerboseReporter
-
-The `VerboseReporter` provides output formatting for verbose mode (`-v` / `--verbose`), showing variable evaluation, staleness checks, and build progress.
-
-```go
-type VerboseReporter struct {
-    w io.Writer
-}
-```
-
-#### Key Methods
-
-| Method | Description | Output Format |
-|--------|-------------|---------------|
-| `StartVariableEvaluation()` | Header for variable phase | `Evaluating variables...` |
-| `VariableEvaluated(name, expr, result)` | Shows evaluation result | `  name = expr → result` or `  name → result` |
-| `StartStalenessChecks()` | Header for staleness phase | `\nChecking targets...` |
-| `StalenessCheck(target, reason, action)` | Shows staleness decision | `  target: reason → action` |
-| `BuildStarted(target)` | Header for building | `\nBuilding target...` |
-| `CommandExecuted(command)` | Shows executed command | `  command` (2-space indent) |
-| `BuildCompleted(target, success, errMsg)` | Shows failure only | `FAILED target: errMsg` |
-| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Raw stdout/stderr |
-| `Summary(total, failed)` | Shows build summary | `Done.` or failure count |
-| `NothingToBuild(target)` | Shows up-to-date status | `target is up to date` |
-
-#### Output Format
-
-Per spec, verbose output follows this format:
-
-```
-Evaluating variables...
-  sources = shell(find src -name "*.c") → src/main.c src/utils.c
-  objects → build/main.o build/utils.o
-
-Checking targets...
-  build/main.o: src/main.c is newer → rebuild
-  build/utils.o: up to date → skip
-  build/app: build/main.o changed → rebuild
-
-Building build/main.o...
-  gcc -Wall -O2 -c src/main.c -o build/main.o
-
-Building build/app...
-  gcc -o build/app build/main.o build/utils.o
-
-Done.
-```
-
-Key formatting:
-- Phase headers are at column 0
-- Details are indented with 2 spaces
-- Arrow `→` shows evaluation/decision results
-- Blank lines separate phases
-
-#### CLI Integration
-
-The CLI adapter wraps `output.VerboseReporter`:
-
-```go
-// In cmd/build/output_adapter.go
-type VerboseOutputReporter interface {
-    StartVariableEvaluation()
-    VariableEvaluated(name, expr, result string)
-    StartStalenessChecks()
-    StalenessCheck(target, reason, action string)
-    BuildStarted(target string)
-    CommandExecuted(command string)
-    BuildCompleted(target string, success bool, errMsg string)
-    CommandOutput(command, stdout, stderr string)
-    Summary(total, failed int)
-    NothingToBuild(target string)
-}
-
-func NewVerboseReporter(w io.Writer) VerboseOutputReporter
-```
-
-#### Unit Tests
-
-| Test | Description |
-|------|-------------|
-| `TestVerboseReporter_VariableEvaluation` | Shows var name and result |
-| `TestVerboseReporter_VariableEvaluationHeader` | Phase header |
-| `TestVerboseReporter_StalenessCheck` | Staleness with reason |
-| `TestVerboseReporter_StalenessCheckUpToDate` | Up-to-date decision |
-| `TestVerboseReporter_StalenessCheckHeader` | Phase header |
-| `TestVerboseReporter_BuildStarted` | Building header |
-| `TestVerboseReporter_CommandExecuted` | Command indentation |
-| `TestVerboseReporter_Summary` | Success message |
-| `TestVerboseReporter_SummaryWithFailures` | Failure counts |
-| `TestVerboseReporter_CompleteOutput` | Full verbose flow |
-
-### ProgressReporter
-
-The `ProgressReporter` provides output formatting for parallel builds (`-j N`), showing progress counts and currently building targets.
-
-```go
-type ProgressReporter struct {
-    w           io.Writer
-    total       int              // Total number of targets to build
-    started     int              // Number of targets started
-    completed   int              // Number of targets completed
-    building    map[string]bool  // Currently building targets
-}
-```
-
-#### Key Methods
-
-| Method | Description | Output Format |
-|--------|-------------|---------------|
-| `BuildStarted(target)` | Shows build progress | `[current/total] Building target` |
-| `BuildCompleted(target, success, errMsg)` | Handles completion | `FAILED target: errMsg` on failure |
-| `CommandOutput(cmd, stdout, stderr)` | Shows command output | Stderr only (for errors) |
-| `Summary(total, failed)` | Shows build summary | Success count or failure count |
-| `NothingToBuild(target)` | Shows up-to-date status | `target is up to date` |
-| `CurrentlyBuilding()` | Returns active targets | List of targets currently building |
-
-#### Output Format
-
-Progress output shows completion count:
-
-```
-[1/5] Building build/a.o
-[2/5] Building build/b.o
-[3/5] Building build/c.o
-[4/5] Building build/main.o
-[5/5] Building build/app
-Build success: 5 targets built
-```
-
-Key formatting:
-- `[current/total]` prefix shows progress
-- Failures are shown with `FAILED target: errMsg`
-- Currently building targets can be queried via `CurrentlyBuilding()`
-
-#### CLI Integration
-
-The CLI adapter wraps `output.ProgressReporter`:
-
-```go
-// In cmd/build/output_adapter.go
-type ProgressOutputReporter interface {
-    BuildStarted(target string)
-    BuildCompleted(target string, success bool, errMsg string)
-    CommandOutput(command, stdout, stderr string)
-    Summary(total, failed int)
-    NothingToBuild(target string)
-    CurrentlyBuilding() []string
-}
-
-func NewProgressReporter(w io.Writer, total int) ProgressOutputReporter
-```
-
-#### Unit Tests
-
-| Test | Description |
-|------|-------------|
-| `TestProgressReporter_BuildStarted` | Progress count on start |
-| `TestProgressReporter_BuildStartedMultiple` | Incremented counts |
-| `TestProgressReporter_BuildCompleted` | Completion handling |
-| `TestProgressReporter_BuildCompletedFailure` | Failure message |
-| `TestProgressReporter_Summary` | Success summary |
-| `TestProgressReporter_SummaryWithFailures` | Failure summary |
-| `TestProgressReporter_CurrentlyBuilding` | Active targets tracking |
+| `TestEmitterBackedNormalReporter_*` | Normal reporter with event system |
+| `TestEmitterBackedDryRunReporter_*` | Dry-run reporter with event system |
+| `TestEmitterBackedVerboseReporter_*` | Verbose reporter with event system |
+| `TestEmitterBackedProgressReporter_*` | Progress reporter with event system |
+| `TestReporterCompatibility_*` | Compatibility between old and new reporters |
 
 ### Design Decisions
 
-1. **Interface-based design**: The `Reporter` interface allows for different output implementations (normal, verbose, quiet, progress-based for parallel builds).
+1. **Event-based architecture**: All output flows through events, enabling different rendering contexts (CLI, TUI, CI/headless).
 
-2. **Writer injection**: Reporters accept an `io.Writer` for testability and flexibility (can write to stdout, buffers, files, etc.).
+2. **Backward-compatible interfaces**: The `Reporter`, `DryRunOutputReporter`, `VerboseOutputReporter`, and `ProgressOutputReporter` interfaces remain unchanged.
 
-3. **Empty output suppression**: Commands that produce no output don't generate any lines, keeping the build log clean.
+3. **Emitter-backed implementations**: All adapter factory functions now create emitter-backed reporters that delegate to `CLIWriter`.
 
-4. **Newline handling**: Output methods ensure content ends with a newline for consistent formatting.
+4. **Writer injection**: Reporters accept an `io.Writer` for testability and flexibility.
 
-5. **Separation from execution**: The output package is independent of the executor, allowing it to be used in different contexts (dry-run, actual execution, testing).
+5. **Empty output suppression**: Commands that produce no output don't generate any events, keeping the build log clean.
+
+6. **Color and mode support**: The new system supports color modes (auto, always, never) and output modes (CLI, TUI, headless).
 
 ## Target Resolution (`cmd/build/target_resolve.go`)
 
@@ -5951,4 +5845,237 @@ Target lookup uses the index:
 ```go
 target, captures, err := p.targetIndex.Lookup(targetPath)
 ```
+
+## Platform Package (`internal/platform`)
+
+The platform package provides cross-platform utilities for path handling, shell execution, and platform detection. It abstracts platform-specific differences between Unix systems (Linux, macOS, BSD) and Windows.
+
+### Package Structure
+
+| File | Contents |
+|------|----------|
+| `doc.go` | Package documentation |
+| `shell.go` | Shell detection, command args, path handling, quoting |
+| `platform_test.go` | Unit tests for all platform functions |
+
+### Shell Execution
+
+On Unix systems, the default shell is `/bin/sh` with the `-c` flag. On Windows, `cmd.exe` is used with the `/C` flag, or PowerShell with `-Command`.
+
+#### DefaultShell Function
+
+```go
+func DefaultShell() string
+```
+
+Returns the platform-appropriate default shell:
+- **Unix**: `/bin/sh`
+- **Windows**: `cmd.exe`
+
+#### ShellCommandArgs Function
+
+```go
+func ShellCommandArgs(shell, command string) []string
+```
+
+Returns the command-line arguments to pass a command to a shell:
+
+| Shell | Arguments |
+|-------|-----------|
+| `/bin/sh`, `bash`, `zsh` | `["-c", command]` |
+| `cmd.exe`, `cmd` | `["/C", command]` |
+| `powershell.exe`, `pwsh` | `["-Command", command]` |
+
+#### IsWindowsShell Function
+
+```go
+func IsWindowsShell(shell string) bool
+```
+
+Returns true if the shell is a Windows shell (cmd.exe or PowerShell). Handles:
+- Base name extraction from full paths (e.g., `C:\Windows\System32\cmd.exe`)
+- Case-insensitive matching
+- With or without `.exe` extension
+
+### Path Handling
+
+#### IsAbsolutePath Function
+
+```go
+func IsAbsolutePath(path string) bool
+```
+
+Returns true if the path is an absolute path. Handles both Unix and Windows styles:
+
+| Path | Result | Reason |
+|------|--------|--------|
+| `/usr/bin/sh` | true | Unix absolute path |
+| `C:\Windows\System32` | true | Windows drive letter |
+| `c:/windows` | true | Windows with forward slash |
+| `\\server\share` | true | Windows UNC path |
+| `./bin/sh` | false | Relative path |
+| `Windows\System32` | false | Relative path |
+
+#### IsDirectoryPath Function
+
+```go
+func IsDirectoryPath(path string) bool
+```
+
+Returns true if the path ends with a directory separator (`/` or `\`).
+
+#### PathSeparator Function
+
+```go
+func PathSeparator() byte
+```
+
+Returns the OS-specific path separator:
+- **Unix**: `/`
+- **Windows**: `\`
+
+#### NormalizePath Function
+
+```go
+func NormalizePath(path string) string
+```
+
+Converts all backslashes to forward slashes for internal consistency.
+
+### Shell Quoting
+
+#### ShellQuote Function
+
+```go
+func ShellQuote(shell, value string) string
+```
+
+Quotes a string for safe use in shell commands. The quoting style depends on the shell:
+
+| Shell | Quoting Style | Example |
+|-------|---------------|---------|
+| Unix shells (sh, bash) | Single quotes | `'hello world'` |
+| cmd.exe | Double quotes | `"hello world"` |
+| PowerShell | Single quotes | `'hello world'` |
+
+**Special characters handled:**
+- **cmd.exe**: Space, tab, `&`, `|`, `<`, `>`, `^`, `(`, `)`, `%`, `!`
+- **PowerShell**: Space, tab, `'`, `"`, `$`, `` ` ``
+- **Unix**: Space, tab, newline, `'`, `"`, `\`, `` ` ``, `$`, `!`, `*`, `?`, `[`, `]`, `{`, `}`, `(`, `)`, `;`, `&`, `|`, `<`, `>`, `#`, `~`
+
+**Embedded quote handling:**
+- **Unix**: `it's` → `'it'"'"'s'` (end quote, double-quoted single quote, start quote)
+- **cmd.exe**: `hello"world` → `"hello\"world"`
+- **PowerShell**: `it's` → `'it''s'` (doubled single quote)
+
+### Shell Validation
+
+#### ValidateShell Function
+
+```go
+func ValidateShell(shell string) error
+```
+
+Checks that the shell exists and is executable using `exec.LookPath`. Handles both absolute paths and PATH lookup.
+
+### Platform Detection
+
+#### IsWindows Function
+
+```go
+func IsWindows() bool
+```
+
+Returns true if running on Windows (`runtime.GOOS == "windows"`).
+
+### Windows Package Managers
+
+The `internal/environ/install.go` module includes support for Windows package managers:
+
+| Package Manager | Detection | Install Command |
+|----------------|-----------|-----------------|
+| winget | `winget` binary | `winget install package` |
+| Chocolatey | `choco` binary | `choco install package` |
+| Scoop | `scoop` binary | `scoop install package` |
+
+Package manager detection order:
+1. winget (Windows Package Manager - official)
+2. choco (Chocolatey)
+3. scoop (Scoop)
+
+### Integration with Executor
+
+The executor package uses the platform package for cross-platform shell execution:
+
+```go
+// In NewShellConfig()
+return &ShellConfig{
+    Shell: platform.DefaultShell(),
+}
+
+// In ExecuteLine()
+args := platform.ShellCommandArgs(e.config.Shell, cmdLine)
+cmd := exec.Command(e.config.Shell, args...)
+
+// In Validate()
+err := platform.ValidateShell(c.Shell)
+```
+
+### Integration with Eval
+
+The eval package uses platform functions:
+
+```go
+// In funcShell()
+shell := platform.DefaultShell()
+args := platform.ShellCommandArgs(shell, cmd)
+shellCmd := exec.Command(shell, args...)
+
+// In setTargetDirAndFile()
+if platform.IsDirectoryPath(target) {
+    c.automatic["target.dir"] = strings.TrimSuffix(...)
+}
+```
+
+### Unit Tests
+
+| Test | Description |
+|------|-------------|
+| `TestDefaultShell` | Default shell per platform |
+| `TestShellCommandArgs` | Command args for all shell types |
+| `TestIsAbsolutePath` | Unix and Windows absolute paths |
+| `TestIsWindowsShell` | Windows shell detection with full paths |
+| `TestIsDirectoryPath` | Directory path detection |
+| `TestPathSeparator` | Platform path separator |
+| `TestNormalizePath` | Backslash to forward slash conversion |
+| `TestShellQuoteWindows` | Shell quoting for cmd.exe, PowerShell, bash |
+| `TestIsWindows` | Platform detection |
+| `TestCmdExeSpecialChars` | cmd.exe special character handling |
+
+### Design Decisions
+
+1. **Platform abstraction**: All platform-specific code is isolated in the platform package, allowing the rest of the codebase to work consistently across platforms.
+
+2. **Cross-platform path handling**: The `baseName()` function handles both `/` and `\` as separators regardless of the current platform, allowing Windows paths to be processed on Unix and vice versa.
+
+3. **Conservative shell detection**: Uses case-insensitive matching and handles `.exe` extension optionally to work with both Windows and WSL environments.
+
+4. **Exit code portability**: The executor uses Go's cross-platform `ExitCode()` method instead of Unix-specific `syscall.WaitStatus`.
+
+5. **Quoting strategy**: Different quoting strategies per shell ensure command arguments are passed correctly to each shell type.
+
+### Windows Limitations and Future Work
+
+Current Windows support includes:
+- Path separator handling (both `/` and `\` recognized)
+- Shell selection (cmd.exe, PowerShell)
+- Shell-specific command arguments
+- Shell-specific quoting
+- Windows package managers (winget, choco, scoop)
+
+Future enhancements may include:
+- WSL (Windows Subsystem for Linux) integration
+- PowerShell Core (pwsh) as default shell option
+- Windows-specific environment variable handling
+- Long path support (>260 characters)
 
