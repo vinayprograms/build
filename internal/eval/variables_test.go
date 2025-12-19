@@ -1,6 +1,8 @@
 package eval
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -532,5 +534,51 @@ func TestEvaluateVariables_WithConditional(t *testing.T) {
 	}
 	if val != "gcc" {
 		t.Errorf("Expected 'gcc', got '%s'", val)
+	}
+}
+
+// ----------------------------------------------------------------------------
+// Verbose Mode Tests
+// ----------------------------------------------------------------------------
+
+func TestEvaluateVariables_VerboseMode(t *testing.T) {
+	ctx := NewContext()
+	e := NewEvaluator(ctx)
+
+	var buf bytes.Buffer
+	e.SetVerboseOutput(&buf)
+
+	stmts := []ast.Statement{
+		&ast.Variable{
+			Name: "foo",
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.LiteralValue{Text: "bar"},
+				},
+			},
+		},
+		&ast.Variable{
+			Name: "greeting",
+			Value: &ast.Value{
+				Parts: []ast.ValuePart{
+					&ast.LiteralValue{Text: "Hello, "},
+					&ast.Interpolation{Name: "foo"},
+				},
+			},
+		},
+	}
+
+	err := e.EvaluateVariables(stmts)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	output := buf.String()
+	// Should show variable evaluation results
+	if !strings.Contains(output, "foo = bar") {
+		t.Errorf("Expected verbose output to contain 'foo = bar', got: %s", output)
+	}
+	if !strings.Contains(output, "greeting = Hello, bar") {
+		t.Errorf("Expected verbose output to contain 'greeting = Hello, bar', got: %s", output)
 	}
 }

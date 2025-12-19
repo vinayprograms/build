@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -9,12 +10,19 @@ import (
 
 // Evaluator evaluates AST values and expressions.
 type Evaluator struct {
-	ctx *Context
+	ctx           *Context
+	verboseOutput io.Writer // Optional output for verbose mode
 }
 
 // NewEvaluator creates a new evaluator with the given context.
 func NewEvaluator(ctx *Context) *Evaluator {
 	return &Evaluator{ctx: ctx}
+}
+
+// SetVerboseOutput sets the output writer for verbose mode.
+// When set, variable evaluations will be printed to this writer.
+func (e *Evaluator) SetVerboseOutput(w io.Writer) {
+	e.verboseOutput = w
 }
 
 // Context returns the evaluation context.

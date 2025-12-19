@@ -1,6 +1,8 @@
 package eval
 
 import (
+	"fmt"
+
 	"github.com/vinayprograms/build/internal/ast"
 )
 
@@ -40,6 +42,9 @@ func (e *Evaluator) evaluateVariable(v *ast.Variable) error {
 	if v.Lazy {
 		// Store lazy variables with their AST value for on-demand evaluation
 		e.ctx.SetLazyValue(v.Name, v.Value)
+		if e.verboseOutput != nil {
+			fmt.Fprintf(e.verboseOutput, "%s = <lazy>\n", v.Name)
+		}
 		return nil
 	}
 
@@ -51,5 +56,11 @@ func (e *Evaluator) evaluateVariable(v *ast.Variable) error {
 
 	// Store the evaluated result
 	e.ctx.Set(v.Name, result)
+
+	// Verbose output
+	if e.verboseOutput != nil {
+		fmt.Fprintf(e.verboseOutput, "%s = %s\n", v.Name, result)
+	}
+
 	return nil
 }
