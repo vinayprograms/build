@@ -445,13 +445,13 @@ Shell invocation, variable interpolation in commands, and error handling.
 - [x] **Implement dry-run mode**
   - [x] Print commands without executing
   - [x] Show interpolated values
-  - [ ] Prefix with "Would build: target"
+  - [x] Prefix with "Would build: target"
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement verbose mode**
   - [x] Print commands before executing
-  - [ ] Show variable evaluation results
-  - [ ] Show staleness check decisions
+  - [x] Show variable evaluation results
+  - [x] Show staleness check decisions
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 4.3 Execution Error Handling
@@ -459,7 +459,7 @@ Shell invocation, variable interpolation in commands, and error handling.
 - [x] **Handle command failure**
   - [x] Check exit status of each command
   - [x] Stop build on first failure (default)
-  - [ ] Implement `--keep-going` flag to continue despite failures
+  - [x] Implement `--keep-going` flag to continue despite failures
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Handle missing dependencies**
@@ -516,7 +516,7 @@ Concurrent task execution respecting dependencies.
   - [x] Test parallel independent tasks
   - [x] Test parallel with dependencies
   - [x] Test failure propagation
-  - [ ] Test `-j` flag override
+  - [x] Test `-j` flag override
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ---
@@ -543,7 +543,7 @@ Runtime environments for build isolation.
 - [x] **Implement version detection**
   - [x] Run `binary --version` and parse output
   - [x] Handle different version output formats
-  - [ ] Cache version checks
+  - [x] Cache version checks
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement install suggestions**
@@ -584,48 +584,48 @@ Runtime environments for build isolation.
 
 ### 6.3 Devcontainer Environment
 
-- [ ] **Implement devcontainer detection**
-  - [ ] Check for `.devcontainer/` directory or `devcontainer.json`
-  - [ ] Parse devcontainer configuration
+- [x] **Implement devcontainer detection**
+  - [x] Check for `.devcontainer/` directory or `devcontainer.json`
+  - [x] Parse devcontainer configuration
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement devcontainer CLI integration**
-  - [ ] Use `devcontainer` CLI to start environment
-  - [ ] Execute build commands inside devcontainer
-  - [ ] Handle lifecycle (start, stop)
+- [x] **Implement devcontainer CLI integration**
+  - [x] Use `devcontainer` CLI to start environment
+  - [x] Execute build commands inside devcontainer
+  - [x] Handle lifecycle (start, stop)
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.4 Nix Environment
 
-- [ ] **Implement nix file detection**
-  - [ ] Locate `shell.nix` or `flake.nix` from `.source:`
+- [x] **Implement nix file detection**
+  - [x] Locate `shell.nix` or `flake.nix` from `.source:`
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement nix-shell execution**
-  - [ ] Enter nix-shell with specified configuration
-  - [ ] Apply `.args:` (e.g., `--pure`)
-  - [ ] Execute build commands inside nix environment
+- [x] **Implement nix-shell execution**
+  - [x] Enter nix-shell with specified configuration
+  - [x] Apply `.args:` (e.g., `--pure`)
+  - [x] Execute build commands inside nix environment
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.5 Lima Environment (macOS VMs)
 
-- [ ] **Implement lima.yaml detection**
-  - [ ] Locate lima configuration from `.source:`
+- [x] **Implement lima.yaml detection**
+  - [x] Locate lima configuration from `.source:`
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement Lima VM management**
-  - [ ] Start Lima VM
-  - [ ] Mount workspace
-  - [ ] Execute build commands inside VM
+- [x] **Implement Lima VM management**
+  - [x] Start Lima VM
+  - [x] Mount workspace
+  - [x] Execute build commands inside VM
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 ### 6.6 Environment Selection Logic
 
-- [ ] **Implement environment selection**
-  - [ ] `--env name` flag takes precedence
-  - [ ] `BUILD_ENV` environment variable second
-  - [ ] Unnamed `.environment:` as default
-  - [ ] Error if only named environments and no selection
+- [x] **Implement environment selection**
+  - [x] `--env name` flag takes precedence
+  - [x] `BUILD_ENV` environment variable second
+  - [x] Unnamed `.environment:` as default
+  - [x] Error if only named environments and no selection
   - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [x] **Implement `--list-env` flag**

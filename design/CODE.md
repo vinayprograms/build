@@ -2435,10 +2435,17 @@ The evaluator evaluates AST values using the context.
 | Method | Description |
 |--------|-------------|
 | `NewEvaluator(ctx)` | Creates evaluator with context |
+| `SetVerboseOutput(w)` | Sets output writer for verbose mode |
 | `EvaluateValue(val)` | Evaluates AST Value to string |
 | `EvaluateVariables(stmts)` | Evaluates all variables in statement list |
 | `EvaluateCondition(cond)` | Evaluates a condition (==, !=, ifdef, ifndef) |
 | `EvaluateConditional(cond)` | Evaluates a conditional block and its body |
+
+#### Verbose Mode
+
+When `SetVerboseOutput()` is called with a writer, the evaluator prints variable evaluation results:
+- For immediate variables: `name = value`
+- For lazy variables: `name = <lazy>`
 
 #### Value Evaluation
 
@@ -2582,6 +2589,7 @@ Uses single-quote quoting with special handling for embedded single quotes:
 | `TestEvaluateVariables_LazyVariableReferencesLater` | Lazy can reference later variables |
 | `TestEvaluateVariables_LazyVariableCaching` | Lazy variable result is cached |
 | `TestEvaluateVariables_WithConditional` | Conditional in statement list |
+| `TestEvaluateVariables_VerboseMode` | Verbose mode outputs variable evaluations |
 
 #### Functions Tests (`functions_test.go`)
 
@@ -2824,6 +2832,16 @@ func PlanBuild(requestedTarget string, targets []*ast.Target, ctx *eval.Context,
 
 Creates a build plan for the requested target.
 
+#### PlanBuildWithVerbose Function
+
+```go
+func PlanBuildWithVerbose(requestedTarget string, targets []*ast.Target, ctx *eval.Context, fs FileSystem, verboseOutput io.Writer) (*BuildPlan, error)
+```
+
+Creates a build plan with optional verbose output. When `verboseOutput` is non-nil, staleness check decisions are written to it:
+- For targets needing rebuild: `target: rebuild needed (reason)`
+- For up-to-date targets: `target: up to date`
+
 **Planning steps:**
 1. **Target lookup**: Find matching target definition (exact or pattern)
 2. **Dependency resolution**: Convert patterns to concrete paths
@@ -2905,6 +2923,8 @@ Creates a build plan for the requested target.
 | `TestPlanBuild_OrderOnlyDeps_MustExist` | Order-only deps must exist or have build rule |
 | `TestPlanBuild_OrderOnlyDeps_InTask` | Order-only deps tracked in BuildTask |
 | `TestCircularDependencyError_Error` | Error message format |
+| `TestPlanBuild_VerboseOutput` | Verbose mode outputs staleness decisions |
+| `TestPlanBuild_VerboseOutput_UpToDate` | Verbose mode shows up-to-date targets |
 
 ### Command Interpolation (`command.go`)
 
@@ -3089,7 +3109,7 @@ type Executor struct {
 |------|-------------|
 | **Line Mode** | Each command line is a separate shell invocation via `shell -c "command"` |
 | **Block Mode** | All lines passed as single script to `shell -c "script"` |
-| **Dry Run** | Print commands without executing, always return success |
+| **Dry Run** | Print "Would build: target" followed by commands without executing, always return success |
 | **Verbose** | Print commands before executing, then execute |
 
 ### ExecResult Structure
@@ -3166,6 +3186,7 @@ Error format: `shell not found: path`
 | `TestExecuteRecipe_ShellOverride` | Recipe .shell override |
 | `TestDryRun_PrintsCommands` | Dry-run prints only |
 | `TestDryRun_DoesNotExecute` | Dry-run doesn't execute |
+| `TestDryRun_WouldBuildPrefix` | Dry-run prints "Would build: target" prefix |
 | `TestVerbose_PrintsCommand` | Verbose shows command |
 
 ### Parallel Scheduler (`scheduler.go`)
@@ -3178,6 +3199,7 @@ Implements parallel execution of build tasks with dependency-aware scheduling.
 type Scheduler struct {
     executor   *Executor
     numWorkers int
+    keepGoing  bool // If true, continue building after failures
 }
 ```
 
@@ -3197,9 +3219,42 @@ type TaskResult struct {
 | Function | Description |
 |----------|-------------|
 | `NewScheduler(executor, numWorkers)` | Creates scheduler with N workers |
+| `SetKeepGoing(keepGoing)` | Enable/disable keep-going mode |
 | `Workers()` | Returns number of workers |
 | `Execute(tasks, ctxFactory)` | Executes tasks respecting dependencies |
 | `ExecuteWithCallback(tasks, ctxFactory, callback)` | Execute with per-task callback |
+| `ResolveWorkerCount(cliJobs, parallelDirective)` | Resolves worker count from CLI and directive |
+
+#### Worker Count Resolution
+
+The `ResolveWorkerCount` function determines the number of workers to use based on CLI `-j` flag and `.parallel:` directive value:
+
+```go
+func ResolveWorkerCount(cliJobs, parallelDirective int) int
+```
+
+**Resolution rules:**
+1. CLI `-j` flag takes precedence when explicitly set (value > 1)
+2. `.parallel:` directive is used as fallback when CLI is default (1)
+3. Negative values are treated as invalid and ignored
+4. Minimum return value is 1
+
+| cliJobs | parallelDirective | Result | Reason |
+|---------|-------------------|--------|--------|
+| 4 | 2 | 4 | CLI overrides directive |
+| 1 | 8 | 8 | Directive used when CLI default |
+| 4 | 0 | 4 | CLI used, directive unset |
+| 1 | 0 | 1 | Both default/unset |
+| -1 | 4 | 4 | Invalid CLI ignored |
+| 1 | -2 | 1 | Invalid directive ignored |
+
+#### Keep-Going Mode
+
+When `SetKeepGoing(true)` is called, the scheduler continues building after failures:
+- Failed tasks are still marked in the `failed` map
+- Dependent tasks are still skipped (their dependencies failed)
+- Independent tasks continue to execute
+- All results (success, failure, skipped) are returned
 
 #### Scheduling Algorithm
 
@@ -3251,6 +3306,10 @@ When a task fails:
 | `TestScheduler_FailureCancellation` | Failure cancels pending tasks |
 | `TestScheduler_NoRecipe` | Tasks without recipe succeed |
 | `TestScheduler_ParallelWorkerCount` | Worker count limits concurrency |
+| `TestScheduler_KeepGoing_ContinuesAfterFailure` | Keep-going continues independent tasks |
+| `TestScheduler_KeepGoing_SkipsDependentTasks` | Keep-going still skips dependent tasks |
+| `TestResolveWorkerCount` | Worker count resolution from CLI and directive |
+| `TestScheduler_JobsFlagOverride` | CLI -j flag overrides .parallel directive |
 
 ### Autodeps Support (`autodeps.go`)
 
@@ -3340,7 +3399,8 @@ The `RequirementsChecker` validates that required binaries are available in PATH
 
 ```go
 type RequirementsChecker struct {
-    lookPath func(file string) (string, error)
+    lookPath     func(file string) (string, error)
+    versionCache map[string]versionCacheEntry // Cached version results
 }
 ```
 
@@ -3354,7 +3414,8 @@ type RequirementsChecker struct {
 | `CheckRequirements(reqs)` | Checks multiple requirements |
 | `CheckRequirementWithVersion(req)` | Checks requirement including version validation |
 | `CheckRequirementsWithVersion(reqs)` | Checks multiple requirements with versions |
-| `DetectVersion(name)` | Attempts to detect binary version |
+| `DetectVersion(name)` | Attempts to detect binary version (cached) |
+| `ClearVersionCache()` | Clears the version detection cache |
 
 #### RequirementResult Structure
 
@@ -3413,9 +3474,17 @@ func (c *RequirementsChecker) DetectVersion(name string) (*Version, error)
 ```
 
 Attempts to detect version by:
-1. Checking if binary exists
-2. Trying common version flags: `--version`, `-version`, `-v`
-3. Parsing version from stdout/stderr output
+1. Checking the version cache (returns cached result if available)
+2. Checking if binary exists
+3. Trying common version flags: `--version`, `-version`, `-v`
+4. Parsing version from stdout/stderr output
+5. Caching the result (both successes and errors)
+
+**Caching behavior:**
+- Results are cached per binary name
+- Both successful detections and errors are cached
+- Cache persists for the lifetime of the `RequirementsChecker` instance
+- Use `ClearVersionCache()` to reset the cache
 
 ### Error Types (`errors.go`)
 
@@ -3499,6 +3568,91 @@ Available environments (2):
 | `TestVersionString` | Version to string conversion |
 | `TestVersionSatisfies` | Version matching against specs |
 | `TestDetectVersion` | Live version detection |
+| `TestVersionCache` | Version cache population and retrieval |
+| `TestVersionCacheError` | Error caching for non-existent binaries |
+| `TestClearVersionCache` | Cache clearing |
+
+### Devcontainer Detection (`devcontainer.go`)
+
+Implements detection and parsing of devcontainer configurations for VS Code Development Containers.
+
+#### DevcontainerDetector Structure
+
+```go
+type DevcontainerDetector struct{}
+```
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewDevcontainerDetector()` | Creates a new detector |
+| `DetectConfig(baseDir)` | Searches for devcontainer configuration |
+| `LoadConfig(path)` | Loads and parses devcontainer.json |
+| `ParseDevcontainerConfig(data)` | Parses devcontainer.json content |
+
+#### Configuration Detection
+
+The detector searches for devcontainer configuration in this order:
+1. `.devcontainer/devcontainer.json` (preferred)
+2. `devcontainer.json` in project root
+
+#### DevcontainerConfig Structure
+
+```go
+type DevcontainerConfig struct {
+    Name              string                   // Container name
+    Image             string                   // Docker image to use
+    Dockerfile        string                   // Path to Dockerfile
+    DockerComposeFile string                   // Path to docker-compose file
+    Service           string                   // Service name (for docker-compose)
+    Build             *DevcontainerBuildConfig // Build configuration
+    WorkspaceFolder   string                   // Workspace folder in container
+    RemoteUser        string                   // User to run as
+}
+
+type DevcontainerBuildConfig struct {
+    Dockerfile string // Path to Dockerfile
+    Context    string // Build context directory
+}
+```
+
+#### DevcontainerRunner Structure
+
+```go
+type DevcontainerRunner struct {
+    projectDir string
+    configPath string
+    lookPath   func(name string) (string, error)
+}
+```
+
+Handles running commands in a devcontainer using the `devcontainer` CLI.
+
+#### DevcontainerRunner Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewDevcontainerRunner(projectDir)` | Creates a new runner |
+| `SetConfigPath(path)` | Sets path to devcontainer.json |
+| `CheckCLI()` | Verifies devcontainer CLI is installed |
+| `Up()` | Starts the devcontainer |
+| `Exec(command)` | Executes a command in the container |
+| `OpenShell()` | Opens an interactive shell in the container |
+
+#### Devcontainer Tests (`devcontainer_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestDevcontainerDetector_DetectConfig_Directory` | Detect .devcontainer/devcontainer.json |
+| `TestDevcontainerDetector_DetectConfig_RootJson` | Detect root devcontainer.json |
+| `TestDevcontainerDetector_DetectConfig_NotFound` | Handle missing configuration |
+| `TestDevcontainerDetector_DetectConfig_DirectoryPriority` | .devcontainer/ takes priority |
+| `TestParseDevcontainerConfig` | Parse various config formats |
+| `TestDevcontainerDetector_LoadConfig` | Load and parse file |
+| `TestNewDevcontainerRunner` | Runner creation |
+| `TestDevcontainerRunner_CheckCLI_NotInstalled` | CLI not installed error |
+| `TestDevcontainerConfig_GetImageOrBuildSource` | Config source description |
 
 #### CLI Tests (`main_test.go`)
 
@@ -3514,6 +3668,183 @@ Available environments (2):
 | `TestRunCheckEnvNoEnvironments` | Bare environment (no `.environment:`) |
 | `TestShowInstall_MissingBinary` | Show install suggestion for missing binary |
 | `TestShowInstall_AllPresent` | All binaries present with --show-install |
+
+### Nix Environment Support (`nix.go`)
+
+Implements detection and execution for Nix environments.
+
+#### NixType Enumeration
+
+```go
+type NixType int
+
+const (
+    NixTypeShell NixType = iota // shell.nix
+    NixTypeFlake                // flake.nix
+)
+```
+
+#### NixDetector Structure
+
+```go
+type NixDetector struct{}
+```
+
+Detects Nix configurations in a project directory.
+
+#### NixDetector Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewNixDetector()` | Creates a new detector |
+| `DetectConfig(baseDir, source)` | Searches for Nix configuration |
+
+**Detection order:**
+1. If `.source:` specified, use that path directly
+2. Check for `shell.nix` (preferred)
+3. Check for `flake.nix`
+
+#### NixRunner Structure
+
+```go
+type NixRunner struct {
+    projectDir string
+    configPath string
+    nixType    NixType
+    args       []string
+    lookPath   func(name string) (string, error)
+}
+```
+
+Handles running commands in a Nix environment.
+
+#### NixRunner Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewNixRunner(projectDir)` | Creates a new runner |
+| `SetConfig(path, nixType)` | Sets the nix config path and type |
+| `SetArgs(args)` | Sets extra arguments from `.args:` |
+| `CheckCLI()` | Verifies nix-shell is installed |
+| `Exec(command)` | Executes a command in the nix environment |
+| `OpenShell()` | Opens an interactive shell |
+
+**Execution modes:**
+- **shell.nix**: Uses `nix-shell --run <command>`
+- **flake.nix**: Uses `nix develop -c sh -c <command>`
+
+#### Nix Tests (`nix_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestNixDetector_DetectConfig_ShellNix` | Detect shell.nix |
+| `TestNixDetector_DetectConfig_FlakeNix` | Detect flake.nix |
+| `TestNixDetector_DetectConfig_FromSource` | Use custom source path |
+| `TestNixDetector_DetectConfig_NotFound` | Handle missing configuration |
+| `TestNixDetector_DetectConfig_ShellNixPriority` | shell.nix takes priority |
+| `TestNixRunner_CheckCLI_NotInstalled` | CLI not installed error |
+
+### Lima Environment Support (`lima.go`)
+
+Implements detection and execution for Lima VM environments (macOS).
+
+#### LimaDetector Structure
+
+```go
+type LimaDetector struct{}
+```
+
+Detects Lima configurations in a project directory.
+
+#### LimaDetector Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewLimaDetector()` | Creates a new detector |
+| `DetectConfig(baseDir, source)` | Searches for Lima configuration |
+
+**Detection order:**
+1. If `.source:` specified, use that path directly
+2. Check for `lima.yaml`
+
+#### LimaRunner Structure
+
+```go
+type LimaRunner struct {
+    projectDir string
+    vmName     string
+    configPath string
+    args       []string
+    lookPath   func(name string) (string, error)
+}
+```
+
+Handles running commands in a Lima VM.
+
+#### LimaRunner Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewLimaRunner(projectDir, vmName)` | Creates a new runner |
+| `SetConfigPath(path)` | Sets the Lima config path |
+| `SetArgs(args)` | Sets extra arguments from `.args:` |
+| `CheckCLI()` | Verifies limactl is installed |
+| `Start()` | Starts the Lima VM |
+| `Stop()` | Stops the Lima VM |
+| `Exec(command)` | Executes a command in the VM |
+| `OpenShell()` | Opens an interactive shell |
+
+#### Lima Tests (`lima_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestLimaDetector_DetectConfig_LimaYaml` | Detect lima.yaml |
+| `TestLimaDetector_DetectConfig_FromSource` | Use custom source path |
+| `TestLimaDetector_DetectConfig_NotFound` | Handle missing configuration |
+| `TestLimaRunner_CheckCLI_NotInstalled` | CLI not installed error |
+| `TestLimaRunner_VMName` | VM name assignment |
+
+### Environment Selection (`selector.go`)
+
+Implements environment selection logic for determining which environment to use for a build.
+
+#### EnvironmentSelector Structure
+
+```go
+type EnvironmentSelector struct{}
+```
+
+#### Selection Priority
+
+1. `--env` flag takes highest precedence
+2. `BUILD_ENV` environment variable is used as fallback
+3. Unnamed (default) environment is used if no explicit selection
+4. Error if only named environments exist and no selection is made
+
+#### Key Functions
+
+| Function | Description |
+|----------|-------------|
+| `NewEnvironmentSelector()` | Creates a new selector |
+| `Select(envs, envFlag, buildEnv)` | Selects appropriate environment |
+
+**Returns:**
+- Selected `*ast.Environment`
+- `nil` if no environments defined (bare environment)
+- `EnvironmentNotFoundError` if requested environment doesn't exist
+- `NoDefaultEnvironmentError` if no default and no selection
+
+#### Environment Selection Tests (`selector_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestSelectEnvironment_EnvFlagPrecedence` | --env flag takes priority |
+| `TestSelectEnvironment_BuildEnvFallback` | BUILD_ENV used as fallback |
+| `TestSelectEnvironment_DefaultEnv` | Default environment selected |
+| `TestSelectEnvironment_ErrorWhenOnlyNamedAndNoSelection` | Error when no default |
+| `TestSelectEnvironment_EmptyEnvsList` | Bare environment (nil) returned |
+| `TestSelectEnvironment_EnvFlagNotFound` | Error for unknown environment |
+| `TestSelectEnvironment_EnvFlagOverridesBuildEnv` | Flag overrides BUILD_ENV |
 
 ### Install Suggestions (`install.go`)
 
