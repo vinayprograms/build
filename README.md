@@ -15,23 +15,13 @@
 
 ## Installation
 
-### From Source
-
 ```bash
-# Clone the repository
-git clone https://github.com/vinayprograms/build.git
-cd build
-
-# Build
-go build -o build ./cmd/build
-
-# Install (optional)
-sudo cp build /usr/local/bin/
+go install github.com/vinayprograms/build/cmd/build@latest
 ```
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.21 or later (ensure `$GOPATH/bin` is in your `PATH`)
 
 ## Quick Start
 
