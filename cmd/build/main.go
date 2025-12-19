@@ -351,13 +351,8 @@ func run(args []string) int {
 
 			// Execute the recipe
 			results, err := executor.ExecuteRecipe(recipe, cmdCtx)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error executing recipe for %s: %v\n", target, err)
-				hasFailure = true
-				break
-			}
 
-			// Print command output and check for failures
+			// Print command output from all executed commands (even on error)
 			for _, r := range results {
 				// Print stdout/stderr from the command
 				if r.Stdout() != "" {
@@ -366,7 +361,16 @@ func run(args []string) int {
 				if r.Stderr() != "" {
 					fmt.Fprint(os.Stderr, r.Stderr())
 				}
+			}
 
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "\nerror executing recipe for %s: %v\n", target, err)
+				hasFailure = true
+				break
+			}
+
+			// Check for command failures
+			for _, r := range results {
 				// Check for command failure
 				if r.ExitCode() != 0 {
 					fmt.Fprintf(os.Stderr, "command failed with exit code %d: %s\n", r.ExitCode(), r.Command())

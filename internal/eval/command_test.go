@@ -192,8 +192,8 @@ func TestInterpolateCommand_AutomaticVariables(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Without shell quoting yet, just test variable substitution
-	expected := "gcc -o 'build/app' 'main.c utils.c'"
+	// deps is pre-quoted, target/deps without special chars don't get quoted
+	expected := "gcc -o build/app main.c utils.c"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -218,8 +218,8 @@ func TestInterpolateCommand_RawModifier(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Raw modifier should NOT quote the value
-	expected := "gcc -Wall -O2 -o 'build/app'"
+	// Raw modifier should NOT quote the value; target has no special chars
+	expected := "gcc -Wall -O2 -o build/app"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -245,7 +245,7 @@ func TestInterpolateCommand_CaptureVariables(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := "gcc -c src/'utils'.c -o build/'utils'.o"
+	expected := "gcc -c src/utils.c -o build/utils.o"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -268,7 +268,7 @@ func TestInterpolateCommand_StemVariable(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := "echo Building 'test'"
+	expected := "echo Building test"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -297,7 +297,7 @@ func TestInterpolateCommand_UserVariables(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := "gcc -Wall -O2 -o 'build/app' 'main.c'"
+	expected := "gcc -Wall -O2 -o build/app main.c"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -362,7 +362,7 @@ func TestInterpolateCommand_TargetDirAndFile(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := "mkdir -p 'build/sub' && echo 'app.exe'"
+	expected := "mkdir -p build/sub && echo app.exe"
 	if result != expected {
 		t.Errorf("expected '%s', got '%s'", expected, result)
 	}
@@ -373,13 +373,14 @@ func TestInterpolateCommand_TargetDirAndFile(t *testing.T) {
 // ----------------------------------------------------------------------------
 
 func TestShellQuote_Simple(t *testing.T) {
+	// Simple alphanumeric strings don't need quoting
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{"hello", "'hello'"},
-		{"path/to/file", "'path/to/file'"},
-		{"", "''"},
+		{"hello", "hello"},           // no special chars - not quoted
+		{"path/to/file", "path/to/file"}, // slashes are fine - not quoted
+		{"", ""},                     // empty string - not quoted
 	}
 
 	for _, tt := range tests {
@@ -393,12 +394,13 @@ func TestShellQuote_Simple(t *testing.T) {
 }
 
 func TestShellQuote_SpecialCharacters(t *testing.T) {
+	// Strings with special characters need quoting
 	tests := []struct {
 		input    string
 		expected string
 	}{
-		{"hello world", "'hello world'"},           // spaces
-		{"file.c file.h", "'file.c file.h'"},       // multiple spaces
+		{"hello world", "'hello world'"},           // spaces - quoted as whole
+		{"file.c file.h", "'file.c file.h'"},       // multiple items - quoted as whole
 		{"$HOME", "'$HOME'"},                       // dollar sign (no expansion)
 		{"a*b", "'a*b'"},                           // glob
 		{"test(1)", "'test(1)'"},                   // parens
@@ -450,7 +452,7 @@ func TestInterpolateBlockCommand(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := "if [[ -f 'build/app' ]]; then\n    rm 'build/app'\nfi"
+	expected := "if [[ -f build/app ]]; then\n    rm build/app\nfi"
 	if result != expected {
 		t.Errorf("expected:\n%s\n\ngot:\n%s", expected, result)
 	}

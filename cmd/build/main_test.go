@@ -2507,8 +2507,12 @@ func TestSemanticErrorShowsErrorCode_DuplicateVariable(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
 	// E201: Duplicate variable definition
-	content := `cc = gcc
+	content := `.shell: bash
+cc = gcc
 cc = clang
+
+@test:
+    echo "test"
 `
 	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -2557,7 +2561,11 @@ func TestSemanticErrorShowsErrorCode_AutomaticOutsideRecipe(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
 	// E207: Automatic variable outside recipe
-	content := `output = {target}
+	content := `.shell: bash
+output = {target}
+
+@test:
+    echo "test"
 `
 	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)

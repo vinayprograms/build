@@ -36,7 +36,7 @@ app: main.c
 
 	// Run the binary (if it exists)
 	if h.FileExists("app") {
-		result := h.Run("bash", "-c", "./app")
+		result := h.RunShell("./app")
 		result.AssertSuccess().
 			AssertStdoutContains("Hello from C!")
 	}

@@ -11,6 +11,7 @@ import (
 // for command interpolation during recipe execution.
 type CommandContext struct {
 	parent    *Context
+	evaluator *Evaluator
 	automatic map[string]string
 	captures  map[string]string
 }
@@ -19,6 +20,7 @@ type CommandContext struct {
 func NewCommandContext(parent *Context, target string, deps []string) *CommandContext {
 	ctx := &CommandContext{
 		parent:    parent,
+		evaluator: NewEvaluator(parent),
 		automatic: make(map[string]string),
 		captures:  make(map[string]string),
 	}
@@ -27,10 +29,11 @@ func NewCommandContext(parent *Context, target string, deps []string) *CommandCo
 	ctx.automatic["target"] = target
 	ctx.automatic["out"] = target
 
-	// deps is space-separated list
-	ctx.automatic["deps"] = strings.Join(deps, " ")
+	// deps is pre-quoted space-separated list (each item quoted individually)
+	// This allows {deps} to expand correctly as multiple shell arguments
+	ctx.automatic["deps"] = ShellQuoteList(deps)
 
-	// in is first dependency
+	// in is first dependency (not pre-quoted, will be quoted during interpolation)
 	if len(deps) > 0 {
 		ctx.automatic["in"] = deps[0]
 	} else {
@@ -74,7 +77,7 @@ func (c *CommandContext) SetCaptures(captures map[string]string) {
 }
 
 // Get retrieves a variable value.
-// Priority: automatic > captures > parent context
+// Priority: automatic > captures > parent context (including lazy variables)
 func (c *CommandContext) Get(name string) (string, bool) {
 	// Check automatic variables first
 	if val, ok := c.automatic[name]; ok {
@@ -88,7 +91,19 @@ func (c *CommandContext) Get(name string) (string, bool) {
 
 	// Fall back to parent context
 	if c.parent != nil {
-		return c.parent.Get(name)
+		// First try regular Get
+		if val, ok := c.parent.Get(name); ok {
+			return val, true
+		}
+
+		// Check if it's a lazy variable and evaluate it
+		if c.parent.IsLazy(name) && c.evaluator != nil {
+			// Use a dummy location since we don't have the actual location here
+			val, err := c.evaluator.evaluateLazyVariable(name, ast.SourceLocation{})
+			if err == nil {
+				return val, true
+			}
+		}
 	}
 
 	return "", false
@@ -135,6 +150,12 @@ func InterpolateBlockCommand(block *ast.BlockCommand, ctx *CommandContext) (stri
 	return strings.Join(lines, "\n"), nil
 }
 
+// preQuotedVars are automatic variables that are pre-quoted (each item quoted individually).
+// These should not be quoted again during interpolation.
+var preQuotedVars = map[string]bool{
+	"deps": true,
+}
+
 // interpolateParts interpolates a slice of command parts.
 func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, error) {
 	var result strings.Builder
@@ -153,8 +174,8 @@ func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, err
 				}
 			}
 
-			if p.Raw {
-				// Raw: no quoting
+			if p.Raw || preQuotedVars[p.Name] {
+				// Raw or pre-quoted: no additional quoting
 				result.WriteString(val)
 			} else {
 				// Default: shell-quoted
@@ -170,9 +191,24 @@ func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, err
 // Shell Quoting
 // ----------------------------------------------------------------------------
 
+// shellSpecialChars are characters that require quoting in shell commands.
+// This includes spaces, quotes, glob chars, command substitution, and other metacharacters.
+const shellSpecialChars = " \t\n'\"\\`$!*?[]{}();&|<>#~"
+
+// needsQuoting returns true if the string contains shell special characters.
+func needsQuoting(s string) bool {
+	return strings.ContainsAny(s, shellSpecialChars)
+}
+
 // ShellQuote quotes a string for safe use in shell commands.
 // It uses single quotes and handles embedded single quotes.
+// Simple alphanumeric values are not quoted.
 func ShellQuote(s string) string {
+	// Only quote if the string contains special characters
+	if !needsQuoting(s) {
+		return s
+	}
+
 	// If string contains single quotes, we need special handling
 	if strings.Contains(s, "'") {
 		// Replace each ' with '"'"' (end quote, double-quoted quote, start quote)
@@ -182,4 +218,17 @@ func ShellQuote(s string) string {
 
 	// Simple case: wrap in single quotes
 	return "'" + s + "'"
+}
+
+// ShellQuoteList quotes each item in a space-separated list individually.
+// Returns a space-separated string of quoted items.
+func ShellQuoteList(items []string) string {
+	if len(items) == 0 {
+		return ""
+	}
+	quoted := make([]string, len(items))
+	for i, item := range items {
+		quoted[i] = ShellQuote(item)
+	}
+	return strings.Join(quoted, " ")
 }

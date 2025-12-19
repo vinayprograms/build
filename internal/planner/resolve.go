@@ -67,6 +67,11 @@ func ResolveDependency(dep ast.Dependency, captures map[string]string, ctx *eval
 //
 // It processes each dependency in order and returns a slice of resolved paths.
 // If any dependency fails to resolve, an error is returned immediately.
+//
+// Special handling: if a dependency consists of exactly one BraceExpr (e.g., {objects}),
+// and the resolved value contains spaces, it is split into multiple paths.
+// This allows variables like "objects = build/main.o build/utils.o" to expand
+// into multiple dependencies.
 func ResolveDependencies(deps []ast.Dependency, captures map[string]string, ctx *eval.Context) ([]string, error) {
 	if len(deps) == 0 {
 		return []string{}, nil
@@ -74,11 +79,26 @@ func ResolveDependencies(deps []ast.Dependency, captures map[string]string, ctx 
 
 	paths := make([]string, 0, len(deps))
 	for _, dep := range deps {
+		// Check if this dependency is exactly one BraceExpr (variable expansion)
+		isSingleVar := len(dep.Segments) == 1
+		if isSingleVar {
+			if _, ok := dep.Segments[0].(*ast.BraceExpr); !ok {
+				isSingleVar = false
+			}
+		}
+
 		path, err := ResolveDependency(dep, captures, ctx)
 		if err != nil {
 			return nil, err
 		}
-		paths = append(paths, path)
+
+		// If it's a single variable expansion, split on spaces
+		if isSingleVar && strings.ContainsAny(path, " \t") {
+			splitPaths := strings.Fields(path)
+			paths = append(paths, splitPaths...)
+		} else {
+			paths = append(paths, path)
+		}
 	}
 
 	return paths, nil

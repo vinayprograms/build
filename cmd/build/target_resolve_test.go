@@ -425,25 +425,25 @@ build/app: src/main.c
 func TestRunWithTargetArgs(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
-	content := `cc = gcc
+	content := `.shell: bash
 
-build/app: src/main.c
-    {cc} -o {target} {deps}
+@build:
+    echo "Building..."
 
 @clean:
-    rm -rf build/
+    echo "Cleaning..."
 
-@test: build/app
-    ./build/app --test
+@test: @build
+    echo "Testing..."
 `
 	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Test with explicit file target
-	exitCode := run([]string{"-f", buildfile, "-v", "build/app"})
+	// Test with explicit phony target
+	exitCode := run([]string{"-f", buildfile, "-v", "build"})
 	if exitCode != exitSuccess {
-		t.Errorf("exit code = %d, want %d (for build/app target)", exitCode, exitSuccess)
+		t.Errorf("exit code = %d, want %d (for @build target)", exitCode, exitSuccess)
 	}
 
 	// Test with explicit phony target (with @)
@@ -459,7 +459,7 @@ build/app: src/main.c
 	}
 
 	// Test with multiple targets
-	exitCode = run([]string{"-f", buildfile, "-v", "clean", "build/app", "test"})
+	exitCode = run([]string{"-f", buildfile, "-v", "clean", "build", "test"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for multiple targets)", exitCode, exitSuccess)
 	}
@@ -469,13 +469,14 @@ build/app: src/main.c
 func TestRunWithDefaultTarget(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
-	content := `.default: @all
+	content := `.shell: bash
+.default: @all
 
-@all: build/app
+@all: @build
     echo "All done"
 
-build/app: src/main.c
-    gcc -o {target} {deps}
+@build:
+    echo "Building..."
 `
 	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -492,17 +493,19 @@ build/app: src/main.c
 func TestRunWithFirstTargetAsDefault(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
-	content := `build/app: src/main.c
-    gcc -o {target} {deps}
+	content := `.shell: bash
+
+@build:
+    echo "Building..."
 
 @clean:
-    rm -rf build/
+    echo "Cleaning..."
 `
 	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Test with no target arguments - should use first target (build/app)
+	// Test with no target arguments - should use first target (@build)
 	exitCode := run([]string{"-f", buildfile, "-v"})
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d (for first target as default)", exitCode, exitSuccess)

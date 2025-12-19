@@ -90,6 +90,35 @@ func (h *TestHarness) Run(args ...string) *RunResult {
 	}
 }
 
+// RunShell executes a shell command directly (not through the build tool).
+func (h *TestHarness) RunShell(command string) *RunResult {
+	h.t.Helper()
+
+	cmd := exec.Command("bash", "-c", command)
+	cmd.Dir = h.workDir
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			h.t.Fatalf("failed to run shell command: %v", err)
+		}
+	}
+
+	return &RunResult{
+		t:        h.t,
+		exitCode: exitCode,
+		stdout:   stdout.String(),
+		stderr:   stderr.String(),
+	}
+}
+
 // FileExists checks if a file exists in the working directory.
 func (h *TestHarness) FileExists(name string) bool {
 	path := filepath.Join(h.workDir, name)
