@@ -55,6 +55,8 @@ type flags struct {
 }
 
 func main() {
+	// Initialize error package file reader for source context
+	initFileReader()
 	os.Exit(run(os.Args[1:]))
 }
 
@@ -160,10 +162,11 @@ func run(args []string) int {
 
 	// Report parse errors
 	if result.HasErrors() {
-		fmt.Fprintf(os.Stderr, "parse errors in %s:\n", buildfile)
+		source := string(content)
 		for i := 0; i < result.ErrorCount(); i++ {
 			e := result.GetError(i)
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := formatParseErrorFromInterface(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}
@@ -209,18 +212,20 @@ func run(args []string) int {
 	// Run semantic analysis
 	collectResult := CollectSymbols(result)
 	if collectResult.HasErrors() {
-		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		source := string(content)
 		for _, e := range collectResult.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := FormatSemanticError(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}
 
 	captureResult := ValidateCaptures(collectResult)
 	if captureResult.HasErrors() {
-		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		source := string(content)
 		for _, e := range captureResult.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := FormatSemanticError(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}
@@ -235,18 +240,20 @@ func run(args []string) int {
 
 	refResult := ValidateReferences(collectResult, astStmts, captureResult)
 	if refResult.HasErrors() {
-		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		source := string(content)
 		for _, e := range refResult.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := FormatSemanticError(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}
 
 	depResult := ValidateDependencies(collectResult)
 	if depResult.HasErrors() {
-		fmt.Fprintf(os.Stderr, "semantic errors:\n")
+		source := string(content)
 		for _, e := range depResult.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := FormatSemanticError(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}
@@ -254,9 +261,10 @@ func run(args []string) int {
 	// Evaluate variables
 	evalResult := EvaluateVariables(result)
 	if evalResult.HasErrors() {
-		fmt.Fprintf(os.Stderr, "evaluation errors:\n")
+		source := string(content)
 		for _, e := range evalResult.Errors() {
-			fmt.Fprintf(os.Stderr, "  %s\n", e.Error())
+			formatted := FormatEvaluationError(e, source)
+			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
 	}

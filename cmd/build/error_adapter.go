@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/errors"
+	"github.com/vinayprograms/build/internal/eval"
 	"github.com/vinayprograms/build/internal/parser"
 	"github.com/vinayprograms/build/internal/semantic"
 )
@@ -15,6 +17,19 @@ func initFileReader() {
 		content, err := os.ReadFile(path)
 		return string(content), err
 	})
+}
+
+// formatParseErrorFromInterface extracts parser.ParseError from ParseError interface and formats it.
+func formatParseErrorFromInterface(e ParseError, source string) *errors.FormattedError {
+	// Extract the underlying parser.ParseError
+	if pea, ok := e.(parseErrorAdapter); ok {
+		return FormatParseError(pea.e, source)
+	}
+	// Fallback for unexpected types - create a generic formatted error
+	return &errors.FormattedError{
+		Code:    errors.CodeUnexpectedToken,
+		Message: e.Error(),
+	}
 }
 
 // FormatParseError converts a parser.ParseError to a formatted error with source context.
@@ -281,3 +296,50 @@ func formatCircularDependencyError(e *semantic.CircularDependencyError) *errors.
 		Note:    "break the cycle by removing or restructuring dependencies",
 	}
 }
+
+// FormatEvaluationError converts an evaluation error to a formatted error.
+// Note: Most evaluation errors don't have source locations, so they won't have source context.
+func FormatEvaluationError(e error, source string) *errors.FormattedError {
+	switch err := e.(type) {
+	case *eval.UndefinedVariableError:
+		return formatEvalUndefinedError(err, source)
+	case *eval.ShellError:
+		return formatShellError(err)
+	default:
+		// Generic evaluation error
+		return &errors.FormattedError{
+			Code:    "E399",
+			Message: e.Error(),
+		}
+	}
+}
+
+func formatEvalUndefinedError(e *eval.UndefinedVariableError, source string) *errors.FormattedError {
+	formatted := &errors.FormattedError{
+		Code:     errors.CodeUndefinedVariable,
+		Message:  fmt.Sprintf("undefined variable '%s'", e.Name),
+		Location: e.Location,
+		Help:     "define the variable before use, or check for typos",
+	}
+
+	if source != "" && e.Location.Line > 0 {
+		lines := errors.ExtractSourceLines(source, e.Location.Line, 1)
+		formatted.SourceLines = lines
+		formatted.CaretLine = e.Location.Line
+		formatted.CaretColumn = e.Location.Column
+	}
+
+	return formatted
+}
+
+func formatShellError(e *eval.ShellError) *errors.FormattedError {
+	formatted := &errors.FormattedError{
+		Code:    errors.CodeShellCommandFailed,
+		Message: fmt.Sprintf("shell command failed: %s", e.Command),
+		Note:    e.Err.Error(),
+		Help:    "verify the command is correct and all required tools are available",
+	}
+
+	return formatted
+}
+
