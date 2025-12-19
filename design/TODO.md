@@ -527,24 +527,24 @@ Runtime environments for build isolation.
 
 ### 6.1 Bare Environment
 
-- [ ] **Implement requirements checking**
-  - [ ] Parse `.requires:` list with version specs
-  - [ ] Check if binaries exist in PATH
-  - [ ] Check version if specified
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement requirements checking**
+  - [x] Parse `.requires:` list with version specs
+  - [x] Check if binaries exist in PATH
+  - [x] Check version if specified
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement version parsing**
-  - [ ] `gcc` or `gcc@latest` → any version
-  - [ ] `gcc@11` → major version 11.x.x
-  - [ ] `gcc@11.4` → version 11.4.x
-  - [ ] `gcc@11.4.0` → exact version
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+- [x] **Implement version parsing**
+  - [x] `gcc` or `gcc@latest` → any version
+  - [x] `gcc@11` → major version 11.x.x
+  - [x] `gcc@11.4` → version 11.4.x
+  - [x] `gcc@11.4.0` → exact version
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
-- [ ] **Implement version detection**
-  - [ ] Run `binary --version` and parse output
-  - [ ] Handle different version output formats
+- [x] **Implement version detection**
+  - [x] Run `binary --version` and parse output
+  - [x] Handle different version output formats
   - [ ] Cache version checks
-  - [ ] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
+  - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 
 - [ ] **Implement install suggestions**
   - [ ] For `--show-install` flag

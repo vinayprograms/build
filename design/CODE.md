@@ -90,6 +90,13 @@ github.com/vinayprograms/build/
 │   │   ├── doc.go         # Package documentation
 │   │   ├── executor.go    # Shell executor
 │   │   └── executor_test.go
+│   ├── environ/        # Environment management
+│   │   ├── doc.go         # Package documentation
+│   │   ├── requirements.go # Requirements checking
+│   │   ├── requirements_test.go
+│   │   ├── version.go     # Version parsing and detection
+│   │   ├── version_test.go
+│   │   └── errors.go      # Environment error types
 │   └── planner/        # Build planning
 │       ├── doc.go         # Package documentation
 │       ├── match.go        # Target pattern matching
@@ -116,7 +123,9 @@ cmd/build/
 ├── semantic_adapter.go # Semantic adapters (SymbolTable, Capture, Reference, etc.)
 ├── eval_adapter.go     # Eval adapters (EvalContext, EvalResult, CommandContext)
 ├── planner_adapter.go  # Planner adapters (MatchResult, LookupResult, BuildTask)
-└── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
+├── executor_adapter.go # Executor adapters (ShellConfig, Executor, ExecResult)
+├── environ_adapter.go  # Environment adapters (RequirementsChecker, RequirementResult)
+└── environ.go          # Environment commands (--check-env, --list-env)
 ```
 
 **Key Interfaces:**
@@ -145,6 +154,9 @@ cmd/build/
 | `EvalResult` | Contains evaluation results and any errors |
 | `CommandContext` | Extends EvalContext with automatic variables and captures |
 | `InterpolateResult` | Contains interpolated command string and any errors |
+| `RequirementResult` | Represents result of checking a single requirement |
+| `RequirementsChecker` | Checks that required binaries are available |
+| `Requirement` | Represents a binary requirement |
 
 **Design Rationale:**
 
@@ -3293,3 +3305,199 @@ The planner:
 | `TestParseAutodeps_SpacesInPath` | Escaped spaces in paths |
 | `TestParseAutodepsFile` | File reading and parsing |
 | `TestParseAutodepsFile_NotExists` | Non-existent file returns empty |
+
+## Environ Package (`internal/environ`)
+
+The environ package handles environment management for the build tool, including requirements checking and version detection.
+
+### Package Structure
+
+| File | Contents |
+|------|----------|
+| `doc.go` | Package documentation |
+| `requirements.go` | `RequirementsChecker` for binary existence and version checks |
+| `version.go` | Version parsing and comparison logic |
+| `errors.go` | Error types for environment operations |
+| `requirements_test.go` | Tests for requirements checking |
+| `version_test.go` | Tests for version parsing and matching |
+
+### Requirements Checker (`requirements.go`)
+
+The `RequirementsChecker` validates that required binaries are available in PATH.
+
+#### RequirementsChecker Structure
+
+```go
+type RequirementsChecker struct {
+    lookPath func(file string) (string, error)
+}
+```
+
+#### Key Methods
+
+| Method | Description |
+|--------|-------------|
+| `NewRequirementsChecker()` | Creates a new checker (uses `exec.LookPath`) |
+| `CheckBinaryExists(name)` | Checks if binary exists in PATH |
+| `CheckRequirement(req)` | Checks a single requirement (existence only) |
+| `CheckRequirements(reqs)` | Checks multiple requirements |
+| `CheckRequirementWithVersion(req)` | Checks requirement including version validation |
+| `CheckRequirementsWithVersion(reqs)` | Checks multiple requirements with versions |
+| `DetectVersion(name)` | Attempts to detect binary version |
+
+#### RequirementResult Structure
+
+```go
+type RequirementResult struct {
+    Requirement     ast.Requirement // The requirement checked
+    Found           bool            // True if binary found in PATH
+    Path            string          // Full path to binary
+    DetectedVersion string          // Version string if detected
+    Error           error           // Error if check failed
+}
+```
+
+### Version Handling (`version.go`)
+
+#### Version Structure
+
+```go
+type Version struct {
+    Major int // Major version number
+    Minor int // Minor version number (-1 if not specified)
+    Patch int // Patch version number (-1 if not specified)
+}
+```
+
+#### ParseVersion Function
+
+```go
+func ParseVersion(s string) (*Version, error)
+```
+
+Extracts version information from strings using pattern matching. Handles:
+- Simple versions: `11.4.0`, `11.4`, `11`
+- With prefix: `v1.2.3`
+- From tool output: `gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0`, `Python 3.10.12`
+
+#### Version.Satisfies Method
+
+```go
+func (v Version) Satisfies(spec ast.VersionSpec) bool
+```
+
+Checks if a detected version satisfies a requirement:
+
+| VersionSpec Type | Match Logic |
+|-----------------|-------------|
+| `VersionLatest` | Always matches |
+| `VersionMajor{11}` | Major must equal 11 |
+| `VersionMajorMinor{11, 4}` | Major=11, Minor=4 (any patch) |
+| `VersionExact{11, 4, 0}` | Exact match required |
+
+#### DetectVersion Method
+
+```go
+func (c *RequirementsChecker) DetectVersion(name string) (*Version, error)
+```
+
+Attempts to detect version by:
+1. Checking if binary exists
+2. Trying common version flags: `--version`, `-version`, `-v`
+3. Parsing version from stdout/stderr output
+
+### Error Types (`errors.go`)
+
+| Error Type | Description |
+|------------|-------------|
+| `BinaryNotFoundError` | Required binary not found in PATH |
+| `VersionMismatchError` | Found version doesn't match requirement |
+| `VersionDetectionError` | Unable to detect version |
+| `EnvironmentNotFoundError` | Named environment not found |
+| `NoDefaultEnvironmentError` | No default environment when required |
+
+### CLI Integration (`cmd/build/environ.go`, `environ_adapter.go`)
+
+#### --check-env Flag
+
+Verifies environment requirements:
+
+```bash
+build --check-env              # Check default environment
+build --check-env -e ci        # Check named environment
+```
+
+**Behavior:**
+1. Parse buildfile and extract environments
+2. Select environment (default or by `--env` name)
+3. For bare environments: check all `.requires:` entries
+4. Report status with ✓/✗ symbols
+
+#### --list-env Flag
+
+Lists available environments:
+
+```bash
+build --list-env
+```
+
+**Output format:**
+```
+Available environments (2):
+  (default)             bare             (2 requirements)
+  ci                    docker         
+```
+
+### Design Decisions
+
+1. **Separate package for environment logic**: Keeps environment management isolated from parsing and evaluation.
+
+2. **Injectable lookPath function**: `RequirementsChecker` accepts a `lookPath` function, enabling testing without actual filesystem operations.
+
+3. **Version detection via common flags**: Tries `--version`, `-version`, and `-v` to cover most command-line tools.
+
+4. **Regex-based version parsing**: Uses `(?:^|[^0-9])v?(\d+)(?:\.(\d+)(?:\.(\d+))?)?` to handle various version output formats.
+
+5. **Non-fatal version detection**: If version detection fails, the requirement check can still succeed for `VersionLatest` requirements.
+
+6. **Bare environment handling**: Default behavior when no `.environment:` is defined - uses host system directly.
+
+7. **Named environments require explicit selection**: If only named environments exist, `--env` must be specified.
+
+### Unit Tests
+
+#### Requirements Tests (`requirements_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestCheckBinaryExists` | Existing and non-existent binaries |
+| `TestCheckRequirement_ExistsNoVersion` | Binary exists with VersionLatest |
+| `TestCheckRequirement_NotFound` | Binary not found |
+| `TestCheckRequirements` | Multiple requirements |
+| `TestCheckRequirements_WithFailures` | Mixed success/failure |
+| `TestRequirementResult_String` | Human-readable status |
+| `TestBinaryNotFoundError` | Error message format |
+| `TestVersionMismatchError` | Error message format |
+| `TestVersionDetectionError` | Error message format |
+
+#### Version Tests (`version_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestParseVersion` | Various version string formats |
+| `TestVersionString` | Version to string conversion |
+| `TestVersionSatisfies` | Version matching against specs |
+| `TestDetectVersion` | Live version detection |
+
+#### CLI Tests (`main_test.go`)
+
+| Test | Description |
+|------|-------------|
+| `TestRunListEnv` | List environments with mixed types |
+| `TestRunListEnvNoEnvs` | No environments defined |
+| `TestRunCheckEnvDefaultSuccess` | Requirements satisfied |
+| `TestRunCheckEnvDefaultMissing` | Missing binary |
+| `TestRunCheckEnvNamed` | Check named environment |
+| `TestRunCheckEnvNamedNotFound` | Named environment doesn't exist |
+| `TestRunCheckEnvNoDefaultWithNamedOnly` | Error when no default |
+| `TestRunCheckEnvNoEnvironments` | Bare environment (no `.environment:`) |
