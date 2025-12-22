@@ -1,9 +1,12 @@
 package lexer
 
 // lexValue handles value mode (after = or :).
-// It skips leading spaces and recognizes function calls.
+// It recognizes function calls but does NOT skip spaces.
+// Leading space skipping is handled at the transition point (after = or :).
 func (l *Lexer) lexValue() Token {
-	l.skipSpaces()
+	// Do NOT skip spaces here - spaces are significant within values.
+	// Leading spaces are skipped when transitioning from = or : to ModeValue,
+	// but internal spaces (including those after interpolations) must be preserved.
 	return l.lexValueOrCommand(true)
 }
 

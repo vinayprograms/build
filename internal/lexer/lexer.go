@@ -193,6 +193,7 @@ func (l *Lexer) NextToken() Token {
 			return l.makeToken(DOUBLE_EQUALS, "==")
 		}
 		l.advance()
+		l.skipSpaces() // Skip leading spaces in value, but not internal spaces
 		l.mode = ModeValue
 		return l.makeToken(EQUALS, "=")
 
@@ -207,11 +208,13 @@ func (l *Lexer) NextToken() Token {
 
 	case ':':
 		l.advance()
+		l.skipSpaces() // Skip leading spaces in value, but not internal spaces
 		l.mode = ModeValue
 		return l.makeToken(COLON, ":")
 
 	case '(':
 		l.advance()
+		l.skipSpaces() // Skip leading spaces in function argument
 		l.mode = ModeValue // Inside parens, lex as value
 		return l.makeToken(LPAREN, "(")
 
