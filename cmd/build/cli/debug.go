@@ -1562,42 +1562,7 @@ func debugPlan(path string) int {
 	}
 	fmt.Println()
 
-	// Test pattern matching with some sample paths
-	fmt.Println("Pattern Matching Tests:")
-	testPaths := []string{
-		"build/app",
-		"build/main.o",
-		"build/utils.o",
-		"src/main.c",
-		"@all",
-		"@clean",
-		"@test",
-		"build/",
-	}
-
-	for _, testPath := range testPaths {
-		lookupResult := LookupTargetByPath(testPath, targets)
-		if lookupResult.Found() {
-			target := lookupResult.Target()
-			fmt.Printf("  %q → matches %s", testPath, patternStr(&target.Pattern))
-			if lookupResult.CaptureCount() > 0 {
-				fmt.Printf(" (captures: ")
-				for i := 0; i < lookupResult.CaptureCount(); i++ {
-					if i > 0 {
-						fmt.Printf(", ")
-					}
-					fmt.Printf("%s=%q", lookupResult.CaptureName(i), lookupResult.CaptureValue(i))
-				}
-				fmt.Printf(")")
-			}
-			fmt.Println()
-		} else {
-			fmt.Printf("  %q → no match\n", testPath)
-		}
-	}
-	fmt.Println()
-
-	// Interactive target lookup based on defined patterns
+	// Target lookup based on defined patterns
 	fmt.Println("Target Lookup Examples (from Buildfile patterns):")
 	// Generate test paths based on actual patterns
 	for _, target := range targets {
