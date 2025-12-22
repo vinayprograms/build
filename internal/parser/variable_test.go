@@ -101,7 +101,7 @@ func TestParser_ParseVariable_WithInterpolation(t *testing.T) {
 			name:           "interpolation in value",
 			input:          "all_flags = {cflags} {extra}",
 			wantName:       "all_flags",
-			wantPartTypes:  []string{"interp", "interp"}, // spaces are skipped
+			wantPartTypes:  []string{"interp", "literal", "interp"}, // space is a literal
 			wantInterpName: "cflags",
 		},
 		{

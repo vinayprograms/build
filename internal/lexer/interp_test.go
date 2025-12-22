@@ -84,6 +84,8 @@ func TestIsInterpBoundary(t *testing.T) {
 		{"comma", ',', false, true},
 		{"greater than", '>', false, true},
 		{"less than", '<', false, true},
+		{"hyphen", '-', false, true},
+		{"close brace", '}', false, true},
 
 		// Invalid boundaries
 		{"letter", 'a', false, false},
@@ -91,7 +93,6 @@ func TestIsInterpBoundary(t *testing.T) {
 		{"dollar", '$', false, false},
 		{"underscore", '_', false, false},
 		{"dot", '.', false, false},
-		{"hyphen", '-', false, false},
 	}
 
 	for _, tt := range tests {

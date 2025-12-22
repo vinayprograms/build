@@ -64,12 +64,14 @@ func IsValidIdentifierChar(c byte) bool {
 //   - `"` or `'` (quotes, for strings like "{var}")
 //   - `(`, `)`, `,` (function call syntax)
 //   - `>`, `<` (shell redirections)
+//   - `-` (hyphen, for patterns like app-{version})
+//   - `}` (closing brace, for consecutive interpolations like {a}{b})
 func IsInterpBoundary(prev byte, atSOL bool) bool {
 	if atSOL {
 		return true
 	}
 	switch prev {
-	case ' ', '\t', ':', '=', '/', '"', '\'', '(', ')', ',', '>', '<':
+	case ' ', '\t', ':', '=', '/', '"', '\'', '(', ')', ',', '>', '<', '-', '}':
 		return true
 	default:
 		return false
