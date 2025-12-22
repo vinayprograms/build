@@ -157,6 +157,13 @@ func (l *Lexer) lexContentString(isValueMode bool) Token {
 	}
 
 	literal := l.input[start:l.pos]
+
+	// Trim trailing whitespace when stopping at a comment
+	// This ensures "value  # comment" produces "value" not "value  "
+	if l.pos < len(l.input) && l.input[l.pos] == '#' {
+		literal = trimTrailingWhitespace(literal)
+	}
+
 	if len(literal) == 0 {
 		// If we didn't consume anything, advance one character
 		if l.pos < len(l.input) {
@@ -166,4 +173,13 @@ func (l *Lexer) lexContentString(isValueMode bool) Token {
 	}
 
 	return l.makeTokenAt(STRING, literal, startCol)
+}
+
+// trimTrailingWhitespace removes trailing spaces and tabs from a string.
+func trimTrailingWhitespace(s string) string {
+	end := len(s)
+	for end > 0 && (s[end-1] == ' ' || s[end-1] == '\t') {
+		end--
+	}
+	return s[:end]
 }
