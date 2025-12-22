@@ -1,0 +1,43 @@
+# Test: Parallel build with multiple independent and dependent tasks
+# Expected: Independent tasks run in parallel, dependent tasks wait
+# Category: Integration
+# Description: Demonstrates parallel execution with .parallel directive.
+#              Independent targets (@compile_a, @compile_b, @compile_c, @compile_d)
+#              can run simultaneously. @link waits for all compilations.
+#              With .parallel: 4, the 4 compile tasks should run concurrently.
+
+.parallel: 4
+
+# Independent compilation units - can run in parallel
+@compile_a:
+    echo "Compiling module A..."
+    sleep 0.1
+    echo "Module A done"
+
+@compile_b:
+    echo "Compiling module B..."
+    sleep 0.1
+    echo "Module B done"
+
+@compile_c:
+    echo "Compiling module C..."
+    sleep 0.1
+    echo "Module C done"
+
+@compile_d:
+    echo "Compiling module D..."
+    sleep 0.1
+    echo "Module D done"
+
+# Linking depends on all compilations - waits for parallel tasks
+@link: @compile_a @compile_b @compile_c @compile_d
+    echo "Linking all modules..."
+    echo "Link complete"
+
+# Final target
+@all: @link
+    echo "Build complete"
+
+# Clean target (independent)
+@clean:
+    echo "Cleaning build artifacts"
