@@ -664,6 +664,14 @@ func debugConditionals(path string) int {
 
 	for lineIdx < len(lines) {
 		line := lines[lineIdx]
+
+		// Only consider non-indented lines as potential conditional starts
+		// Indented lines are inside recipes/blocks and may contain shell if statements
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			lineIdx++
+			continue
+		}
+
 		trimmed := strings.TrimLeft(line, " \t")
 
 		// Look for conditional start
