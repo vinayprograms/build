@@ -49,6 +49,14 @@ func NewCommandContext(parent *Context, target string, deps []string) *CommandCo
 
 // setTargetDirAndFile sets target.dir and target.file automatic variables.
 func (c *CommandContext) setTargetDirAndFile(target string) {
+	// Handle phony targets (starting with @)
+	if strings.HasPrefix(target, "@") {
+		// For phony targets, target.dir is "." and target.file is the name without @
+		c.automatic["target.dir"] = "."
+		c.automatic["target.file"] = target[1:]
+		return
+	}
+
 	// Handle directory targets (ending with / or \)
 	if platform.IsDirectoryPath(target) {
 		// For directory targets, target.dir is the directory (without separator)

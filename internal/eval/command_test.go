@@ -59,6 +59,35 @@ func TestCommandContext_NoDependencies(t *testing.T) {
 	}
 }
 
+func TestCommandContext_PhonyTarget(t *testing.T) {
+	ctx := NewContext()
+	cmdCtx := NewCommandContext(ctx, "@clean", nil)
+
+	// For phony targets, target.dir should be "." and target.file should be name without @
+	tests := []struct {
+		name     string
+		expected string
+	}{
+		{"target", "@clean"},
+		{"out", "@clean"},
+		{"target.dir", "."},
+		{"target.file", "clean"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, ok := cmdCtx.Get(tt.name)
+			if !ok {
+				t.Errorf("automatic variable '%s' not defined", tt.name)
+				return
+			}
+			if val != tt.expected {
+				t.Errorf("expected '%s' = '%s', got '%s'", tt.name, tt.expected, val)
+			}
+		})
+	}
+}
+
 func TestCommandContext_WithStem(t *testing.T) {
 	ctx := NewContext()
 	cmdCtx := NewCommandContext(ctx, "build/utils.o", []string{"src/utils.c"})
