@@ -302,6 +302,10 @@ func Run(args []string) int {
 	// Create output reporter based on flags
 	reporter := NewNormalReporterWithConfig(os.Stdout, f.verbose, f.quiet, f.color)
 
+	// Determine number of workers for parallel execution
+	parallelDirective := GetParallelDirective(result)
+	numWorkers := ResolveWorkerCount(f.jobs, parallelDirective)
+
 	// Process each resolved target
 	hasFailure := false
 	totalTasks := 0
@@ -325,75 +329,121 @@ func Run(args []string) int {
 			ra.SetTotal(planResult.TaskCount())
 		}
 
-		// Execute tasks
+		// Create executor
 		executor := NewExecutor(shellConfig)
-		for i := 0; i < planResult.TaskCount(); i++ {
-			task := planResult.Task(i)
-			totalTasks++
 
-			// Announce the build
-			reporter.BuildStarted(task.Target())
+		// Use scheduler for parallel execution
+		if numWorkers > 1 {
+			scheduler := NewScheduler(executor, numWorkers)
+			scheduler.SetKeepGoing(f.keep)
 
-			// Get the recipe
-			recipe := task.Recipe()
-			if recipe == nil {
-				reporter.BuildCompleted(task.Target(), true, "")
-				continue
-			}
+			results := scheduler.ExecutePlan(planResult, ctx, reporter)
 
-			// Get recipe shell override if present
-			recipeShell := GetRecipeShell(recipe, globalShell, ctx)
-			if recipeShell != globalShell {
-				executor = NewExecutor(shellConfig.WithOverride(recipeShell))
-			}
-
-			// Create command context with automatic variables
-			cmdCtx := NewCommandContext(
-				ctx,
-				task.Target(),
-				task.Deps(),
-			)
-			// Set captures if present
-			if cca, ok := cmdCtx.(*commandContextAdapter); ok {
-				cca.SetCaptures(task.Captures())
-			}
-
-			// Execute the recipe
-			results, err := executor.ExecuteRecipe(recipe, cmdCtx)
-
-			// Report command output (commands are printed by executor during execution)
 			for _, r := range results {
-				reporter.CommandOutput(r.Command(), r.Stdout(), r.Stderr())
-			}
+				totalTasks++
+				if r.Skipped {
+					continue
+				}
 
-			if err != nil {
-				reporter.BuildCompleted(task.Target(), false, err.Error())
-				hasFailure = true
-				failedTasks++
-				break
-			}
+				// Report command output
+				for _, er := range r.Results {
+					reporter.CommandOutput(er.Command(), er.Stdout(), er.Stderr())
+				}
 
-			// Check for command failures
-			cmdFailed := false
-			for _, r := range results {
-				if r.ExitCode() != 0 {
-					errMsg := fmt.Sprintf("command failed with exit code %d: %s", r.ExitCode(), r.Command())
-					reporter.BuildCompleted(task.Target(), false, errMsg)
+				if r.Error != nil {
+					reporter.BuildCompleted(r.Target, false, r.Error.Error())
 					hasFailure = true
 					failedTasks++
-					cmdFailed = true
-					break
+					continue
+				}
+
+				// Check for command failures
+				cmdFailed := false
+				for _, er := range r.Results {
+					if er.ExitCode() != 0 {
+						errMsg := fmt.Sprintf("command failed with exit code %d: %s", er.ExitCode(), er.Command())
+						reporter.BuildCompleted(r.Target, false, errMsg)
+						hasFailure = true
+						failedTasks++
+						cmdFailed = true
+						break
+					}
+				}
+
+				if !cmdFailed {
+					reporter.BuildCompleted(r.Target, true, "")
 				}
 			}
+		} else {
+			// Sequential execution (original code path)
+			for i := 0; i < planResult.TaskCount(); i++ {
+				task := planResult.Task(i)
+				totalTasks++
 
-			if cmdFailed {
-				break
+				// Announce the build
+				reporter.BuildStarted(task.Target())
+
+				// Get the recipe
+				recipe := task.Recipe()
+				if recipe == nil {
+					reporter.BuildCompleted(task.Target(), true, "")
+					continue
+				}
+
+				// Get recipe shell override if present
+				recipeShell := GetRecipeShell(recipe, globalShell, ctx)
+				if recipeShell != globalShell {
+					executor = NewExecutor(shellConfig.WithOverride(recipeShell))
+				}
+
+				// Create command context with automatic variables
+				cmdCtx := NewCommandContext(
+					ctx,
+					task.Target(),
+					task.Deps(),
+				)
+				// Set captures if present
+				if cca, ok := cmdCtx.(*commandContextAdapter); ok {
+					cca.SetCaptures(task.Captures())
+				}
+
+				// Execute the recipe
+				results, err := executor.ExecuteRecipe(recipe, cmdCtx)
+
+				// Report command output (commands are printed by executor during execution)
+				for _, r := range results {
+					reporter.CommandOutput(r.Command(), r.Stdout(), r.Stderr())
+				}
+
+				if err != nil {
+					reporter.BuildCompleted(task.Target(), false, err.Error())
+					hasFailure = true
+					failedTasks++
+					break
+				}
+
+				// Check for command failures
+				cmdFailed := false
+				for _, r := range results {
+					if r.ExitCode() != 0 {
+						errMsg := fmt.Sprintf("command failed with exit code %d: %s", r.ExitCode(), r.Command())
+						reporter.BuildCompleted(task.Target(), false, errMsg)
+						hasFailure = true
+						failedTasks++
+						cmdFailed = true
+						break
+					}
+				}
+
+				if cmdFailed {
+					break
+				}
+
+				reporter.BuildCompleted(task.Target(), true, "")
 			}
-
-			reporter.BuildCompleted(task.Target(), true, "")
 		}
 
-		if hasFailure {
+		if hasFailure && !f.keep {
 			break
 		}
 	}
