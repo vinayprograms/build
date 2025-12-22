@@ -47,8 +47,7 @@ func (c *collector) collectStatement(stmt ast.Statement) {
 	case *ast.Conditional:
 		c.collectConditional(s)
 	case *ast.Directive:
-		// Directives don't define symbols (they are configuration)
-		// .include is handled during parsing, statements are already merged
+		c.collectDirective(s)
 	case *ast.Comment:
 		// Comments are ignored
 	case *ast.Blank:
@@ -73,6 +72,13 @@ func (c *collector) collectTarget(t *ast.Target) {
 // collectEnvironment adds an environment definition to the symbol table.
 func (c *collector) collectEnvironment(e *ast.Environment) {
 	if err := c.st.AddEnvironment(e); err != nil {
+		c.errors = append(c.errors, err)
+	}
+}
+
+// collectDirective adds a global directive to the symbol table.
+func (c *collector) collectDirective(d *ast.Directive) {
+	if err := c.st.AddDirective(d); err != nil {
 		c.errors = append(c.errors, err)
 	}
 }

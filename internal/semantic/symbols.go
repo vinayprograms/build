@@ -42,6 +42,10 @@ type SymbolTable struct {
 	// The empty string key is used for the default (unnamed) environment.
 	Environments map[string]*ast.Environment
 
+	// Directives maps directive kinds to their definitions.
+	// Each global directive (.shell, .parallel, .default) can only be defined once.
+	Directives map[ast.DirectiveKind]*ast.Directive
+
 	// automatic is the set of automatic variable names.
 	// These are only valid inside recipe/block scope.
 	automatic map[string]bool
@@ -69,6 +73,7 @@ func NewSymbolTable() *SymbolTable {
 		Targets:         make([]*ast.Target, 0),
 		targetPatterns:  make(map[string]ast.SourceLocation),
 		Environments:    make(map[string]*ast.Environment),
+		Directives:      make(map[ast.DirectiveKind]*ast.Directive),
 		automatic:       make(map[string]bool),
 		builtin:         make(map[string]bool),
 	}
@@ -174,6 +179,28 @@ func (st *SymbolTable) AddEnvironment(e *ast.Environment) error {
 	}
 
 	st.Environments[key] = e
+	return nil
+}
+
+// AddDirective adds a global directive to the symbol table.
+// Returns an error if a directive of the same kind already exists.
+// Note: .include directives are handled during parsing and don't need tracking here.
+func (st *SymbolTable) AddDirective(d *ast.Directive) error {
+	// Skip .include directives - they are processed during parsing
+	if d.Kind == ast.DirectiveInclude {
+		return nil
+	}
+
+	if existing, ok := st.Directives[d.Kind]; ok {
+		return &DuplicateDefinitionError{
+			Kind:   "directive",
+			Name:   "." + d.Kind.String(),
+			First:  existing.Location,
+			Second: d.Location,
+		}
+	}
+
+	st.Directives[d.Kind] = d
 	return nil
 }
 
