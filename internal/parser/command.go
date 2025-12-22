@@ -47,6 +47,11 @@ func (p *Parser) parseCommandLine() (*ast.LineCommand, *ParseError) {
 		}
 	}
 
+	// Consume trailing comment (if present)
+	if p.current.Type == lexer.COMMENT {
+		p.nextToken()
+	}
+
 	// Consume newline
 	if p.current.Type == lexer.NEWLINE {
 		p.nextToken()
@@ -134,6 +139,7 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 	defer p.ExitScope()
 
 	var lines [][]ast.CommandPart
+	baseIndent := -1 // Will be set from first block line
 
 	// Parse block lines until dedent
 	for {
@@ -147,10 +153,22 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 		}
 
 		// Check indent level - block content should be at level 2
-		indentLevel := p.calculateIndentLevel(p.current.Literal)
+		indentStr := p.current.Literal
+		indentLevel := p.calculateIndentLevel(indentStr)
 		if indentLevel < 2 {
 			// Back to recipe level - end of block
 			break
+		}
+
+		// Set base indent from first line
+		if baseIndent < 0 {
+			baseIndent = len(indentStr)
+		}
+
+		// Calculate relative indent (extra spaces beyond base)
+		relativeIndent := ""
+		if len(indentStr) > baseIndent {
+			relativeIndent = indentStr[baseIndent:]
 		}
 
 		// Block content is always command lines - switch to command mode
@@ -159,6 +177,8 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 
 		// Empty line in block
 		if p.current.Type == lexer.NEWLINE {
+			// Preserve empty lines in block output
+			lines = append(lines, []ast.CommandPart{})
 			p.nextToken()
 			continue
 		}
@@ -172,8 +192,8 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 			continue
 		}
 
-		// Parse block line
-		lineParts, err := p.parseBlockLine()
+		// Parse block line with relative indent prepended
+		lineParts, err := p.parseBlockLineWithIndent(relativeIndent)
 		if err != nil {
 			return nil, err
 		}
@@ -188,9 +208,14 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 	}, nil
 }
 
-// parseBlockLine parses a single line in a block.
-func (p *Parser) parseBlockLine() ([]ast.CommandPart, *ParseError) {
+// parseBlockLineWithIndent parses a single line in a block, prepending relative indent.
+func (p *Parser) parseBlockLineWithIndent(indent string) ([]ast.CommandPart, *ParseError) {
 	var parts []ast.CommandPart
+
+	// Prepend relative indent if any
+	if indent != "" {
+		parts = append(parts, &ast.LiteralCommand{Text: indent})
+	}
 
 	// Parse parts until newline
 	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF && p.current.Type != lexer.COMMENT {
@@ -220,6 +245,11 @@ func (p *Parser) parseBlockLine() ([]ast.CommandPart, *ParseError) {
 			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
 			p.nextToken()
 		}
+	}
+
+	// Consume trailing comment (if present)
+	if p.current.Type == lexer.COMMENT {
+		p.nextToken()
 	}
 
 	// Consume newline

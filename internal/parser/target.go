@@ -42,6 +42,11 @@ func (p *Parser) ParseTarget() (*ast.Target, *ParseError) {
 		return nil, err
 	}
 
+	// Consume trailing comment (if present)
+	if p.current.Type == lexer.COMMENT {
+		p.nextToken()
+	}
+
 	// Consume trailing newline/EOF
 	if p.current.Type == lexer.NEWLINE {
 		p.nextToken()
