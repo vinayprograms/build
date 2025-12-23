@@ -134,6 +134,24 @@ build/{name}.o: src/{name}.c
 | `{target.dir}` | Directory part of target |
 | `{target.file}` | Filename part of target |
 
+### Variable Interpolation
+
+Variables are **shell-quoted by default** to safely handle paths with spaces:
+
+```bash
+src_dir = my project/src
+@build:
+    find {src_dir} -name "*.c"    # Executes: find 'my project/src' -name "*.c"
+```
+
+Use `:raw` modifier when you need word splitting (e.g., compiler flags):
+
+```bash
+cflags = -Wall -O2
+@build:
+    gcc {cflags:raw} -c main.c    # Executes: gcc -Wall -O2 -c main.c
+```
+
 ### Built-in Functions
 
 ```bash
