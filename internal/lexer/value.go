@@ -91,6 +91,11 @@ func (l *Lexer) lexValueOrCommand(isValueMode bool) Token {
 		// Comma separates function arguments
 		if ch == ',' {
 			l.advance()
+			// Skip whitespace after comma (before next argument)
+			for l.pos < len(l.input) && l.input[l.pos] == ' ' {
+				l.pos++
+				l.col++
+			}
 			return l.makeToken(COMMA, ",")
 		}
 
