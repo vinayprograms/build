@@ -1,0 +1,17 @@
+# Test: Nested function calls
+# Expected: Should evaluate from inside out
+# Category: Functions
+# Description: Tests nested function calls
+
+path = /some/path/to/file.c
+name = filename({path})
+objname = replace({name}, .c, .o)
+
+# More complex nesting
+full_dir = dirname(/project/src/main.c)
+parent_dir = dirname({full_dir})
+
+@test:
+    echo "Filename: {name}"
+    echo "Object: {objname}"
+    echo "Parent dir: {parent_dir}"

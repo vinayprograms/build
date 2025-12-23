@@ -1,0 +1,13 @@
+# Test: filename() function
+# Expected: Should extract filename
+# Category: Functions
+# Description: Tests filename() function
+
+file = filename(/path/to/file.txt)
+with_ext = filename(src/main.c)
+deep_path = filename(/very/deep/nested/path/script.sh)
+
+@test:
+    echo "File: {file}"
+    echo "With ext: {with_ext}"
+    echo "Deep: {deep_path}"
