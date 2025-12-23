@@ -12,6 +12,10 @@ import (
 type Context struct {
 	mu sync.RWMutex
 
+	// workDir is the working directory for shell commands (typically the Buildfile's directory).
+	// If empty, commands run in the current process directory.
+	workDir string
+
 	// variables holds evaluated variable values.
 	// Keys are variable names, values are the evaluated string values.
 	variables map[string]string
@@ -45,6 +49,20 @@ func NewContext() *Context {
 			"arch": runtime.GOARCH,
 		},
 	}
+}
+
+// SetWorkDir sets the working directory for shell commands.
+func (c *Context) SetWorkDir(dir string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.workDir = dir
+}
+
+// WorkDir returns the working directory for shell commands.
+func (c *Context) WorkDir() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.workDir
 }
 
 // Get retrieves the value of a variable.

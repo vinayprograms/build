@@ -52,6 +52,12 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 	shell := platform.DefaultShell()
 	args := platform.ShellCommandArgs(shell, cmd)
 	shellCmd := exec.Command(shell, args...)
+
+	// Set working directory if specified
+	if workDir := e.ctx.WorkDir(); workDir != "" {
+		shellCmd.Dir = workDir
+	}
+
 	output, err := shellCmd.Output()
 	if err != nil {
 		// Do NOT cache errors - allow retry on failure

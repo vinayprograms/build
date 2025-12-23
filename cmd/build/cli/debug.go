@@ -4,6 +4,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -1436,7 +1437,7 @@ func debugEval(path string) int {
 	fmt.Println("Variable Evaluation:")
 	fmt.Println()
 
-	evalResult := EvaluateVariables(result)
+	evalResult := EvaluateVariables(result, filepath.Dir(path))
 
 	// Print built-in variables
 	fmt.Println("Built-in Variables:")
@@ -1585,7 +1586,7 @@ func debugPlan(path string) int {
 	fmt.Println()
 
 	// Evaluate variables for dependency resolution
-	evalResult := EvaluateVariables(result)
+	evalResult := EvaluateVariables(result, filepath.Dir(path))
 	if evalResult.HasErrors() {
 		fmt.Printf("Evaluation errors (%d):\n", evalResult.ErrorCount())
 		for _, e := range evalResult.Errors() {

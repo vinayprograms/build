@@ -209,8 +209,13 @@ func (era *evalResultAdapter) LazyName(i int) string {
 
 // EvaluateVariables evaluates all variables from parsed statements and returns
 // an EvalResult containing the evaluation context and any errors.
-func EvaluateVariables(result BuildfileResult) EvalResult {
+// The workDir parameter specifies the working directory for shell commands
+// (typically the directory containing the Buildfile).
+func EvaluateVariables(result BuildfileResult, workDir string) EvalResult {
 	ctx := eval.NewContext()
+	if workDir != "" {
+		ctx.SetWorkDir(workDir)
+	}
 	evaluator := eval.NewEvaluator(ctx)
 
 	// Convert Statement interface slice to ast.Statement slice
