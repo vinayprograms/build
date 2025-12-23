@@ -159,6 +159,11 @@ func debugVariables(path string) int {
 			continue
 		}
 
+		// Skip indented lines (recipe commands start with whitespace)
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			continue
+		}
+
 		// Check if this looks like a variable (has = before :)
 		if !looksLikeVariable(trimmed) {
 			continue
@@ -235,8 +240,25 @@ func looksLikeVariable(s string) bool {
 	}
 	equalsPos := -1
 	colonPos := -1
+	inQuote := false
+	quoteChar := byte(0)
 	for i := 0; i < len(s); i++ {
-		if s[i] == '=' && equalsPos < 0 {
+		ch := s[i]
+		// Track quoted regions - ignore = and : inside quotes
+		if !inQuote && (ch == '"' || ch == '\'') {
+			inQuote = true
+			quoteChar = ch
+			continue
+		}
+		if inQuote && ch == quoteChar {
+			inQuote = false
+			quoteChar = 0
+			continue
+		}
+		if inQuote {
+			continue
+		}
+		if ch == '=' && equalsPos < 0 {
 			// Skip == (comparison operator)
 			if i+1 < len(s) && s[i+1] == '=' {
 				i++ // skip the second =
@@ -244,7 +266,7 @@ func looksLikeVariable(s string) bool {
 			}
 			equalsPos = i
 		}
-		if s[i] == ':' && colonPos < 0 {
+		if ch == ':' && colonPos < 0 {
 			colonPos = i
 		}
 	}
