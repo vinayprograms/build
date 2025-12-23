@@ -68,7 +68,7 @@ func (p *Parser) ParseValue() *ast.Value {
 				parts = append(parts, interp)
 			}
 
-		case lexer.FUNC_SHELL, lexer.FUNC_GLOB, lexer.FUNC_BASENAME, lexer.FUNC_DIRNAME, lexer.FUNC_REPLACE:
+		case lexer.FUNC_SHELL, lexer.FUNC_GLOB, lexer.FUNC_FILENAME, lexer.FUNC_DIRNAME, lexer.FUNC_REPLACE:
 			funcCall := p.parseFunctionCall()
 			if funcCall != nil {
 				parts = append(parts, funcCall)
@@ -166,8 +166,8 @@ func (p *Parser) parseFunctionCall() *ast.FunctionCall {
 		funcName = ast.FuncShell
 	case lexer.FUNC_GLOB:
 		funcName = ast.FuncGlob
-	case lexer.FUNC_BASENAME:
-		funcName = ast.FuncBasename
+	case lexer.FUNC_FILENAME:
+		funcName = ast.FuncFilename
 	case lexer.FUNC_DIRNAME:
 		funcName = ast.FuncDirname
 	case lexer.FUNC_REPLACE:
@@ -180,8 +180,8 @@ func (p *Parser) parseFunctionCall() *ast.FunctionCall {
 				funcName = ast.FuncShell
 			case "glob":
 				funcName = ast.FuncGlob
-			case "basename":
-				funcName = ast.FuncBasename
+			case "filename":
+				funcName = ast.FuncFilename
 			case "dirname":
 				funcName = ast.FuncDirname
 			case "replace":

@@ -62,7 +62,7 @@ const (
 	// Built-in functions
 	FUNC_SHELL
 	FUNC_GLOB
-	FUNC_BASENAME
+	FUNC_FILENAME
 	FUNC_DIRNAME
 	FUNC_REPLACE
 )
@@ -110,7 +110,7 @@ var tokenTypeNames = map[TokenType]string{
 	ESCAPE_RBRACE:   "ESCAPE_RBRACE",
 	FUNC_SHELL:      "FUNC_SHELL",
 	FUNC_GLOB:       "FUNC_GLOB",
-	FUNC_BASENAME:   "FUNC_BASENAME",
+	FUNC_FILENAME:   "FUNC_FILENAME",
 	FUNC_DIRNAME:    "FUNC_DIRNAME",
 	FUNC_REPLACE:    "FUNC_REPLACE",
 }
@@ -164,7 +164,7 @@ func (t TokenType) IsKeyword() bool {
 var functionTypes = map[TokenType]bool{
 	FUNC_SHELL:    true,
 	FUNC_GLOB:     true,
-	FUNC_BASENAME: true,
+	FUNC_FILENAME: true,
 	FUNC_DIRNAME:  true,
 	FUNC_REPLACE:  true,
 }
@@ -185,7 +185,7 @@ var keywords = map[string]TokenType{
 	"block":    BLOCK,
 	"shell":    FUNC_SHELL,
 	"glob":     FUNC_GLOB,
-	"basename": FUNC_BASENAME,
+	"filename": FUNC_FILENAME,
 	"dirname":  FUNC_DIRNAME,
 	"replace":  FUNC_REPLACE,
 }

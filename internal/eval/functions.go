@@ -17,8 +17,8 @@ func (e *Evaluator) evaluateFunction(call *ast.FunctionCall) (string, error) {
 		return e.funcShell(call)
 	case ast.FuncGlob:
 		return e.funcGlob(call)
-	case ast.FuncBasename:
-		return e.funcBasename(call)
+	case ast.FuncFilename:
+		return e.funcFilename(call)
 	case ast.FuncDirname:
 		return e.funcDirname(call)
 	case ast.FuncReplace:
@@ -134,10 +134,10 @@ func (e *Evaluator) funcGlob(call *ast.FunctionCall) (string, error) {
 	return strings.Join(matches, " "), nil
 }
 
-// funcBasename extracts the filename from a path.
-func (e *Evaluator) funcBasename(call *ast.FunctionCall) (string, error) {
+// funcFilename extracts the filename from a path.
+func (e *Evaluator) funcFilename(call *ast.FunctionCall) (string, error) {
 	if len(call.Args) < 1 {
-		return "", fmt.Errorf("basename() requires at least one argument")
+		return "", fmt.Errorf("filename() requires at least one argument")
 	}
 
 	// Evaluate the path

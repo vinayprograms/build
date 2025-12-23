@@ -41,7 +41,7 @@ type FunctionName int
 const (
 	FuncShell FunctionName = iota
 	FuncGlob
-	FuncBasename
+	FuncFilename
 	FuncDirname
 	FuncReplace
 )
@@ -53,8 +53,8 @@ func (f FunctionName) String() string {
 		return "shell"
 	case FuncGlob:
 		return "glob"
-	case FuncBasename:
-		return "basename"
+	case FuncFilename:
+		return "filename"
 	case FuncDirname:
 		return "dirname"
 	case FuncReplace:

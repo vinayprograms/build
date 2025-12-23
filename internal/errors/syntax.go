@@ -146,8 +146,8 @@ func getFunctionUsageHelp(funcName string) string {
 		return "usage: shell(command)"
 	case "glob":
 		return "usage: glob(pattern)"
-	case "basename":
-		return "usage: basename(path)"
+	case "filename":
+		return "usage: filename(path)"
 	case "dirname":
 		return "usage: dirname(path)"
 	case "replace":
