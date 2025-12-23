@@ -307,6 +307,12 @@ func Run(args []string) int {
 	parallelDirective := GetParallelDirective(result)
 	numWorkers := ResolveWorkerCount(f.jobs, parallelDirective)
 
+	// Validate environment requirements before execution
+	if err := validateEnvironmentRequirements(result, f.env); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return exitEnvError
+	}
+
 	// Process each resolved target
 	hasFailure := false
 	totalTasks := 0

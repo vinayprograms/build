@@ -10,6 +10,64 @@ import (
 	"github.com/vinayprograms/build/internal/environ"
 )
 
+// validateEnvironmentRequirements checks that the selected environment's requirements are met.
+// Returns nil if no environment is selected, no requirements exist, or all requirements are satisfied.
+// Returns an error describing which requirements failed if any are not met.
+func validateEnvironmentRequirements(result BuildfileResult, envName string) error {
+	envs := GetEnvironments(result)
+	if len(envs) == 0 {
+		return nil // No environments defined
+	}
+
+	// Find the selected environment
+	var selectedEnv *ast.Environment
+	if envName == "" {
+		// Look for default (unnamed) environment
+		for _, env := range envs {
+			if env.Name == nil {
+				selectedEnv = env
+				break
+			}
+		}
+	} else {
+		// Look for named environment
+		for _, env := range envs {
+			if env.Name != nil && *env.Name == envName {
+				selectedEnv = env
+				break
+			}
+		}
+		if selectedEnv == nil {
+			return fmt.Errorf("environment '%s' not found", envName)
+		}
+	}
+
+	if selectedEnv == nil || len(selectedEnv.Requires) == 0 {
+		return nil // No requirements to check
+	}
+
+	// Check requirements using the same checker as recipe .requires
+	checker := environ.NewRequirementsChecker()
+	checkResults := checker.CheckRequirementsWithVersion(selectedEnv.Requires)
+
+	var errors []string
+	for _, r := range checkResults {
+		if r.Error != nil {
+			errors = append(errors, r.String())
+		}
+	}
+
+	if len(errors) > 0 {
+		envDisplay := "(default)"
+		if envName != "" {
+			envDisplay = envName
+		}
+		return fmt.Errorf("environment '%s' requirements not met:\n  %s", envDisplay, strings.Join(errors, "\n  "))
+	}
+
+	return nil
+}
+
 // checkEnvironment verifies the requirements for an environment.
 // If envName is empty, checks the default environment.
 // If showInstall is true, shows install suggestions for missing binaries.
