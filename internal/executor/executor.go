@@ -6,9 +6,11 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/environ"
 	"github.com/vinayprograms/build/internal/eval"
 	"github.com/vinayprograms/build/internal/output"
 	"github.com/vinayprograms/build/internal/platform"
@@ -292,6 +294,24 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 		recipeExec.target = target
 	}
 
+	// Check .requires directive - verify required binaries exist
+	if len(recipe.Directives.Requires) > 0 {
+		checker := environ.NewRequirementsChecker()
+		checkResults := checker.CheckRequirements(recipe.Directives.Requires)
+		var missing []string
+		for _, r := range checkResults {
+			if r.Error != nil {
+				missing = append(missing, r.Requirement.Name)
+			}
+		}
+		if len(missing) > 0 {
+			return results, &RequirementError{
+				Target:  target,
+				Missing: missing,
+			}
+		}
+	}
+
 	// In dry-run mode, print "Would build: target" prefix
 	if e.config.DryRun && len(recipe.Commands) > 0 {
 		fmt.Fprintf(e.output, "Would build: %s\n", target)
@@ -359,4 +379,14 @@ type ShellNotFoundError struct {
 
 func (e *ShellNotFoundError) Error() string {
 	return fmt.Sprintf("shell not found: %s", e.Shell)
+}
+
+// RequirementError represents a missing required binary.
+type RequirementError struct {
+	Target  string
+	Missing []string
+}
+
+func (e *RequirementError) Error() string {
+	return fmt.Sprintf("missing required binaries for %s: %s", e.Target, strings.Join(e.Missing, ", "))
 }
