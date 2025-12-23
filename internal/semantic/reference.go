@@ -119,18 +119,17 @@ func (v *referenceValidator) validateTarget(t *ast.Target) {
 
 // validateRecipe validates references in a recipe.
 func (v *referenceValidator) validateRecipe(r *ast.Recipe, target *ast.Target) {
-	// Validate recipe directives
+	// Validate recipe directives - these are in recipe scope and can use captures
 	if r.Directives.Shell != nil {
-		// Shell directive is validated in recipe scope but doesn't use automatic vars typically
-		v.validateValue(r.Directives.Shell, false, nil)
+		v.validateValue(r.Directives.Shell, true, target)
 	}
 
 	for _, after := range r.Directives.After {
-		v.validateValue(after, false, nil)
+		v.validateValue(after, true, target)
 	}
 
 	if r.Directives.Autodeps != nil {
-		v.validateValue(r.Directives.Autodeps, false, nil)
+		v.validateValue(r.Directives.Autodeps, true, target)
 	}
 
 	// Validate commands
