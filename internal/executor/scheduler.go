@@ -253,6 +253,13 @@ func (s *Scheduler) executeTask(task *planner.BuildTask, ctxFactory ContextFacto
 	cmdCtx := ctxFactory(task.Target)
 	if task.Captures != nil {
 		cmdCtx.SetCaptures(task.Captures)
+		// Set stem to the first capture value (similar to make's $*)
+		// For pattern targets like src/{name}.txt matching src/input1.txt,
+		// stem would be "input1"
+		for _, v := range task.Captures {
+			cmdCtx.SetStem(v)
+			break
+		}
 	}
 
 	// Execute recipe

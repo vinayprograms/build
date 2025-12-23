@@ -411,9 +411,15 @@ func Run(args []string) int {
 					task.Target(),
 					task.Deps(),
 				)
-				// Set captures if present
+				// Set captures and stem if present
 				if cca, ok := cmdCtx.(*commandContextAdapter); ok {
-					cca.SetCaptures(task.Captures())
+					captures := task.Captures()
+					cca.SetCaptures(captures)
+					// Set stem to the first capture value (similar to make's $*)
+					for _, v := range captures {
+						cca.SetStem(v)
+						break
+					}
 				}
 
 				// Execute the recipe (output is printed by executor during execution)
