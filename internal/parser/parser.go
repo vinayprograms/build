@@ -305,8 +305,15 @@ func (p *Parser) parseTopLevelDirectiveWithIncludes() ([]ast.Statement, *ParseEr
 // recoverToLevel0 advances the parser until it reaches a line at indentation level 0.
 // This is used for error recovery to skip past erroneous content.
 func (p *Parser) recoverToLevel0() {
+	// Track if we started inside a conditional (saw else/elif/end at level 0)
+	nestLevel := 0
+
 	// Skip the current line
 	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+		// Track conditional nesting to find matching end
+		if p.current.Type == lexer.IF || p.current.Type == lexer.IFDEF || p.current.Type == lexer.IFNDEF {
+			nestLevel++
+		}
 		p.nextToken()
 	}
 
@@ -315,7 +322,7 @@ func (p *Parser) recoverToLevel0() {
 		p.nextToken()
 	}
 
-	// Continue skipping indented lines
+	// Continue skipping indented lines and orphaned conditional keywords
 	for p.current.Type != lexer.EOF {
 		// If we see an INDENT token, skip the whole line
 		if p.current.Type == lexer.INDENT {
@@ -328,7 +335,38 @@ func (p *Parser) recoverToLevel0() {
 			continue
 		}
 
-		// Reached a non-indented line, stop recovering
+		// Skip orphaned conditional keywords (else/elif/end) that belong to the
+		// broken conditional we're recovering from
+		if p.current.Type == lexer.ELSE || p.current.Type == lexer.ELIF {
+			// Skip the line with else/elif
+			for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+				p.nextToken()
+			}
+			if p.current.Type == lexer.NEWLINE {
+				p.nextToken()
+			}
+			continue
+		}
+
+		if p.current.Type == lexer.END {
+			if nestLevel > 0 {
+				nestLevel--
+			}
+			// Skip the end keyword and its line
+			for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF {
+				p.nextToken()
+			}
+			if p.current.Type == lexer.NEWLINE {
+				p.nextToken()
+			}
+			// If we're back to level 0, we've recovered past the broken conditional
+			if nestLevel == 0 {
+				break
+			}
+			continue
+		}
+
+		// Reached a non-indented, non-conditional line, stop recovering
 		break
 	}
 }

@@ -386,6 +386,13 @@ func (p *Parser) parseBodyStatement() (ast.Statement, *ParseError) {
 		}
 		return nested, nil
 
+	case lexer.AT_IDENTIFIER:
+		// Phony target inside conditional - not supported
+		return nil, &ParseError{
+			Message:  "targets cannot be defined inside conditionals",
+			Location: p.current.Location,
+		}
+
 	default:
 		// Skip unknown tokens for now
 		p.nextToken()
