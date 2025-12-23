@@ -107,7 +107,7 @@ build/app: src/main.c
 				t.Fatalf("parse errors: %s", result.AllErrors())
 			}
 
-			targets, err := ResolveTargetArgs(nil, result)
+			targets, err := ResolveTargetArgs(nil, result, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -235,7 +235,7 @@ build/test: src/test.c
 				t.Fatalf("parse errors: %s", result.AllErrors())
 			}
 
-			targets, err := ResolveTargetArgs(tt.args, result)
+			targets, err := ResolveTargetArgs(tt.args, result, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -346,7 +346,7 @@ build/app: src/main.c
 				t.Fatalf("parse errors: %s", result.AllErrors())
 			}
 
-			targets, err := ResolveTargetArgs(tt.args, result)
+			targets, err := ResolveTargetArgs(tt.args, result, nil)
 
 			if tt.wantErr {
 				if err == nil {
@@ -403,7 +403,7 @@ build/app: src/main.c
 	}
 
 	// Empty slice should behave like nil
-	targets, err := ResolveTargetArgs([]string{}, result)
+	targets, err := ResolveTargetArgs([]string{}, result, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

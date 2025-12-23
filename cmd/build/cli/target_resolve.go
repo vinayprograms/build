@@ -9,8 +9,9 @@ import (
 
 // ResolveTargetArgs resolves command-line target arguments to canonical target names.
 // If args is nil or empty, uses .default: directive or first defined target.
+// The ctx parameter is used to resolve variable interpolations in target patterns.
 // Returns resolved target names (with @ prefix for phony targets) or error.
-func ResolveTargetArgs(args []string, result BuildfileResult) ([]string, error) {
+func ResolveTargetArgs(args []string, result BuildfileResult, ctx EvalContext) ([]string, error) {
 	statements := GetASTStatements(result)
 	if statements == nil {
 		return nil, errors.New("no targets defined")
@@ -20,10 +21,10 @@ func ResolveTargetArgs(args []string, result BuildfileResult) ([]string, error) 
 	targets, defaultTarget := extractTargetsAndDefault(statements)
 
 	if len(args) == 0 {
-		return resolveDefaultTarget(targets, defaultTarget)
+		return resolveDefaultTarget(targets, defaultTarget, ctx)
 	}
 
-	return resolveExplicitTargets(args, targets)
+	return resolveExplicitTargets(args, targets, ctx)
 }
 
 // extractTargetsAndDefault extracts all targets and the .default: directive from statements.
@@ -60,14 +61,14 @@ func extractLiteralValue(v *ast.Value) string {
 }
 
 // resolveDefaultTarget resolves the default target when no arguments provided.
-func resolveDefaultTarget(targets []*ast.Target, defaultTarget string) ([]string, error) {
+func resolveDefaultTarget(targets []*ast.Target, defaultTarget string, ctx EvalContext) ([]string, error) {
 	if len(targets) == 0 {
 		return nil, errors.New("no targets defined")
 	}
 
 	// If .default: directive is present, resolve it
 	if defaultTarget != "" {
-		resolved, err := resolveTargetName(defaultTarget, targets)
+		resolved, err := resolveTargetName(defaultTarget, targets, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -76,15 +77,15 @@ func resolveDefaultTarget(targets []*ast.Target, defaultTarget string) ([]string
 
 	// Otherwise, use first target
 	first := targets[0]
-	return []string{formatTargetName(first)}, nil
+	return []string{formatTargetName(first, ctx)}, nil
 }
 
 // resolveExplicitTargets resolves a list of explicit target arguments.
-func resolveExplicitTargets(args []string, targets []*ast.Target) ([]string, error) {
+func resolveExplicitTargets(args []string, targets []*ast.Target, ctx EvalContext) ([]string, error) {
 	resolved := make([]string, 0, len(args))
 
 	for _, arg := range args {
-		name, err := resolveTargetName(arg, targets)
+		name, err := resolveTargetName(arg, targets, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -99,11 +100,11 @@ func resolveExplicitTargets(args []string, targets []*ast.Target) ([]string, err
 // - A file target path: "build/app"
 // - A phony target with @: "@clean"
 // - A phony target without @: "clean" (matches @clean if no file target matches)
-func resolveTargetName(arg string, targets []*ast.Target) (string, error) {
+func resolveTargetName(arg string, targets []*ast.Target, ctx EvalContext) (string, error) {
 	// First, try exact match with @ prefix intact
 	if strings.HasPrefix(arg, "@") {
 		for _, t := range targets {
-			if t.Pattern.IsPhony && formatTargetName(t) == arg {
+			if t.Pattern.IsPhony && formatTargetName(t, ctx) == arg {
 				return arg, nil
 			}
 		}
@@ -112,7 +113,7 @@ func resolveTargetName(arg string, targets []*ast.Target) (string, error) {
 
 	// Try exact file target match first
 	for _, t := range targets {
-		if !t.Pattern.IsPhony && matchTargetPattern(t, arg) {
+		if !t.Pattern.IsPhony && matchTargetPattern(t, arg, ctx) {
 			return arg, nil
 		}
 	}
@@ -120,7 +121,7 @@ func resolveTargetName(arg string, targets []*ast.Target) (string, error) {
 	// Try as phony target (without @)
 	for _, t := range targets {
 		if t.Pattern.IsPhony {
-			phonyName := getPhonyName(t)
+			phonyName := getPhonyName(t, ctx)
 			if phonyName == arg {
 				return "@" + arg, nil
 			}
@@ -129,7 +130,7 @@ func resolveTargetName(arg string, targets []*ast.Target) (string, error) {
 
 	// Try pattern targets
 	for _, t := range targets {
-		if hasCaptures(t) && matchTargetPattern(t, arg) {
+		if hasCapturesOnly(t, ctx) && matchTargetPattern(t, arg, ctx) {
 			return arg, nil
 		}
 	}
@@ -138,7 +139,8 @@ func resolveTargetName(arg string, targets []*ast.Target) (string, error) {
 }
 
 // formatTargetName returns the canonical name for a target.
-func formatTargetName(t *ast.Target) string {
+// BraceExpr nodes are resolved using the context if they refer to defined variables.
+func formatTargetName(t *ast.Target, ctx EvalContext) string {
 	var name string
 	if t.Pattern.IsPhony {
 		name = "@"
@@ -148,6 +150,13 @@ func formatTargetName(t *ast.Target) string {
 		case *ast.LiteralSegment:
 			name += s.Text
 		case *ast.BraceExpr:
+			// Try to resolve as variable; if not defined, keep as capture
+			if ctx != nil {
+				if val, ok := ctx.Get(s.Identifier); ok {
+					name += val
+					continue
+				}
+			}
 			name += "{" + s.Identifier + "}"
 		}
 	}
@@ -155,21 +164,30 @@ func formatTargetName(t *ast.Target) string {
 }
 
 // getPhonyName returns the name part of a phony target (without @).
-func getPhonyName(t *ast.Target) string {
+func getPhonyName(t *ast.Target, ctx EvalContext) string {
 	var name string
 	for _, seg := range t.Pattern.Segments {
-		if lit, ok := seg.(*ast.LiteralSegment); ok {
-			name += lit.Text
+		switch s := seg.(type) {
+		case *ast.LiteralSegment:
+			name += s.Text
+		case *ast.BraceExpr:
+			if ctx != nil {
+				if val, ok := ctx.Get(s.Identifier); ok {
+					name += val
+					continue
+				}
+			}
+			name += "{" + s.Identifier + "}"
 		}
 	}
 	return name
 }
 
 // matchTargetPattern checks if a path matches a target pattern.
-func matchTargetPattern(t *ast.Target, path string) bool {
-	// For literal targets, do exact match
-	if !hasCaptures(t) {
-		pattern := formatTargetName(t)
+func matchTargetPattern(t *ast.Target, path string, ctx EvalContext) bool {
+	// For literal targets (after resolving interpolations), do exact match
+	if !hasCapturesOnly(t, ctx) {
+		pattern := formatTargetName(t, ctx)
 		// Strip @ for phony targets
 		if t.Pattern.IsPhony {
 			pattern = pattern[1:]
@@ -182,10 +200,17 @@ func matchTargetPattern(t *ast.Target, path string) bool {
 	return result.Matched()
 }
 
-// hasCaptures returns true if the target has capture expressions.
-func hasCaptures(t *ast.Target) bool {
+// hasCapturesOnly returns true if the target has capture expressions that are not defined variables.
+func hasCapturesOnly(t *ast.Target, ctx EvalContext) bool {
 	for _, seg := range t.Pattern.Segments {
-		if _, ok := seg.(*ast.BraceExpr); ok {
+		if be, ok := seg.(*ast.BraceExpr); ok {
+			// If context is available and this is a defined variable, it's not a capture
+			if ctx != nil {
+				if _, ok := ctx.Get(be.Identifier); ok {
+					continue
+				}
+			}
+			// This is a capture (undefined variable)
 			return true
 		}
 	}

@@ -180,14 +180,7 @@ func Run(args []string) int {
 		return listEnvironments(result)
 	}
 
-	// Resolve target arguments
-	resolvedTargets, err := ResolveTargetArgs(targets, result)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		return exitUsageError
-	}
-
-	// Show what was parsed (verbose mode)
+	// Show what was parsed (verbose mode) - basic info before semantic analysis
 	if f.verbose {
 		fmt.Printf("Buildfile: %s\n", buildfile)
 		fmt.Printf("Parsed %d statements\n", len(result.Statements()))
@@ -200,10 +193,6 @@ func Run(args []string) int {
 
 		for stmtType, count := range counts {
 			fmt.Printf("  %s: %d\n", stmtType, count)
-		}
-
-		if len(resolvedTargets) > 0 {
-			fmt.Printf("Resolved targets: %v\n", resolvedTargets)
 		}
 	}
 
@@ -257,7 +246,8 @@ func Run(args []string) int {
 	}
 
 	// Evaluate variables
-	evalResult := EvaluateVariables(result)
+	buildfileDir := filepath.Dir(buildfile)
+	evalResult := EvaluateVariables(result, buildfileDir)
 	if evalResult.HasErrors() {
 		source := content
 		for _, e := range evalResult.Errors() {
@@ -279,6 +269,17 @@ func Run(args []string) int {
 	// Plan and execute builds for each target
 	ctx := evalResult.Context()
 	fs := newRealFileSystem()
+
+	// Resolve target arguments (after variable evaluation so interpolations are resolved)
+	resolvedTargets, err := ResolveTargetArgs(targets, result, ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return exitUsageError
+	}
+
+	if f.verbose && len(resolvedTargets) > 0 {
+		fmt.Printf("Resolved targets: %v\n", resolvedTargets)
+	}
 
 	// Get global shell directive
 	globalShell := "/bin/sh"
