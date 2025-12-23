@@ -294,7 +294,7 @@ func TestBuiltInFunctions(t *testing.T) {
 sources = glob(src/*.c)
 objects = replace({sources}, .c, .o)
 dir = dirname(src/file1.c)
-base = basename(src/file1.c)
+base = filename(src/file1.c)
 
 @test:
 	echo "Sources: {sources}"

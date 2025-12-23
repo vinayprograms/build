@@ -505,9 +505,9 @@ func TestLexerFunctions(t *testing.T) {
 			want:  []TokenType{FUNC_GLOB, LPAREN, STRING, RPAREN, EOF},
 		},
 		{
-			name:  "basename function",
-			input: "basename({file})",
-			want:  []TokenType{FUNC_BASENAME, LPAREN, INTERP_START, IDENTIFIER, INTERP_END, RPAREN, EOF},
+			name:  "filename function",
+			input: "filename({file})",
+			want:  []TokenType{FUNC_FILENAME, LPAREN, INTERP_START, IDENTIFIER, INTERP_END, RPAREN, EOF},
 		},
 		{
 			name:  "dirname function",

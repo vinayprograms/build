@@ -49,7 +49,7 @@ func TestTokenTypeString(t *testing.T) {
 		{STRING, "STRING"},
 		{FUNC_SHELL, "FUNC_SHELL"},
 		{FUNC_GLOB, "FUNC_GLOB"},
-		{FUNC_BASENAME, "FUNC_BASENAME"},
+		{FUNC_FILENAME, "FUNC_FILENAME"},
 		{FUNC_DIRNAME, "FUNC_DIRNAME"},
 		{FUNC_REPLACE, "FUNC_REPLACE"},
 		{ERROR, "ERROR"},
@@ -247,7 +247,7 @@ func TestIsKeyword(t *testing.T) {
 
 func TestIsFunction(t *testing.T) {
 	functions := []TokenType{
-		FUNC_SHELL, FUNC_GLOB, FUNC_BASENAME, FUNC_DIRNAME, FUNC_REPLACE,
+		FUNC_SHELL, FUNC_GLOB, FUNC_FILENAME, FUNC_DIRNAME, FUNC_REPLACE,
 	}
 
 	for _, tt := range functions {
@@ -282,7 +282,7 @@ func TestLookupKeyword(t *testing.T) {
 		{"block", BLOCK},
 		{"shell", FUNC_SHELL},
 		{"glob", FUNC_GLOB},
-		{"basename", FUNC_BASENAME},
+		{"filename", FUNC_FILENAME},
 		{"dirname", FUNC_DIRNAME},
 		{"replace", FUNC_REPLACE},
 		{"foo", IDENTIFIER},

@@ -518,7 +518,7 @@ func TestFunctionName(t *testing.T) {
 	}{
 		{ast.FuncShell, "shell"},
 		{ast.FuncGlob, "glob"},
-		{ast.FuncBasename, "basename"},
+		{ast.FuncFilename, "filename"},
 		{ast.FuncDirname, "dirname"},
 		{ast.FuncReplace, "replace"},
 	}

@@ -14,14 +14,14 @@ import (
 // basename() Tests
 // ----------------------------------------------------------------------------
 
-func TestFuncBasename_Simple(t *testing.T) {
+func TestFuncFilename_Simple(t *testing.T) {
 	ctx := NewContext()
 	e := NewEvaluator(ctx)
 
 	val := &ast.Value{
 		Parts: []ast.ValuePart{
 			&ast.FunctionCall{
-				Name: ast.FuncBasename,
+				Name: ast.FuncFilename,
 				Args: []*ast.Value{
 					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "/path/to/file.txt"}}},
 				},
@@ -38,14 +38,14 @@ func TestFuncBasename_Simple(t *testing.T) {
 	}
 }
 
-func TestFuncBasename_NoDirectory(t *testing.T) {
+func TestFuncFilename_NoDirectory(t *testing.T) {
 	ctx := NewContext()
 	e := NewEvaluator(ctx)
 
 	val := &ast.Value{
 		Parts: []ast.ValuePart{
 			&ast.FunctionCall{
-				Name: ast.FuncBasename,
+				Name: ast.FuncFilename,
 				Args: []*ast.Value{
 					{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "file.txt"}}},
 				},
@@ -62,7 +62,7 @@ func TestFuncBasename_NoDirectory(t *testing.T) {
 	}
 }
 
-func TestFuncBasename_WithInterpolation(t *testing.T) {
+func TestFuncFilename_WithInterpolation(t *testing.T) {
 	ctx := NewContext()
 	ctx.Set("path", "/usr/local/bin/app")
 	e := NewEvaluator(ctx)
@@ -70,7 +70,7 @@ func TestFuncBasename_WithInterpolation(t *testing.T) {
 	val := &ast.Value{
 		Parts: []ast.ValuePart{
 			&ast.FunctionCall{
-				Name: ast.FuncBasename,
+				Name: ast.FuncFilename,
 				Args: []*ast.Value{
 					{Parts: []ast.ValuePart{&ast.Interpolation{Name: "path"}}},
 				},
@@ -467,7 +467,7 @@ func TestFuncComposition_DirnameBasename(t *testing.T) {
 				Args: []*ast.Value{
 					{Parts: []ast.ValuePart{
 						&ast.FunctionCall{
-							Name: ast.FuncBasename,
+							Name: ast.FuncFilename,
 							Args: []*ast.Value{
 								{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "/path/to/file.txt"}}},
 							},
@@ -527,7 +527,7 @@ func TestFuncError_UndefinedInArg(t *testing.T) {
 	val := &ast.Value{
 		Parts: []ast.ValuePart{
 			&ast.FunctionCall{
-				Name: ast.FuncBasename,
+				Name: ast.FuncFilename,
 				Args: []*ast.Value{
 					{Parts: []ast.ValuePart{
 						&ast.Interpolation{

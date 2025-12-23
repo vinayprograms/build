@@ -189,10 +189,10 @@ func TestParser_ParseVariable_WithFunctionCall(t *testing.T) {
 			wantArgCount: 1,
 		},
 		{
-			name:         "basename function",
-			input:        "name = basename(src/main.c)",
+			name:         "filename function",
+			input:        "name = filename(src/main.c)",
 			wantName:     "name",
-			wantFuncName: ast.FuncBasename,
+			wantFuncName: ast.FuncFilename,
 			wantArgCount: 1,
 		},
 		{
@@ -482,9 +482,9 @@ func TestParser_ParseFunctionCall(t *testing.T) {
 			wantArgs: 1,
 		},
 		{
-			name:     "basename function",
-			input:    "basename(path/to/file.txt)",
-			wantFunc: ast.FuncBasename,
+			name:     "filename function",
+			input:    "filename(path/to/file.txt)",
+			wantFunc: ast.FuncFilename,
 			wantArgs: 1,
 		},
 		{

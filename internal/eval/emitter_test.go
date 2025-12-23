@@ -110,7 +110,7 @@ func TestEvaluator_EmitsFunctionExpression(t *testing.T) {
 			Value: &ast.Value{
 				Parts: []ast.ValuePart{
 					&ast.FunctionCall{
-						Name: ast.FuncBasename,
+						Name: ast.FuncFilename,
 						Args: []*ast.Value{
 							{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "/path/to/file.c"}}},
 						},
