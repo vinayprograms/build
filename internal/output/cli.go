@@ -186,12 +186,12 @@ func (c *CLIWriter) writeTargetSkipped(e TargetSkipped) {
 
 func (c *CLIWriter) writeCommandStarted(e CommandStarted) {
 	// In verbose mode, indent commands under "Building X"
-	// In normal mode, show commands at start of line (like make)
+	// Show commands in bold cyan to distinguish from output (which is dimmed)
 	if c.config.Verbose {
-		cmd := Dim("  "+e.Command, c.useColor)
+		cmd := Colorize("  "+e.Command, ColorBoldCyan, c.useColor)
 		fmt.Fprintln(c.w, cmd)
 	} else {
-		fmt.Fprintln(c.w, e.Command)
+		fmt.Fprintln(c.w, Colorize(e.Command, ColorBoldCyan, c.useColor))
 	}
 }
 
