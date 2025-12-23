@@ -331,7 +331,7 @@ DIRNAME := $(dir src/main.c)
 
 **Buildfile:**
 ```
-base = basename(src/main.c)
+base = filename(src/main.c)
 dir = dirname(src/main.c)
 ```
 

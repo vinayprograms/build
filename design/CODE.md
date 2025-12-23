@@ -906,7 +906,7 @@ type FunctionName int
 const (
     FuncShell    FunctionName = iota  // shell()
     FuncGlob                           // glob()
-    FuncBasename                       // basename()
+    FuncFilename                       // filename()
     FuncDirname                        // dirname()
     FuncReplace                        // replace()
 )

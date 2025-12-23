@@ -7,7 +7,7 @@
 - **Simple, clean syntax** - Indentation-based, no tabs vs spaces issues
 - **Pattern targets** - `build/{name}.o: src/{name}.c` matches any file
 - **Variable interpolation** - `{var}` syntax with optional `:raw` modifier
-- **Built-in functions** - `shell()`, `glob()`, `basename()`, `dirname()`, `replace()`
+- **Built-in functions** - `shell()`, `glob()`, `filename()`, `dirname()`, `replace()`
 - **Conditionals** - `if/elif/else/end` and `ifdef/ifndef` blocks
 - **Parallel execution** - Built-in parallel job support with `-j` flag
 - **Environment management** - Docker, Podman, devcontainer, Nix, and Lima support
@@ -140,7 +140,7 @@ build/{name}.o: src/{name}.c
 sources = glob(src/*.c)
 objects = replace({sources}, .c, .o)
 dir = dirname(/path/to/file.c)
-base = basename(/path/to/file.c)
+base = filename(/path/to/file.c)
 result = shell(echo hello)
 ```
 

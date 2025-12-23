@@ -26,7 +26,7 @@
 //   - Operators: =, :, ==, !=, (, ), ,
 //   - Identifiers: IDENTIFIER, AT_IDENTIFIER, PATH, STRING
 //   - Interpolation: INTERP_START, INTERP_END, INTERP_MOD, escapes
-//   - Functions: shell, glob, basename, dirname, replace
+//   - Functions: shell, glob, filename, dirname, replace
 //
 // # Indentation Tracking
 //

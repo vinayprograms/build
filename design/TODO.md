@@ -119,7 +119,7 @@ The parser builds the AST with scope-aware directive validation.
 - [x] **Implement value parsing**
   - [x] Parse literal strings
   - [x] Parse interpolations (`{var}`, `{var:raw}`)
-  - [x] Parse function calls (shell, glob, basename, dirname, replace)
+  - [x] Parse function calls (shell, glob, filename, dirname, replace)
   - [x] Handle nested parentheses in function arguments
   - [x] Update `cmd/build` CLI to incorporate new feature including updates to all test cases of the CLI.
 

@@ -285,7 +285,7 @@ value           = { value_part } ;
 value_part      = STRING | interpolation | function_call ;
 
 function_call   = func_name "(" { value } ")" ;
-func_name       = "shell" | "glob" | "basename" | "dirname" | "replace" ;
+func_name       = "shell" | "glob" | "filename" | "dirname" | "replace" ;
 
 identifier      = IDENTIFIER ;
 ```

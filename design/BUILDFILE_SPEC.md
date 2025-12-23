@@ -289,7 +289,7 @@ files = shell(for f in *.c; do echo $f; done)
 |----------|---------|---------|
 | `shell(...)` | Execute shell command, capture output | `shell(pkg-config --libs gtk)` |
 | `glob(...)` | File pattern matching | `glob(src/*.c)` |
-| `basename(...)` | Extract filename without directory | `basename(src/main.c)` → `main.c` |
+| `filename(...)` | Extract filename without directory | `filename(src/main.c)` → `main.c` |
 | `dirname(...)` | Extract directory | `dirname(src/main.c)` → `src` |
 | `replace(...)` | Pattern replacement | `replace({sources}, .c, .o)` |
 
