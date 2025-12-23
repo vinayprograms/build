@@ -108,18 +108,27 @@ func (e *Executor) ExecuteLine(cmdLine string) (*ExecResult, error) {
 	result := &ExecResult{
 		Command: cmdLine,
 	}
+	start := time.Now()
 
 	// Dry-run mode: print and return without executing
 	if e.config.DryRun {
 		if !e.config.Quiet {
-			fmt.Fprintln(e.output, cmdLine)
+			if e.emitter != nil {
+				e.emitter.DryRunCommand(e.target, cmdLine)
+			} else {
+				fmt.Fprintln(e.output, cmdLine)
+			}
 		}
 		return result, nil
 	}
 
 	// Print command before executing (like make does), unless quiet
 	if !e.config.Quiet {
-		fmt.Fprintln(e.output, cmdLine)
+		if e.emitter != nil {
+			e.emitter.CommandStarted(e.target, cmdLine)
+		} else {
+			fmt.Fprintln(e.output, cmdLine)
+		}
 	}
 
 	// Execute the command using platform-appropriate shell args
@@ -135,16 +144,39 @@ func (e *Executor) ExecuteLine(cmdLine string) (*ExecResult, error) {
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 
+	// Print output immediately after command (unless quiet)
+	if !e.config.Quiet && (result.Stdout != "" || result.Stderr != "") {
+		if e.emitter != nil {
+			e.emitter.CommandOutput(e.target, result.Stdout, result.Stderr)
+		} else {
+			if result.Stdout != "" {
+				fmt.Fprint(e.output, result.Stdout)
+			}
+			if result.Stderr != "" {
+				fmt.Fprint(e.output, result.Stderr)
+			}
+		}
+	}
+
 	// Get exit code - use cross-platform ExitCode() method
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
+		}
+		// Emit completion event even on error
+		if e.emitter != nil {
+			e.emitter.CommandCompleted(e.target, cmdLine, result.ExitCode, time.Since(start))
 		}
 		return result, &CommandError{
 			Command:  cmdLine,
 			ExitCode: result.ExitCode,
 			Stderr:   result.Stderr,
 		}
+	}
+
+	// Emit completion event
+	if e.emitter != nil {
+		e.emitter.CommandCompleted(e.target, cmdLine, result.ExitCode, time.Since(start))
 	}
 
 	return result, nil
@@ -155,15 +187,24 @@ func (e *Executor) ExecuteBlock(script string) (*ExecResult, error) {
 	result := &ExecResult{
 		Command: script,
 	}
+	start := time.Now()
 
 	// Verbose mode: print script
 	if e.config.Verbose && !e.config.DryRun {
-		fmt.Fprintln(e.output, script)
+		if e.emitter != nil {
+			e.emitter.CommandStarted(e.target, script)
+		} else {
+			fmt.Fprintln(e.output, script)
+		}
 	}
 
 	// Dry-run mode: don't execute
 	if e.config.DryRun {
-		fmt.Fprintln(e.output, script)
+		if e.emitter != nil {
+			e.emitter.DryRunCommand(e.target, script)
+		} else {
+			fmt.Fprintln(e.output, script)
+		}
 		return result, nil
 	}
 
@@ -180,16 +221,39 @@ func (e *Executor) ExecuteBlock(script string) (*ExecResult, error) {
 	result.Stdout = stdout.String()
 	result.Stderr = stderr.String()
 
+	// Print output immediately after command (unless quiet)
+	if !e.config.Quiet && (result.Stdout != "" || result.Stderr != "") {
+		if e.emitter != nil {
+			e.emitter.CommandOutput(e.target, result.Stdout, result.Stderr)
+		} else {
+			if result.Stdout != "" {
+				fmt.Fprint(e.output, result.Stdout)
+			}
+			if result.Stderr != "" {
+				fmt.Fprint(e.output, result.Stderr)
+			}
+		}
+	}
+
 	// Get exit code - use cross-platform ExitCode() method
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitErr.ExitCode()
+		}
+		// Emit completion event even on error
+		if e.emitter != nil {
+			e.emitter.CommandCompleted(e.target, script, result.ExitCode, time.Since(start))
 		}
 		return result, &CommandError{
 			Command:  script,
 			ExitCode: result.ExitCode,
 			Stderr:   result.Stderr,
 		}
+	}
+
+	// Emit completion event
+	if e.emitter != nil {
+		e.emitter.CommandCompleted(e.target, script, result.ExitCode, time.Since(start))
 	}
 
 	return result, nil
@@ -202,6 +266,9 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 
 	// Get the target for event context
 	target, _ := cmdCtx.Get("target")
+
+	// Set target on executor for event emission
+	e.target = target
 
 	// Determine the shell to use
 	shell := e.config.Shell
@@ -222,6 +289,7 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 		recipeExec = NewExecutor(recipeCfg)
 		recipeExec.output = e.output
 		recipeExec.emitter = e.emitter
+		recipeExec.target = target
 	}
 
 	// In dry-run mode, print "Would build: target" prefix
@@ -239,26 +307,8 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 				return results, fmt.Errorf("interpolating command: %w", err)
 			}
 
-			// Emit events
-			start := time.Now()
-			if e.emitter != nil {
-				if e.config.DryRun {
-					e.emitter.DryRunCommand(target, line)
-				} else {
-					e.emitter.CommandStarted(target, line)
-				}
-			}
-
 			result, err := recipeExec.ExecuteLine(line)
 			results = append(results, result)
-
-			// Emit output and completion events
-			if e.emitter != nil && !e.config.DryRun {
-				if result.Stdout != "" || result.Stderr != "" {
-					e.emitter.CommandOutput(target, result.Stdout, result.Stderr)
-				}
-				e.emitter.CommandCompleted(target, line, result.ExitCode, time.Since(start))
-			}
 
 			if err != nil {
 				return results, err
@@ -271,26 +321,8 @@ func (e *Executor) ExecuteRecipe(recipe *ast.Recipe, cmdCtx *eval.CommandContext
 				return results, fmt.Errorf("interpolating block: %w", err)
 			}
 
-			// Emit events
-			start := time.Now()
-			if e.emitter != nil {
-				if e.config.DryRun {
-					e.emitter.DryRunCommand(target, script)
-				} else {
-					e.emitter.CommandStarted(target, script)
-				}
-			}
-
 			result, err := recipeExec.ExecuteBlock(script)
 			results = append(results, result)
-
-			// Emit output and completion events
-			if e.emitter != nil && !e.config.DryRun {
-				if result.Stdout != "" || result.Stderr != "" {
-					e.emitter.CommandOutput(target, result.Stdout, result.Stderr)
-				}
-				e.emitter.CommandCompleted(target, script, result.ExitCode, time.Since(start))
-			}
 
 			if err != nil {
 				return results, err

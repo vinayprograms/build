@@ -332,6 +332,10 @@ func Run(args []string) int {
 		// Create executor
 		executor := NewExecutor(shellConfig)
 
+		// Set up emitter for colored output
+		emitter := CreateOutputEmitter(f.verbose, f.quiet, f.color)
+		executor.SetEmitter(emitter)
+
 		// Use scheduler for parallel execution
 		if numWorkers > 1 {
 			scheduler := NewScheduler(executor, numWorkers)
@@ -394,7 +398,11 @@ func Run(args []string) int {
 				recipeShell := GetRecipeShell(recipe, globalShell, ctx)
 				if recipeShell != globalShell {
 					executor = NewExecutor(shellConfig.WithOverride(recipeShell))
+					executor.SetEmitter(emitter)
 				}
+
+				// Set target for event context
+				executor.SetTarget(task.Target())
 
 				// Create command context with automatic variables
 				cmdCtx := NewCommandContext(
@@ -407,13 +415,8 @@ func Run(args []string) int {
 					cca.SetCaptures(task.Captures())
 				}
 
-				// Execute the recipe
+				// Execute the recipe (output is printed by executor during execution)
 				results, err := executor.ExecuteRecipe(recipe, cmdCtx)
-
-				// Report command output (commands are printed by executor during execution)
-				for _, r := range results {
-					reporter.CommandOutput(r.Command(), r.Stdout(), r.Stderr())
-				}
 
 				if err != nil {
 					reporter.BuildCompleted(task.Target(), false, err.Error())

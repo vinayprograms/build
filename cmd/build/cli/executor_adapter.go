@@ -4,6 +4,7 @@ import (
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/eval"
 	"github.com/vinayprograms/build/internal/executor"
+	"github.com/vinayprograms/build/internal/output"
 )
 
 // ----------------------------------------------------------------------------
@@ -83,6 +84,16 @@ func NewExecutor(config *ShellConfig) *Executor {
 	return &Executor{
 		exec: executor.NewExecutor(config.cfg),
 	}
+}
+
+// SetEmitter sets the event emitter for colored output.
+func (e *Executor) SetEmitter(emitter *output.Emitter) {
+	e.exec.SetEmitter(emitter)
+}
+
+// SetTarget sets the current target for event context.
+func (e *Executor) SetTarget(target string) {
+	e.exec.SetTarget(target)
 }
 
 // ExecResult represents the result of a command execution.
