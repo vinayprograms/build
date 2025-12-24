@@ -1,0 +1,9 @@
+# Test: Invalid - Invalid modifier
+# Expected: Should report syntax error
+# Category: Errors/Syntax
+# Description: Tests invalid interpolation modifier
+
+msg = hello
+
+@test:
+    echo "{msg:invalid}"

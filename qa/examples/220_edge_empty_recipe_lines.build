@@ -1,0 +1,11 @@
+# Test: Empty recipe lines
+# Expected: Should handle empty lines in recipe gracefully
+# Category: Edge Cases
+# Description: Tests empty lines within a recipe block
+
+@test:
+    echo "line 1"
+
+    echo "after blank"
+
+    echo "another blank before"

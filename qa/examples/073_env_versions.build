@@ -1,0 +1,11 @@
+# Test: Environment requirements with versions
+# Expected: Should parse all version formats
+# Category: Environment
+# Description: Tests version specification formats
+
+.environment:
+    .using: bare
+    .requires: gcc python3@latest cmake@3.20 nodejs@18.12 go@1.21.0
+
+@test:
+    echo "version test"

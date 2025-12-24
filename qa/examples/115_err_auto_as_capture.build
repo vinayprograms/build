@@ -1,0 +1,7 @@
+# Test: Invalid - Automatic variable as capture
+# Expected: Should report error
+# Category: Errors/Semantic
+# Description: Tests {target} used as capture in target pattern
+
+build/{target}.o: src/{target}.c
+    echo "test"

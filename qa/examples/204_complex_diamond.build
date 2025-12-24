@@ -1,0 +1,18 @@
+# Test: Diamond dependency pattern
+# Expected: Should build shared deps only once
+# Category: Integration
+# Description: Tests diamond dependency graph (A depends on B and C, both depend on D)
+
+@d:
+    echo "Building D (shared)"
+
+@c: @d
+    echo "Building C (depends on D)"
+
+@b: @d
+    echo "Building B (depends on D)"
+
+@a: @b @c
+    echo "Building A (depends on B and C)"
+
+@all: @a

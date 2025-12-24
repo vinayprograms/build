@@ -1,0 +1,42 @@
+# Test: Deep dependency chain
+# Expected: Should resolve dependencies correctly
+# Category: Integration
+# Description: Tests a deep and wide dependency graph
+
+.parallel: 4
+
+# Level 0 (leaves)
+@leaf1:
+    echo "leaf1"
+
+@leaf2:
+    echo "leaf2"
+
+@leaf3:
+    echo "leaf3"
+
+@leaf4:
+    echo "leaf4"
+
+# Level 1
+@branch1: @leaf1 @leaf2
+    echo "branch1"
+
+@branch2: @leaf2 @leaf3
+    echo "branch2"
+
+@branch3: @leaf3 @leaf4
+    echo "branch3"
+
+# Level 2
+@trunk1: @branch1 @branch2
+    echo "trunk1"
+
+@trunk2: @branch2 @branch3
+    echo "trunk2"
+
+# Root
+@root: @trunk1 @trunk2
+    echo "root"
+
+@all: @root

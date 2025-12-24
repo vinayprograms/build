@@ -1,0 +1,7 @@
+# Test: Invalid - Missing end for conditional
+# Expected: Should report missing end error
+# Category: Errors/Syntax
+# Description: Tests unclosed if block
+
+if {os} == linux
+    cc = gcc

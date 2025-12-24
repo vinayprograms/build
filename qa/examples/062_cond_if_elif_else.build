@@ -1,0 +1,22 @@
+# Test: Conditional if-elif-else-end
+# Expected: Should try each branch
+# Category: Conditionals
+# Description: Tests full if-elif-else-end chain
+
+if {os} == linux
+    cc = gcc
+    flags = -lpthread
+elif {os} == darwin
+    cc = clang
+    flags = -framework CoreFoundation
+elif {os} == windows
+    cc = cl
+    flags = /MT
+else
+    cc = cc
+    flags =
+end
+
+@test:
+    echo "Compiler: {cc}"
+    echo "Flags: {flags}"

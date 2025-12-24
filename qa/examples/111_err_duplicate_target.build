@@ -1,0 +1,10 @@
+# Test: Invalid - Duplicate target definition
+# Expected: Should report duplicate target error
+# Category: Errors/Semantic
+# Description: Tests duplicate target definition
+
+@test:
+    echo "first"
+
+@test:
+    echo "second"

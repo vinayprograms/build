@@ -1,0 +1,13 @@
+# Test: Invalid - Duplicate environment definition
+# Expected: Should report duplicate environment error
+# Category: Errors/Semantic
+# Description: Tests duplicate environment name
+
+.environment: dev
+    .using: bare
+
+.environment: dev
+    .using: docker
+
+@test:
+    echo "test"

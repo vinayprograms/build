@@ -1,0 +1,13 @@
+# Test: dirname() function
+# Expected: Should extract directory
+# Category: Functions
+# Description: Tests dirname() function
+
+dir = dirname(/path/to/file.txt)
+src_dir = dirname(src/main.c)
+deep_dir = dirname(/very/deep/nested/path/script.sh)
+
+@test:
+    echo "Dir: {dir}"
+    echo "Src dir: {src_dir}"
+    echo "Deep dir: {deep_dir}"

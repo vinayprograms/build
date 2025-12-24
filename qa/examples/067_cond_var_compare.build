@@ -1,0 +1,18 @@
+# Test: Conditional with variable comparison
+# Expected: Should compare variable values
+# Category: Conditionals
+# Description: Tests comparing variables in conditions
+
+mode = release
+
+if {mode} == debug
+    cflags = -g -O0
+elif {mode} == release
+    cflags = -O3
+else
+    cflags = -O2
+end
+
+@test:
+    echo "Mode: {mode}"
+    echo "CFLAGS: {cflags}"

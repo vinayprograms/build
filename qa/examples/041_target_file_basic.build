@@ -1,0 +1,12 @@
+# Test: File target basic
+# Expected: Should rebuild when dependencies newer
+# Category: Targets
+# Description: Tests file target definition
+
+build/output.txt: src/input.txt
+    mkdir -p build
+    cp {in} {out}
+
+src/input.txt:
+    mkdir -p src
+    echo "source content" > {target}

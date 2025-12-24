@@ -1,0 +1,12 @@
+# Test: Recipe block mode - script execution
+# Expected: All block lines run in single shell
+# Category: Recipes
+# Description: Tests block mode for script-like execution
+
+@test:
+    block:
+        VAR=value
+        echo "VAR is $VAR"
+        for i in 1 2 3; do
+            echo "iteration $i"
+        done

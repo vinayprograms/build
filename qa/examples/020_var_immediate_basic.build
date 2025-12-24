@@ -1,0 +1,12 @@
+# Test: Immediate variable assignment
+# Expected: Should parse and evaluate without errors
+# Category: Variables
+# Description: Tests basic immediate variable assignment
+
+name = hello
+value = world
+path = /usr/bin
+
+@test:
+    echo "{name} {value}"
+    echo "Path: {path}"

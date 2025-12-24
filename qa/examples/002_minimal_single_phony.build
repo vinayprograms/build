@@ -1,0 +1,6 @@
+# Test: Single phony target with no recipe
+# Expected: Should parse without errors
+# Category: Minimal/Edge Cases
+# Description: Simplest possible target - phony with no dependencies or recipe
+
+@all:

@@ -1,0 +1,11 @@
+# Test: Target with no dependencies
+# Expected: Should run if target doesn't exist
+# Category: Targets
+# Description: Tests target without dependencies
+
+build/generated.txt:
+    mkdir -p build
+    date > {target}
+
+@always:
+    echo "always runs"

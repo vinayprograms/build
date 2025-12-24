@@ -1,0 +1,18 @@
+# Test: Automatic variables - all of them
+# Expected: Should expand all automatic variables
+# Category: Recipes
+# Description: Tests all automatic variables in recipe
+
+build/output.txt: src/input1.txt src/input2.txt
+    mkdir -p build
+    echo "target = {target}"
+    echo "deps = {deps}"
+    echo "in = {in}"
+    echo "out = {out}"
+    echo "target.dir = {target.dir}"
+    echo "target.file = {target.file}"
+    touch {target}
+
+src/{name}.txt:
+    mkdir -p src
+    echo "stem = {stem}" > {target}

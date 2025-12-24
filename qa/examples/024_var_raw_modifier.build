@@ -1,0 +1,11 @@
+# Test: Raw modifier in interpolation
+# Expected: Should expand without quoting
+# Category: Variables
+# Description: Tests {var:raw} modifier for word splitting
+
+flags = -Wall -O2 -g
+files = file1.c file2.c file3.c
+
+@test:
+    echo "Flags (raw): " {flags:raw}
+    echo "Files (raw): " {files:raw}

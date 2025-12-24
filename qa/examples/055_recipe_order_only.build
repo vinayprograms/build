@@ -1,0 +1,15 @@
+# Test: Recipe with order-only dependencies
+# Expected: Should not trigger rebuild on .after dep changes
+# Category: Recipes
+# Description: Tests .after directive for order-only prerequisites
+
+build/:
+    mkdir -p {target}
+
+build/app: src/main.c
+    .after: build/
+    cp {in} {out}
+
+src/main.c:
+    mkdir -p src
+    echo "main content" > {target}

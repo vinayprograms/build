@@ -1,0 +1,21 @@
+# Test: Recipe-level directives
+# Expected: Should parse without errors
+# Category: Directives
+# Description: Tests all recipe-level directives
+
+build/:
+    mkdir -p {target}
+
+build/app.o: src/app.c
+    .shell: bash
+    .after: build/
+    .autodeps: build/app.d
+    gcc -MMD -MF build/app.d -c {in} -o {out}
+
+build/app: build/app.o
+    .after: build/
+    .requires: gcc@latest
+    gcc -o {target} {deps}
+
+@clean:
+    rm -Rf ./build

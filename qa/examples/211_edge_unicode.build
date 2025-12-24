@@ -1,0 +1,14 @@
+# Test: Edge case - Unicode in values
+# Expected: Should handle Unicode correctly
+# Category: Edge Cases
+# Description: Tests Unicode in variable values and commands
+
+# Unicode in variable values
+greeting_jp = こんにちは
+greeting_cn = 你好
+greeting_emoji = Hello 👋 World 🌍
+
+@test:
+    echo "Japanese: {greeting_jp}"
+    echo "Chinese: {greeting_cn}"
+    echo "Emoji: {greeting_emoji}"

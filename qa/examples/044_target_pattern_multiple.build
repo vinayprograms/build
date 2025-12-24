@@ -1,0 +1,16 @@
+# Test: Pattern target with multiple captures
+# Expected: Should handle multiple capture variables
+# Category: Targets
+# Description: Tests pattern target with multiple captures
+#
+# EXAMPLE: `build -f 044_target_pattern_multiple.build build/bin/main.out`
+# expects a file `src/bin/main.in` which is then processed by the
+# associated recipe
+
+build/{type}/{name}.out: src/{type}/{name}.in
+    mkdir -p build/{type}
+    echo "Processing {type}/{name}"
+    cp {in} {out}
+
+@test:
+    echo "Test pattern with type and name"

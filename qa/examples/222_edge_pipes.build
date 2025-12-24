@@ -1,0 +1,9 @@
+# Test: Pipes in commands
+# Expected: Should handle shell pipes
+# Category: Edge Cases
+# Description: Tests shell pipe operators in commands
+
+@test:
+    echo "hello world" | tr 'a-z' 'A-Z'
+    echo "one two three" | cut -d' ' -f2
+    cat /etc/passwd 2>/dev/null | head -1 || echo "no passwd"

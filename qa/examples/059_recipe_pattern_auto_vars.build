@@ -1,0 +1,13 @@
+# Test: Recipe with all automatic variables in pattern target
+# Expected: Should expand {stem} and {name} correctly
+# Category: Recipes
+# Description: Tests stem and name capture in pattern targets
+
+build/{name}.o: src/{name}.c
+    mkdir -p build
+    echo "Compiling {name} from {in} to {out}"
+    echo "Stem: {stem}"
+    echo "Target: {target}"
+    echo "Target dir: {target.dir}"
+    echo "Target file: {target.file}"
+    touch {target}

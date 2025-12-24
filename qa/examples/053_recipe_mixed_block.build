@@ -1,0 +1,14 @@
+# Test: Recipe with mixed commands and block
+# Expected: Commands outside block run separately
+# Category: Recipes
+# Description: Tests mixing line mode and block mode
+
+@test:
+    echo "Before block"
+    block:
+        if [ -f /etc/passwd ]; then
+            echo "passwd exists"
+        else
+            echo "no passwd"
+        fi
+    echo "After block"

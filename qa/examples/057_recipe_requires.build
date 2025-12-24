@@ -1,0 +1,16 @@
+# Test: Recipe with requires
+# Expected: Should check requirements before running
+# Category: Recipes
+# Description: Tests .requires directive
+
+@compile:
+    .requires: gcc@latest
+    gcc --version
+
+@python:
+    .requires: python3.12@3.12
+    python3.12 --version
+
+@multi:
+    .requires: echo sed
+    echo "checking" | sed 's/check/test/'

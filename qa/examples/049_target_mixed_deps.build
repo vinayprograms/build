@@ -1,0 +1,23 @@
+# Test: Phony depending on file target
+# Expected: Should build file target first
+# Category: Targets
+# Description: Tests phony target depending on file targets
+
+.default: all
+
+build/:
+    mkdir -p {target}
+
+build/app: build/main.o
+    .after: build/
+    echo "linking" > {target}
+
+build/main.o:
+    mkdir -p build
+    echo "compiled" > {target}
+
+@all: build/app
+    echo "Build complete!"
+
+@clean:
+    rm -rf build/

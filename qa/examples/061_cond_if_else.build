@@ -1,0 +1,13 @@
+# Test: Conditional if-else-end
+# Expected: Should take else branch when condition false
+# Category: Conditionals
+# Description: Tests if-else-end conditional
+
+if {os} == nonexistent_os
+    platform = unknown
+else
+    platform = known
+end
+
+@test:
+    echo "Platform: {platform}"

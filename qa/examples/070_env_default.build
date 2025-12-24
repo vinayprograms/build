@@ -1,0 +1,11 @@
+# Test: Environment - default unnamed
+# Expected: Should use as default environment
+# Category: Environment
+# Description: Tests unnamed default environment
+
+.environment:
+    .using: bare
+    .requires: echo
+
+@test:
+    echo "using default environment"

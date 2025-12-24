@@ -1,0 +1,27 @@
+# Test: Edge case - Many variables
+# Expected: Should handle many variables
+# Category: Edge Cases
+# Description: Tests parsing with many variables
+
+v01 = value01
+v02 = value02
+v03 = value03
+v04 = value04
+v05 = value05
+v06 = value06
+v07 = value07
+v08 = value08
+v09 = value09
+v10 = value10
+v11 = value11
+v12 = value12
+v13 = value13
+v14 = value14
+v15 = value15
+
+combined = {v01} {v02} {v03} {v04} {v05}
+
+@test:
+    echo "{combined}"
+    echo "{v06} {v07} {v08} {v09} {v10}"
+    echo "{v11} {v12} {v13} {v14} {v15}"

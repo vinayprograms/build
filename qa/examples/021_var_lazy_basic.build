@@ -1,0 +1,13 @@
+# Test: Lazy variable assignment
+# Expected: Should parse without errors
+# Category: Variables
+# Description: Tests lazy variable evaluation
+
+cc = gcc
+flags = -Wall
+
+lazy all_flags = {flags} -O2
+
+@test:
+    echo "Compiler: {cc}"
+    echo "Flags: {all_flags}"

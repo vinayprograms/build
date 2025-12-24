@@ -1,0 +1,14 @@
+# Test: Edge case - Paths with dots
+# Expected: Should handle dotfiles and hidden dirs
+# Category: Edge Cases
+# Description: Tests paths with dots and hidden files
+
+src = .hidden/file.c
+build = ./build/.cache/output
+
+@test:
+    echo "Src: {src}"
+    echo "Build: {build}"
+
+.hidden/output.o: .hidden/input.c
+    echo "Compiling hidden file"

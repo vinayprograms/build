@@ -1,0 +1,9 @@
+# Test: .parallel directive with boundary values
+# Expected: Should parse without errors
+# Category: Directives
+# Description: Tests .parallel directive with various values
+
+.parallel: 1
+
+@single_job:
+    echo "single job"

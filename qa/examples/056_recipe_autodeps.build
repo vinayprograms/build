@@ -1,0 +1,16 @@
+# Test: Recipe with autodeps
+# Expected: Should track generated dependencies
+# Category: Recipes
+# Description: Tests .autodeps directive
+
+build/:
+    mkdir -p {target}
+
+build/{name}.o: src/{name}.c
+    .after: build/
+    .autodeps: build/{name}.d
+    gcc -MMD -MF build/{name}.d -c {in} -o {out}
+
+src/{name}.c:
+    mkdir -p src
+    echo "void {name}() {{}}" > {target}

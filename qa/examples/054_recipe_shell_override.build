@@ -1,0 +1,16 @@
+# Test: Recipe shell override
+# Expected: Should use specified shell
+# Category: Recipes
+# Description: Tests .shell directive in recipe
+
+.shell: /bin/sh
+
+@all: test_default test_bash
+
+@test_default:
+    echo "Using default shell"
+
+@test_bash:
+    .shell: bash
+    echo "Using bash shell"
+    [[ -n "bash feature" ]] && echo "works"

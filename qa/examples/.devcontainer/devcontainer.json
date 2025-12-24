@@ -1,0 +1,6 @@
+{
+  "name": "Debian Latest Base",
+  "image": "mcr.microsoft.com/devcontainers/base:alpine",
+  "features": {},
+  "customizations": {}
+}

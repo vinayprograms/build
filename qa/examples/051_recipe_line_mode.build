@@ -1,0 +1,11 @@
+# Test: Recipe line mode - multiple commands
+# Expected: Each line runs separately
+# Category: Recipes
+# Description: Tests line-by-line command execution
+
+@test:
+    echo "line 1"
+    echo "line 2"
+    echo "line 3"
+    VAR=value
+    echo "After var assignment (new shell)"

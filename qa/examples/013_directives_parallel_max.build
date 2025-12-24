@@ -1,0 +1,9 @@
+# Test: .parallel directive with large value
+# Expected: Should parse without errors
+# Category: Directives
+# Description: Tests .parallel directive with large value
+
+.parallel: 128
+
+@many_jobs:
+    echo "many jobs"

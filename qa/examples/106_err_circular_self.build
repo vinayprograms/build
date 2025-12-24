@@ -1,0 +1,7 @@
+# Test: Invalid - Circular dependency (simple)
+# Expected: Should report circular dependency error
+# Category: Errors/Dependencies
+# Description: Tests simple A -> A cycle
+
+@a: @a
+    echo "self"

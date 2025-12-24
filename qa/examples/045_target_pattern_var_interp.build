@@ -1,0 +1,15 @@
+# Test: Target with variable in pattern
+# Expected: Should expand variable, not treat as capture
+# Category: Targets
+# Description: Tests variable interpolation in target patterns
+
+build_dir = build
+src_dir = src
+
+{build_dir}/output.txt: {src_dir}/input.txt
+    mkdir -p {build_dir}
+    cp {in} {out}
+
+@test:
+    echo "Build dir: {build_dir}"
+    echo "Src dir: {src_dir}"

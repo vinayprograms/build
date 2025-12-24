@@ -1,0 +1,8 @@
+# Test: Invalid - Inconsistent indentation width
+# Expected: Should report indentation error
+# Category: Errors/Indentation
+# Description: Tests detection of inconsistent indent width
+
+@test:
+    echo "4 spaces"
+      echo "6 spaces"

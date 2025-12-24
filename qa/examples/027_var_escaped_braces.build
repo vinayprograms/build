@@ -1,0 +1,11 @@
+# Test: Variable with escaped braces
+# Expected: Should handle {{ and }} correctly
+# Category: Variables
+# Description: Tests literal braces in values
+
+json_template = {{"key": "value"}}
+shell_var = {{VAR}}
+
+@test:
+    echo "JSON: {json_template}"
+    echo "Shell: {shell_var}"

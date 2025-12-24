@@ -1,0 +1,14 @@
+# Test: Edge case - very long variable value
+# Expected: Should handle long values
+# Category: Edge Cases
+# Description: Tests long variable values
+
+# A very long flags string
+long_flags = -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter -Wno-unused-variable -Wno-unused-function -fPIC -fstack-protector-strong -D_FORTIFY_SOURCE=2 -DNDEBUG -O3 -march=native -mtune=native -flto -fomit-frame-pointer
+
+# A very long path
+long_path = /very/long/path/to/some/deeply/nested/directory/structure/that/might/exist/in/enterprise/environments/with/lots/of/hierarchy
+
+@test:
+    echo "Flags: {long_flags}"
+    echo "Path: {long_path}"

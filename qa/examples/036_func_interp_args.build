@@ -1,0 +1,18 @@
+# Test: Function calls with interpolation in args
+# Expected: Should expand variables in function arguments
+# Category: Functions
+# Description: Tests variable interpolation in function arguments
+
+src_dir = src
+pattern = *.c
+# Use :raw since pattern is already inside quotes in the command
+# Note: find returns 0 even with no matches, so use test for proper fallback
+sources = shell(found=$(find {src_dir} -name "{pattern:raw}" 2>/dev/null); [ -n "$found" ] && echo "$found" || echo "src/main.c")
+
+base_path = /opt/myapp
+version = 1.0
+install_dir = dirname({base_path}/bin/app-{version})
+
+@test:
+    echo "Sources: {sources}"
+    echo "Install dir: {install_dir}"

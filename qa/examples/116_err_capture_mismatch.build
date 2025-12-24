@@ -1,0 +1,7 @@
+# Test: Invalid - Capture mismatch
+# Expected: Should report capture mismatch error
+# Category: Errors/Semantic
+# Description: Tests different capture names in target and dependency
+
+build/{a}.o: src/{b}.c
+    echo "test"

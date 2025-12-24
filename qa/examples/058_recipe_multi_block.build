@@ -1,0 +1,15 @@
+# Test: Multiple blocks in recipe
+# Expected: Should handle multiple block sections
+# Category: Recipes
+# Description: Tests multiple block commands in a single recipe
+
+@test:
+    echo "Before first block"
+    block:
+        echo "First block line 1"
+        echo "First block line 2"
+    echo "Between blocks"
+    block:
+        echo "Second block line 1"
+        echo "Second block line 2"
+    echo "After all blocks"

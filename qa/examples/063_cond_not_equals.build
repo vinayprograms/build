@@ -1,0 +1,13 @@
+# Test: Conditional not equals
+# Expected: Should evaluate != correctly
+# Category: Conditionals
+# Description: Tests != operator in conditions
+
+if {os} != windows
+    posix = true
+else
+    posix = false
+end
+
+@test:
+    echo "POSIX: {posix}"

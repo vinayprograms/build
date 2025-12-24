@@ -1,0 +1,12 @@
+# Test: Edge case - Trailing whitespace
+# Expected: Should handle trailing spaces correctly
+# Category: Edge Cases
+# Description: Tests values with trailing whitespace
+
+# Note: this file may have trailing spaces on some lines
+value_with_trailing = value   
+value_normal = value
+
+@test:
+    echo "Trailing: '{value_with_trailing}'"
+    echo "Normal: '{value_normal}'"

@@ -1,0 +1,13 @@
+# Test: Directory target
+# Expected: Should create directory
+# Category: Targets
+# Description: Tests directory target (ending with /)
+
+build/:
+    mkdir -p {target}
+
+build/sub/:
+    mkdir -p {target}
+
+output/release/:
+    mkdir -p {target}

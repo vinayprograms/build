@@ -1,0 +1,12 @@
+# Test: Conditionals with targets inside
+# Expected: Should define targets conditionally
+# Category: Conditionals
+# Description: Tests targets defined within conditionals
+
+if {os} == darwin
+    @test:
+        echo "Running on macOS"
+else
+    @test:
+        echo "Running on other OS"
+end

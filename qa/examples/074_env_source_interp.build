@@ -1,0 +1,14 @@
+# Test: Environment with source containing variable
+# Expected: Should allow interpolation in source path
+# Category: Environment
+# Description: Tests variable in environment source
+
+docker_dir = ./docker
+
+.environment: ci
+    .using: docker
+    .source: {docker_dir}/ci.Dockerfile
+    .args: --platform linux/amd64
+
+@test:
+    echo "interpolation test"

@@ -1,0 +1,12 @@
+# Test: Target with many dependencies
+# Expected: Should check all dependencies
+# Category: Targets
+# Description: Tests target with multiple dependencies
+
+build/app: build/main.o build/utils.o build/helper.o build/config.o
+    echo "Linking all objects: {deps}"
+    echo "linked" > {target}
+
+build/{name}.o:
+    mkdir -p build
+    echo "compiled {name}" > {target}

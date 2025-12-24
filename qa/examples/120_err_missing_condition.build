@@ -1,0 +1,11 @@
+# Test: Invalid - Missing condition in if
+# Expected: Should report missing condition error
+# Category: Errors/Syntax
+# Description: Tests if without condition
+
+if
+    cc = gcc
+end
+
+@test:
+    echo "test"

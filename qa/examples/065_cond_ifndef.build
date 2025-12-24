@@ -1,0 +1,16 @@
+# Test: Conditional ifndef
+# Expected: Should check if variable is not defined
+# Category: Conditionals
+# Description: Tests ifndef conditional
+
+ifndef CC
+    cc = gcc
+end
+
+ifndef MISSING_VAR
+    missing_set = yes
+end
+
+@test:
+    echo "CC: {cc}"
+    echo "Missing set: {missing_set}"

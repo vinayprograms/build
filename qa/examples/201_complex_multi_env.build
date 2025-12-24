@@ -1,0 +1,37 @@
+# Test: Multi-environment project
+# Expected: Should handle multiple environments
+# Category: Integration
+# Description: Tests project with multiple environment configurations
+
+.shell: bash
+.default: @build
+
+# Default development environment
+.environment:
+    .using: bare
+    .requires: node@18 npm@latest
+
+# CI environment with Docker
+.environment: ci
+    .using: docker
+    .source: ./Dockerfile.ci
+    .args: --platform linux/amd64
+
+# Production build environment
+.environment: prod
+    .using: docker
+    .source: ./Dockerfile.prod
+    .args: --no-cache
+
+# Variables
+node_version = shell(node --version 2>/dev/null || echo "unknown")
+
+@build:
+    echo "Building with Node {node_version}"
+    echo "npm run build"
+
+@test:
+    echo "npm test"
+
+@deploy: @build @test
+    echo "Deploying..."

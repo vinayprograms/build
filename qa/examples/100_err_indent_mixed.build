@@ -1,0 +1,8 @@
+# Test: Invalid - Mixed indentation (tabs then spaces)
+# Expected: Should report indentation error
+# Category: Errors/Indentation
+# Description: Tests detection of mixed indentation
+
+@test:
+	echo "with tab"
+    echo "with spaces"

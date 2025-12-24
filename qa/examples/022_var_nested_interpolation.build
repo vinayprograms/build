@@ -1,0 +1,14 @@
+# Test: Variable interpolation in variables
+# Expected: Should expand nested variables
+# Category: Variables
+# Description: Tests variable references within variable definitions
+
+base = /opt
+name = myapp
+full_path = {base}/{name}
+version = 1.0.0
+full_name = {name}-{version}
+
+@test:
+    echo "Full path: {full_path}"
+    echo "Full name: {full_name}"

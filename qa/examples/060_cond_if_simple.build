@@ -1,0 +1,11 @@
+# Test: Conditional if-end
+# Expected: Should evaluate condition
+# Category: Conditionals
+# Description: Tests simple if-end conditional
+
+if {os} == darwin
+    platform = macOS
+end
+
+@test:
+    echo "Platform: {platform}"

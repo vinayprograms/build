@@ -1,0 +1,51 @@
+# Test: Complex C project build simulation
+# Expected: Should handle typical C project structure
+# Category: Integration
+# Description: Tests a realistic C project build
+
+.shell: bash
+.parallel: 4
+.default: @all
+
+# Configuration
+cc = gcc
+cflags = -Wall -Wextra -O2
+ldflags =
+src_dir = src
+build_dir = build
+
+ifdef DEBUG
+    cflags = -Wall -Wextra -g -O0 -DDEBUG
+end
+
+if {os} == linux
+    ldflags = -lpthread
+elif {os} == darwin
+    ldflags = -framework CoreFoundation
+end
+
+# Directory target
+{build_dir}/:
+    mkdir -p {target}
+
+# Pattern target for object files
+{build_dir}/{name}.o: {src_dir}/{name}.c
+    .after: {build_dir}/
+    {cc} {cflags:raw} -c {in} -o {out}
+
+# Main application
+{build_dir}/app: {build_dir}/main.o {build_dir}/utils.o
+    .after: {build_dir}/
+    {cc} {ldflags:raw} -o {target} {deps}
+
+# Phony targets
+@all: {build_dir}/app
+    echo "Build complete: {build_dir}/app"
+
+@clean:
+    rm -rf {build_dir}
+
+@rebuild: @clean @all
+
+@test: {build_dir}/app
+    ./{build_dir}/app --test

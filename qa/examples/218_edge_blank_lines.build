@@ -1,0 +1,27 @@
+# Test: Edge case - Multiple consecutive blanks
+# Expected: Should handle blank lines correctly
+# Category: Edge Cases
+# Description: Tests multiple blank lines between elements
+
+
+# After multiple blanks
+
+
+var1 = value1
+
+
+# More blanks
+
+
+var2 = value2
+
+
+
+
+@test:
+
+
+    echo "{var1}"
+
+
+    echo "{var2}"

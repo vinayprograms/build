@@ -1,0 +1,9 @@
+# Test: Invalid - Directive in wrong scope (.using at global)
+# Expected: Should report scope error
+# Category: Errors/Scope
+# Description: Tests .using directive at global (only valid in environment)
+
+.using: docker
+
+@test:
+    echo "test"

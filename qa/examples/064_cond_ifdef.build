@@ -1,0 +1,17 @@
+# Test: Conditional ifdef
+# Expected: Should check if variable is defined
+# Category: Conditionals
+# Description: Tests ifdef conditional
+
+DEBUG = 1
+
+ifdef DEBUG
+    cflags = -g -O0
+end
+
+ifndef DEBUG
+    cflags = -O2
+end
+
+@test:
+    echo "CFLAGS: {cflags}"

@@ -1,0 +1,14 @@
+# Test: All global directives
+# Expected: Should parse without errors
+# Category: Directives
+# Description: Tests all global directives together
+
+.shell: bash
+.parallel: 8
+.default: @build
+
+@build:
+    echo "building"
+
+@clean:
+    echo "cleaning"

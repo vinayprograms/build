@@ -1,0 +1,9 @@
+# Test: Invalid - Unclosed interpolation
+# Expected: Should report syntax error
+# Category: Errors/Syntax
+# Description: Tests unclosed brace in interpolation
+
+msg = hello {world
+
+@test:
+    echo "{msg}"

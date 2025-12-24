@@ -1,0 +1,7 @@
+# Test: Invalid - Undefined variable reference
+# Expected: Should report undefined variable error
+# Category: Errors/Semantic
+# Description: Tests reference to undefined variable
+
+@test:
+    echo "{undefined_variable}"

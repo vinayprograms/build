@@ -1,0 +1,29 @@
+# Test: Multiple elif branches
+# Expected: Should handle many elif branches
+# Category: Conditionals
+# Description: Tests conditional with many elif branches
+
+if {os} == linux
+    os_name = Linux
+elif {os} == darwin
+    os_name = macOS
+elif {os} == windows
+    os_name = Windows
+elif {os} == freebsd
+    os_name = FreeBSD
+elif {os} == openbsd
+    os_name = OpenBSD
+elif {os} == netbsd
+    os_name = NetBSD
+elif {os} == dragonfly
+    os_name = DragonFly
+elif {os} == solaris
+    os_name = Solaris
+elif {os} == aix
+    os_name = AIX
+else
+    os_name = Unknown
+end
+
+@test:
+    echo "OS: {os_name}"

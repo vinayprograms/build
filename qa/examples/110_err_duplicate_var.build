@@ -1,0 +1,10 @@
+# Test: Invalid - Duplicate variable definition
+# Expected: Should report duplicate definition error
+# Category: Errors/Semantic
+# Description: Tests duplicate variable at same scope
+
+cc = gcc
+cc = clang
+
+@test:
+    echo "{cc}"

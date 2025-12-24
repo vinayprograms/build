@@ -1,0 +1,13 @@
+# Test: Invalid - Circular dependency (3-way)
+# Expected: Should report circular dependency error
+# Category: Errors/Dependencies
+# Description: Tests A -> B -> C -> A cycle
+
+@a: @b
+    echo "a"
+
+@b: @c
+    echo "b"
+
+@c: @a
+    echo "c"

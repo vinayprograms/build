@@ -1,0 +1,11 @@
+# Test: Include directive - with variable
+# Expected: Should throw an error since interpolation is not yet supported in directives.
+# Category: Directives
+# Description: Tests variable in .include path
+
+config_dir = .
+.include: {config_dir}/015a_common.build
+
+@test:
+    echo "Shared: {shared_var}"
+    echo "CC: {shared_cc}"

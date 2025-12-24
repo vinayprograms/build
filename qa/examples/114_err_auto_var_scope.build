@@ -1,0 +1,9 @@
+# Test: Invalid - Automatic variable outside recipe
+# Expected: Should report scope error
+# Category: Errors/Semantic
+# Description: Tests {target} used in variable definition
+
+output_file = {target}
+
+@test:
+    echo "test"

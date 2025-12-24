@@ -1,0 +1,34 @@
+# Test: Environment - all runtime types
+# Expected: Should recognize all runtime types
+# Category: Environment
+# Description: Tests all supported runtime types
+
+.environment:
+    .using: bare
+    .requires: echo
+
+.environment: docker_env
+    .using: docker
+    .source: ./Dockerfile
+    .args: --platform linux/amd64
+
+.environment: podman_env
+    .using: podman
+    .source: ./Containerfile
+
+.environment: devcontainer_env
+    .using: devcontainer
+    .source: .devcontainer
+
+.environment: nix_env
+    .using: nix
+    .source: ./shell.nix
+    .args: --pure
+
+.environment: lima_env
+    .using: lima
+    .source: ./lima.yaml
+
+@test:
+    cat /etc/os-release
+    echo "runtime test"

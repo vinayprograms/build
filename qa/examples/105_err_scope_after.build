@@ -1,0 +1,9 @@
+# Test: Invalid - Directive in wrong scope (.after at global)
+# Expected: Should report scope error
+# Category: Errors/Scope
+# Description: Tests .after directive at global (only valid in recipe)
+
+.after: build/
+
+@test:
+    echo "test"

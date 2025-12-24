@@ -1,0 +1,12 @@
+# Test: Indentation with 4 spaces
+# Expected: Should parse without errors
+# Category: Indentation
+# Description: Tests 4-space indentation consistency (recommended)
+
+@build:
+    echo "line 1"
+    echo "line 2"
+    block:
+        if [ true ]; then
+            echo "nested"
+        fi

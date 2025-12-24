@@ -1,0 +1,13 @@
+# Test: Empty variable value
+# Expected: Should parse without errors
+# Category: Variables
+# Description: Tests variable with empty value
+
+empty =
+prefix = before
+suffix = after
+full = {prefix}{empty}{suffix}
+
+@test:
+    echo "Empty: '{empty}'"
+    echo "Full: '{full}'"

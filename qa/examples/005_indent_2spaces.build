@@ -1,0 +1,12 @@
+# Test: Indentation with 2 spaces
+# Expected: Should parse without errors
+# Category: Indentation
+# Description: Tests 2-space indentation consistency
+
+@build:
+  echo "line 1"
+  echo "line 2"
+  block:
+    if [ true ]; then
+      echo "nested"
+    fi

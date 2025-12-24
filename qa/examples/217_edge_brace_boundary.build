@@ -1,0 +1,15 @@
+# Test: Edge case - Brace not at boundary
+# Expected: Should not interpolate when not at boundary
+# Category: Edge Cases
+# Description: Tests that ${var} and x{var} are not interpolated
+
+msg = hello
+json = {"key": "value"}
+shell_style = ${PATH}
+attached = prefix{msg}
+
+@test:
+    echo "JSON: {json}"
+    echo "Shell style: {shell_style}"
+    echo "Attached: {attached}"
+    echo "Proper interp: {msg}"

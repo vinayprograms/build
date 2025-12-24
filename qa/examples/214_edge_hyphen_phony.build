@@ -1,0 +1,21 @@
+# Test: Edge case - Phony name with hyphen
+# Expected: Should handle hyphens in phony names
+# Category: Edge Cases
+# Description: Tests phony targets with hyphens
+
+@run-tests:
+    echo "running tests"
+
+@build-debug:
+    echo "building debug"
+
+@build-release:
+    echo "building release"
+
+@clean-all:
+    echo "cleaning all"
+
+@lint-fix:
+    echo "fixing lint"
+
+@all: @run-tests @build-debug @build-release

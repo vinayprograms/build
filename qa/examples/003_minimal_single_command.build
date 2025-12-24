@@ -1,0 +1,7 @@
+# Test: Single phony target with one command
+# Expected: Should execute and print "hello"
+# Category: Minimal/Edge Cases
+# Description: Minimal working buildfile
+
+@hello:
+    echo "hello"

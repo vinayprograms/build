@@ -1,0 +1,9 @@
+# Test: Invalid - Unknown directive
+# Expected: Should report unknown directive error
+# Category: Errors/Syntax
+# Description: Tests unknown directive keyword
+
+.unknown: value
+
+@test:
+    echo "test"

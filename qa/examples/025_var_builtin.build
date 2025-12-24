@@ -1,0 +1,8 @@
+# Test: Built-in variables os and arch
+# Expected: Should expand to runtime values
+# Category: Variables
+# Description: Tests built-in {os} and {arch} variables
+
+@info:
+    echo "Operating System: {os}"
+    echo "Architecture: {arch}"

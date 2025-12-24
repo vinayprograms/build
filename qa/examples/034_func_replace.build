@@ -1,0 +1,13 @@
+# Test: replace() function
+# Expected: Should perform string replacement
+# Category: Functions
+# Description: Tests replace() function with various inputs
+
+sources = main.c utils.c helper.c
+objects = replace({sources}, .c, .o)
+headers = replace({sources}, .c, .h)
+
+@test:
+    echo "Sources: {sources}"
+    echo "Objects: {objects}"
+    echo "Headers: {headers}"

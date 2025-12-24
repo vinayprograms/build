@@ -1,0 +1,8 @@
+# Test: Invalid - Directive in wrong scope (.parallel in recipe)
+# Expected: Should report scope error
+# Category: Errors/Scope
+# Description: Tests .parallel directive in recipe (only valid at global)
+
+@test:
+    .parallel: 4
+    echo "test"

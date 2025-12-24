@@ -1,0 +1,25 @@
+# Test: Nested conditionals
+# Expected: Should handle nesting correctly
+# Category: Conditionals
+# Description: Tests nested if blocks
+
+if {os} == linux
+    if {arch} == amd64
+        platform = linux-amd64
+    elif {arch} == arm64
+        platform = linux-arm64
+    else
+        platform = linux-other
+    end
+elif {os} == darwin
+    if {arch} == amd64
+        platform = darwin-amd64
+    else
+        platform = darwin-arm64
+    end
+else
+    platform = unknown
+end
+
+@test:
+    echo "Platform: {platform}"

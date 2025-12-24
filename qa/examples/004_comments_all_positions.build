@@ -1,0 +1,20 @@
+# Test: Comments only at all valid positions
+# Expected: Should parse without errors
+# Category: Comments
+# Description: Tests comments at various positions - standalone, inline, etc.
+
+# Top-level comment before any content
+
+# Comment before directive
+.shell: bash  # inline comment on directive
+
+# Comment before variable
+cc = gcc  # inline comment on variable
+
+# Comment before target
+@build:  # inline comment on target
+    # Comment inside recipe
+    echo "building"  # inline comment in command
+    # Another comment in recipe
+
+# Comment at end of file

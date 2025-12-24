@@ -1,0 +1,14 @@
+# Test: Command with redirections
+# Expected: Should handle shell redirections
+# Category: Edge Cases
+# Description: Tests shell redirection operators in commands
+
+output_file = output.txt
+
+@test:
+    echo "hello" > {output_file}
+    echo "world" >> {output_file}
+    cat < {output_file}
+    cat {output_file} 2>/dev/null
+    cat {output_file} 2>&1
+    rm -f {output_file}

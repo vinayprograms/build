@@ -1,0 +1,58 @@
+# Test: Cross-platform build
+# Expected: Should select correct settings per OS
+# Category: Integration
+# Description: Tests cross-platform conditional logic
+
+.shell: bash
+
+# Compiler selection
+if {os} == darwin
+    cc = clang
+    cxx = clang++
+    ar = ar
+    exe_ext =
+    lib_prefix = lib
+    lib_ext = .dylib
+elif {os} == linux
+    cc = gcc
+    cxx = g++
+    ar = ar
+    exe_ext =
+    lib_prefix = lib
+    lib_ext = .so
+elif {os} == windows
+    cc = cl
+    cxx = cl
+    ar = lib
+    exe_ext = .exe
+    lib_prefix =
+    lib_ext = .dll
+else
+    cc = cc
+    cxx = c++
+    ar = ar
+    exe_ext =
+    lib_prefix = lib
+    lib_ext = .a
+end
+
+# Architecture-specific flags
+if {arch} == amd64
+    arch_flags = -m64
+elif {arch} == arm64
+    arch_flags = -march=armv8-a
+else
+    arch_flags =
+end
+
+lazy full_cc_flags = {arch_flags}
+
+@info:
+    echo "OS: {os}"
+    echo "Arch: {arch}"
+    echo "CC: {cc}"
+    echo "CXX: {cxx}"
+    echo "Lib prefix: {lib_prefix}"
+    echo "Lib ext: {lib_ext}"
+    echo "Exe ext: {exe_ext}"
+    echo "Arch flags: {arch_flags}"

@@ -1,0 +1,7 @@
+# Test: Include - file to be included
+# Expected: N/A - this is included by other files
+# Category: Directives
+# Description: Common definitions to be included
+
+shared_var = from_common
+shared_cc = gcc

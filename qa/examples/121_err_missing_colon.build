@@ -1,0 +1,7 @@
+# Test: Invalid - Missing colon after target
+# Expected: Should report syntax error
+# Category: Errors/Syntax  
+# Description: Tests target without colon
+
+@test
+    echo "test"

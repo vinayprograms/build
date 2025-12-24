@@ -1,0 +1,36 @@
+# Test: Edge case - Many targets
+# Expected: Should handle many targets
+# Category: Edge Cases
+# Description: Tests parsing with many targets
+
+@t01:
+    echo "t01"
+
+@t02:
+    echo "t02"
+
+@t03:
+    echo "t03"
+
+@t04:
+    echo "t04"
+
+@t05:
+    echo "t05"
+
+@t06:
+    echo "t06"
+
+@t07:
+    echo "t07"
+
+@t08:
+    echo "t08"
+
+@t09:
+    echo "t09"
+
+@t10:
+    echo "t10"
+
+@all: @t01 @t02 @t03 @t04 @t05 @t06 @t07 @t08 @t09 @t10

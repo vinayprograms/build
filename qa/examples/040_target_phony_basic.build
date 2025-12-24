@@ -1,0 +1,15 @@
+# Test: Phony target basic
+# Expected: Should always run
+# Category: Targets
+# Description: Tests basic phony target definition
+
+@clean:
+    rm -rf testbuild/
+    echo "removed"
+
+@build:
+    mkdir -p build
+    echo "built" > build/output.txt
+
+@test:
+    echo "testing..."

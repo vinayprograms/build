@@ -1,0 +1,15 @@
+# Test: Environment - named
+# Expected: Should define named environment
+# Category: Environment
+# Description: Tests named environment definition
+
+.environment: dev
+    .using: bare
+    .requires: gcc python3
+
+.environment: ci
+    .using: bare
+    .requires: gcc@11 python3@3.10
+
+@test:
+    echo "environment test"

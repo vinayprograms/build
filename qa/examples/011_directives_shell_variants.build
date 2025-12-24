@@ -1,0 +1,14 @@
+# Test: .shell directive with various shells
+# Expected: Should throw an error for global directive redefinition
+# Category: Directives
+# Description: Tests .shell directive with different shell values
+
+.shell: /bin/sh
+
+@test_sh:
+    echo "using sh"
+
+.shell: bash
+
+@test_bash:
+    echo "using bash"

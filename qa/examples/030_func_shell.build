@@ -1,0 +1,13 @@
+# Test: shell() function
+# Expected: Should execute and capture output
+# Category: Functions
+# Description: Tests shell() function for command execution
+
+date_output = shell(date +%Y-%m-%d)
+pwd_output = shell(pwd)
+uname_output = shell(uname -s)
+
+@test:
+    echo "Date: {date_output}"
+    echo "PWD: {pwd_output}"
+    echo "Uname: {uname_output}"

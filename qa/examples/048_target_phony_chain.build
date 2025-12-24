@@ -1,0 +1,18 @@
+# Test: Phony depending on phony
+# Expected: Should chain phony targets correctly
+# Category: Targets
+# Description: Tests phony target depending on other phony targets
+
+@all: @build @test @deploy
+
+@build:
+    echo "building..."
+
+@test: @build
+    echo "testing..."
+
+@deploy: @test
+    echo "deploying..."
+
+@clean:
+    echo "cleaning..."

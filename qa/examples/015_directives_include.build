@@ -1,0 +1,14 @@
+# Test: Include directive - basic
+# Expected: Should include and merge files
+# Category: Directives
+# Description: Tests .include directive (file to include must exist)
+
+# Note: This test requires 015a_common.build to exist in same directory
+.include: ./001_minimal_empty.build
+.include: ./015a_common.build
+
+# For testing parser only:
+msg = "standalone {shared_cc} {shared_var}"
+
+@test:
+    echo "{msg}"

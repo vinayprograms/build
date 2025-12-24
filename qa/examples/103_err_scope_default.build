@@ -1,0 +1,8 @@
+# Test: Invalid - Directive in wrong scope (.default in recipe)
+# Expected: Should report scope error
+# Category: Errors/Scope
+# Description: Tests .default directive in recipe (only valid at global)
+
+@test:
+    .default: @other
+    echo "test"
