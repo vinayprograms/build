@@ -79,27 +79,33 @@ func (n *NixEnvironment) EnsureReady(ctx context.Context, output io.Writer) erro
 func (n *NixEnvironment) RunCommand(ctx context.Context, command []string) (*RunResult, error) {
 	result := &RunResult{}
 
-	cmdStr := strings.Join(command, " ")
 	var args []string
 	var cmdName string
 
 	if n.nixType == NixTypeFlake {
-		// For flakes, use: nix develop -c sh -c "<command>"
+		// For flakes, use: nix develop -c <command...>
 		cmdName = "nix"
 		args = []string{"develop"}
 		if n.configPath != "" {
 			args = append(args, filepath.Dir(n.configPath))
 		}
 		args = append(args, n.args...)
-		args = append(args, "-c", "sh", "-c", cmdStr)
+		args = append(args, "-c")
+		args = append(args, command...)
 	} else {
 		// For shell.nix, use: nix-shell --run "<command>"
+		// command is [shell, "-c", script] from executor
 		cmdName = "nix-shell"
 		if n.configPath != "" {
 			args = append(args, n.configPath)
 		}
 		args = append(args, n.args...)
-		args = append(args, "--run", cmdStr)
+		// Extract just the script from [shell, "-c", script]
+		if len(command) >= 3 && command[1] == "-c" {
+			args = append(args, "--run", command[2])
+		} else {
+			args = append(args, "--run", strings.Join(command, " "))
+		}
 	}
 
 	cmd := n.runCommand(cmdName, args...)
@@ -125,7 +131,6 @@ func (n *NixEnvironment) RunCommand(ctx context.Context, command []string) (*Run
 
 // RunCommandStreaming runs a command in the nix environment and streams output.
 func (n *NixEnvironment) RunCommandStreaming(ctx context.Context, command []string, stdout, stderr io.Writer) (int, error) {
-	cmdStr := strings.Join(command, " ")
 	var args []string
 	var cmdName string
 
@@ -136,14 +141,20 @@ func (n *NixEnvironment) RunCommandStreaming(ctx context.Context, command []stri
 			args = append(args, filepath.Dir(n.configPath))
 		}
 		args = append(args, n.args...)
-		args = append(args, "-c", "sh", "-c", cmdStr)
+		args = append(args, "-c")
+		args = append(args, command...)
 	} else {
 		cmdName = "nix-shell"
 		if n.configPath != "" {
 			args = append(args, n.configPath)
 		}
 		args = append(args, n.args...)
-		args = append(args, "--run", cmdStr)
+		// Extract just the script from [shell, "-c", script]
+		if len(command) >= 3 && command[1] == "-c" {
+			args = append(args, "--run", command[2])
+		} else {
+			args = append(args, "--run", strings.Join(command, " "))
+		}
 	}
 
 	cmd := n.runCommand(cmdName, args...)
