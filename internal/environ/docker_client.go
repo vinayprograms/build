@@ -71,17 +71,45 @@ func (d *DockerClient) ImageCreatedTime(ctx context.Context, imageTag string) (t
 }
 
 // PullImage pulls a Docker image from a registry.
-func (d *DockerClient) PullImage(ctx context.Context, imageRef string) error {
+// If output is non-nil, pull progress is written to it.
+func (d *DockerClient) PullImage(ctx context.Context, imageRef string, output io.Writer) error {
 	reader, err := d.cli.ImagePull(ctx, imageRef, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to pull image: %w", err)
 	}
 	defer reader.Close()
 
-	// Read the output to completion (required for the pull to complete)
-	_, err = io.Copy(io.Discard, reader)
-	if err != nil {
-		return fmt.Errorf("failed to read pull output: %w", err)
+	// Stream pull progress or discard
+	if output != nil {
+		// Docker returns JSON progress messages, decode and display them
+		decoder := json.NewDecoder(reader)
+		for {
+			var message struct {
+				Status   string `json:"status"`
+				Progress string `json:"progress"`
+				Error    string `json:"error"`
+			}
+			if err := decoder.Decode(&message); err != nil {
+				if err == io.EOF {
+					break
+				}
+				return fmt.Errorf("failed to read pull output: %w", err)
+			}
+			if message.Error != "" {
+				return fmt.Errorf("pull failed: %s", message.Error)
+			}
+			if message.Progress != "" {
+				fmt.Fprintf(output, "%s %s\n", message.Status, message.Progress)
+			} else if message.Status != "" {
+				fmt.Fprintf(output, "%s\n", message.Status)
+			}
+		}
+	} else {
+		// Read the output to completion (required for the pull to complete)
+		_, err = io.Copy(io.Discard, reader)
+		if err != nil {
+			return fmt.Errorf("failed to read pull output: %w", err)
+		}
 	}
 
 	return nil
@@ -91,7 +119,8 @@ func (d *DockerClient) PullImage(ctx context.Context, imageRef string) error {
 // dockerfilePath is the path to the Dockerfile.
 // imageTag is the tag to apply to the built image.
 // extraArgs are additional build arguments (e.g., --platform).
-func (d *DockerClient) BuildImage(ctx context.Context, dockerfilePath, imageTag string, extraArgs []string) error {
+// If output is non-nil, build progress is written to it.
+func (d *DockerClient) BuildImage(ctx context.Context, dockerfilePath, imageTag string, extraArgs []string, output io.Writer) error {
 	contextDir := filepath.Dir(dockerfilePath)
 	dockerfileName := filepath.Base(dockerfilePath)
 
@@ -143,6 +172,9 @@ func (d *DockerClient) BuildImage(ctx context.Context, dockerfilePath, imageTag 
 		}
 		if message.Error != "" {
 			return fmt.Errorf("build failed: %s", message.Error)
+		}
+		if output != nil && message.Stream != "" {
+			fmt.Fprint(output, message.Stream)
 		}
 	}
 
@@ -373,7 +405,8 @@ func createBuildContext(contextDir string) (io.Reader, error) {
 // contextDir is the build context directory.
 // imageTag is the tag to apply to the built image.
 // extraArgs are additional build arguments.
-func (d *DockerClient) BuildImageWithContext(ctx context.Context, dockerfilePath, contextDir, imageTag string, extraArgs []string) error {
+// If output is non-nil, build progress is written to it.
+func (d *DockerClient) BuildImageWithContext(ctx context.Context, dockerfilePath, contextDir, imageTag string, extraArgs []string, output io.Writer) error {
 	dockerfileName := filepath.Base(dockerfilePath)
 
 	// If Dockerfile is not in the context directory, we need to handle this
@@ -431,6 +464,9 @@ func (d *DockerClient) BuildImageWithContext(ctx context.Context, dockerfilePath
 		}
 		if message.Error != "" {
 			return fmt.Errorf("build failed: %s", message.Error)
+		}
+		if output != nil && message.Stream != "" {
+			fmt.Fprint(output, message.Stream)
 		}
 	}
 

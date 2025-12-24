@@ -124,8 +124,13 @@ func (e *Executor) EnsureRuntimeReady(ctx context.Context) error {
 	if e.runtimeEnv == nil || e.envReady {
 		return nil
 	}
-	if err := e.runtimeEnv.EnsureReady(ctx); err != nil {
-		return fmt.Errorf("failed to build container image: %w", err)
+	// Use verbose output if not quiet mode
+	var output io.Writer
+	if e.config.Verbose && !e.config.Quiet {
+		output = e.output
+	}
+	if err := e.runtimeEnv.EnsureReady(ctx, output); err != nil {
+		return fmt.Errorf("failed to prepare runtime environment: %w", err)
 	}
 	e.envReady = true
 	return nil

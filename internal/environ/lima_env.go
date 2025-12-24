@@ -80,16 +80,16 @@ func (l *LimaEnvironment) Validate() error {
 }
 
 // EnsureReady ensures the Lima VM is running.
-func (l *LimaEnvironment) EnsureReady(ctx context.Context) error {
+func (l *LimaEnvironment) EnsureReady(ctx context.Context, output io.Writer) error {
 	if l.isStarted {
 		return nil
 	}
 
 	// Check if VM is already running
 	cmd := l.runCommand("limactl", "list", "--format", "{{.Name}}", "--status", "Running")
-	output, err := cmd.Output()
+	cmdOutput, err := cmd.Output()
 	if err == nil {
-		runningVMs := strings.Split(strings.TrimSpace(string(output)), "\n")
+		runningVMs := strings.Split(strings.TrimSpace(string(cmdOutput)), "\n")
 		for _, vm := range runningVMs {
 			if vm == l.vmName {
 				l.isStarted = true
@@ -99,6 +99,9 @@ func (l *LimaEnvironment) EnsureReady(ctx context.Context) error {
 	}
 
 	// Start the VM
+	if output != nil {
+		fmt.Fprintf(output, "Starting Lima VM %s...\n", l.vmName)
+	}
 	args := []string{"start"}
 	if l.configPath != "" {
 		args = append(args, "--name="+l.vmName, l.configPath)
@@ -108,9 +111,15 @@ func (l *LimaEnvironment) EnsureReady(ctx context.Context) error {
 	args = append(args, l.args...)
 
 	cmd = l.runCommand("limactl", args...)
-	output, err = cmd.CombinedOutput()
+	if output != nil {
+		cmd.Stdout = output
+		cmd.Stderr = output
+		err = cmd.Run()
+	} else {
+		cmdOutput, err = cmd.CombinedOutput()
+	}
 	if err != nil {
-		return fmt.Errorf("failed to start Lima VM: %w\n%s", err, string(output))
+		return fmt.Errorf("failed to start Lima VM: %w\n%s", err, string(cmdOutput))
 	}
 
 	l.isStarted = true

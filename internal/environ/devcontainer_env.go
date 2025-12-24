@@ -101,7 +101,7 @@ func (d *DevcontainerEnvironment) Validate() error {
 }
 
 // EnsureReady ensures the devcontainer image is built and available.
-func (d *DevcontainerEnvironment) EnsureReady(ctx context.Context) error {
+func (d *DevcontainerEnvironment) EnsureReady(ctx context.Context, output io.Writer) error {
 	if d.imageBuilt {
 		return nil
 	}
@@ -113,7 +113,10 @@ func (d *DevcontainerEnvironment) EnsureReady(ctx context.Context) error {
 			return fmt.Errorf("failed to check image: %w", err)
 		}
 		if !exists {
-			if err := d.dockerClient.PullImage(ctx, d.devConfig.Image); err != nil {
+			if output != nil {
+				fmt.Fprintf(output, "Pulling image %s...\n", d.devConfig.Image)
+			}
+			if err := d.dockerClient.PullImage(ctx, d.devConfig.Image, output); err != nil {
 				return fmt.Errorf("failed to pull image %s: %w", d.devConfig.Image, err)
 			}
 		}
@@ -170,7 +173,10 @@ func (d *DevcontainerEnvironment) EnsureReady(ctx context.Context) error {
 	}
 
 	// Build the image
-	if err := d.dockerClient.BuildImageWithContext(ctx, dockerfilePath, contextDir, d.imageTag, nil); err != nil {
+	if output != nil {
+		fmt.Fprintf(output, "Building image %s...\n", d.imageTag)
+	}
+	if err := d.dockerClient.BuildImageWithContext(ctx, dockerfilePath, contextDir, d.imageTag, nil, output); err != nil {
 		return &ImageBuildError{
 			ImageTag: d.imageTag,
 			Message:  err.Error(),

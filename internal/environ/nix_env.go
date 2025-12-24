@@ -71,7 +71,7 @@ func (n *NixEnvironment) Validate() error {
 
 // EnsureReady ensures the nix environment is ready.
 // For nix, this is a no-op since nix-shell handles everything.
-func (n *NixEnvironment) EnsureReady(ctx context.Context) error {
+func (n *NixEnvironment) EnsureReady(ctx context.Context, output io.Writer) error {
 	return nil
 }
 

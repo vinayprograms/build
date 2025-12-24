@@ -18,7 +18,8 @@ type RuntimeEnvironment interface {
 	// EnsureReady ensures the environment is ready to execute commands.
 	// For containers, this builds the image. For devcontainers, this runs 'up'.
 	// For nix/lima, this may be a no-op or verify the environment exists.
-	EnsureReady(ctx context.Context) error
+	// If output is non-nil, progress information is written to it.
+	EnsureReady(ctx context.Context, output io.Writer) error
 
 	// RunCommand runs a command in the environment and returns the result.
 	RunCommand(ctx context.Context, command []string) (*RunResult, error)

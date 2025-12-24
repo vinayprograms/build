@@ -97,7 +97,7 @@ func (c *ContainerEnvironment) Validate() error {
 
 // EnsureReady ensures the container image is built and available.
 // Implements RuntimeEnvironment interface.
-func (c *ContainerEnvironment) EnsureReady(ctx context.Context) error {
+func (c *ContainerEnvironment) EnsureReady(ctx context.Context, output io.Writer) error {
 	// Check if image already exists and is up-to-date
 	imageTime, err := c.dockerClient.ImageCreatedTime(ctx, c.imageTag)
 	if err != nil {
@@ -122,7 +122,10 @@ func (c *ContainerEnvironment) EnsureReady(ctx context.Context) error {
 	}
 
 	// Build the image
-	if err := c.dockerClient.BuildImage(ctx, c.dockerfilePath, c.imageTag, c.extraArgs); err != nil {
+	if output != nil {
+		fmt.Fprintf(output, "Building image %s...\n", c.imageTag)
+	}
+	if err := c.dockerClient.BuildImage(ctx, c.dockerfilePath, c.imageTag, c.extraArgs, output); err != nil {
 		return &ImageBuildError{
 			ImageTag: c.imageTag,
 			Message:  err.Error(),

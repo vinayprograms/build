@@ -52,7 +52,12 @@ func (e *ContainerExecutor) EnsureReady(ctx context.Context) error {
 		return nil
 	}
 
-	if err := e.containerEnv.EnsureReady(ctx); err != nil {
+	// Use verbose output if not quiet mode
+	var output io.Writer
+	if e.config.Verbose && !e.config.Quiet {
+		output = e.output
+	}
+	if err := e.containerEnv.EnsureReady(ctx, output); err != nil {
 		return fmt.Errorf("failed to build container image: %w", err)
 	}
 
