@@ -33,16 +33,22 @@ func NewContainerEnvironment(env *ast.Environment, projectDir, projectName strin
 
 	detector := NewContainerDetector()
 
-	// Verify the runtime is available (docker daemon running)
+	// Verify the runtime binary is available in PATH
+	_, err := detector.FindRuntime(*env.Runtime)
+	if err != nil {
+		return nil, err
+	}
+
+	// Connect to container daemon (Docker SDK works with both docker and podman)
 	dockerClient, err := NewDockerClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to Docker: %w", err)
+		return nil, fmt.Errorf("failed to connect to container daemon: %w", err)
 	}
 
 	// Ping to ensure daemon is responsive
 	if err := dockerClient.Ping(context.Background()); err != nil {
 		dockerClient.Close()
-		return nil, fmt.Errorf("Docker daemon not responding: %w", err)
+		return nil, fmt.Errorf("container daemon not responding: %w", err)
 	}
 
 	// Parse extra args from .args: directive
