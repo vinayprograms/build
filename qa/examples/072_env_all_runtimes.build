@@ -30,5 +30,11 @@
     .source: ./lima.yaml
 
 @test:
-    cat /etc/os-release
+    echo $(uname -s)
+    block:
+        if [ -f /etc/os-release ]; then
+            cat /etc/os-release
+        else
+            echo $(uname -s)
+        fi
     echo "runtime test"
