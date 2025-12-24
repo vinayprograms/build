@@ -317,6 +317,27 @@ func TestImageBuilder(t *testing.T) {
 		}
 	})
 
+	t.Run("handles dot project name", func(t *testing.T) {
+		tag := GenerateImageTag(".", "docker_env")
+		if tag != "build-docker_env:latest" {
+			t.Errorf("expected build-docker_env:latest, got %s", tag)
+		}
+	})
+
+	t.Run("handles empty project name", func(t *testing.T) {
+		tag := GenerateImageTag("", "ci")
+		if tag != "build-ci:latest" {
+			t.Errorf("expected build-ci:latest, got %s", tag)
+		}
+	})
+
+	t.Run("handles project name with leading dots", func(t *testing.T) {
+		tag := GenerateImageTag("..hidden", "dev")
+		if tag != "hidden-dev:latest" {
+			t.Errorf("expected hidden-dev:latest, got %s", tag)
+		}
+	})
+
 	t.Run("includes extra args in build command", func(t *testing.T) {
 		builder := &ImageBuilder{
 			runtime:    ast.RuntimeDocker,

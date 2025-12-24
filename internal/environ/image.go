@@ -74,6 +74,18 @@ func GenerateImageTag(project, envName string) string {
 	// Normalize project name (lowercase, no spaces)
 	project = strings.ToLower(strings.ReplaceAll(project, " ", "-"))
 
+	// Handle edge case where project is "." (current directory)
+	// Docker image names must start with alphanumeric character
+	if project == "." || project == "" {
+		project = "build"
+	}
+
+	// Remove leading dots/dashes (invalid in Docker image names)
+	project = strings.TrimLeft(project, ".-")
+	if project == "" {
+		project = "build"
+	}
+
 	if envName == "" {
 		return project + ":latest"
 	}

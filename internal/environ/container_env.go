@@ -1,21 +1,24 @@
 package environ
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
+	"io"
+	"os"
 
 	"github.com/vinayprograms/build/internal/ast"
 )
 
 // ContainerEnvironment represents a container-based build environment.
 type ContainerEnvironment struct {
-	env         *ast.Environment
-	projectDir  string
-	projectName string
-	detector    *ContainerDetector
-	builder     *ImageBuilder
-	runner      *ContainerRunner
-	imageTag    string
+	env            *ast.Environment
+	projectDir     string
+	projectName    string
+	detector       *ContainerDetector
+	dockerClient   *DockerClient
+	imageTag       string
+	extraArgs      []string
+	dockerfilePath string
 }
 
 // NewContainerEnvironment creates a new ContainerEnvironment.
@@ -30,10 +33,16 @@ func NewContainerEnvironment(env *ast.Environment, projectDir, projectName strin
 
 	detector := NewContainerDetector()
 
-	// Find the runtime binary
-	runtimePath, err := detector.FindRuntime(*env.Runtime)
+	// Verify the runtime is available (docker daemon running)
+	dockerClient, err := NewDockerClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to connect to Docker: %w", err)
+	}
+
+	// Ping to ensure daemon is responsive
+	if err := dockerClient.Ping(context.Background()); err != nil {
+		dockerClient.Close()
+		return nil, fmt.Errorf("Docker daemon not responding: %w", err)
 	}
 
 	// Parse extra args from .args: directive
@@ -48,55 +57,66 @@ func NewContainerEnvironment(env *ast.Environment, projectDir, projectName strin
 	// Generate image tag
 	imageTag := GenerateImageTag(projectName, envName)
 
-	// Create builder and runner
-	builder := NewImageBuilder(*env.Runtime, runtimePath, extraArgs)
-	runner := NewContainerRunner(*env.Runtime, runtimePath, projectDir)
-	runner.SetExtraArgs(extraArgs)
+	// Detect Dockerfile path
+	result, err := detector.DetectDockerfile(env, projectDir)
+	if err != nil {
+		dockerClient.Close()
+		return nil, err
+	}
 
 	return &ContainerEnvironment{
-		env:         env,
-		projectDir:  projectDir,
-		projectName: projectName,
-		detector:    detector,
-		builder:     builder,
-		runner:      runner,
-		imageTag:    imageTag,
+		env:            env,
+		projectDir:     projectDir,
+		projectName:    projectName,
+		detector:       detector,
+		dockerClient:   dockerClient,
+		imageTag:       imageTag,
+		extraArgs:      extraArgs,
+		dockerfilePath: result.Path,
 	}, nil
+}
+
+// Close releases resources held by the container environment.
+func (c *ContainerEnvironment) Close() error {
+	if c.dockerClient != nil {
+		return c.dockerClient.Close()
+	}
+	return nil
 }
 
 // Validate validates that the container environment is properly configured.
 func (c *ContainerEnvironment) Validate() error {
-	// Detect and validate Dockerfile
-	result, err := c.detector.DetectDockerfile(c.env, c.projectDir)
-	if err != nil {
-		return err
-	}
-
-	if err := c.detector.ValidateDockerfile(result.Path); err != nil {
-		return err
-	}
-
-	return nil
+	return c.detector.ValidateDockerfile(c.dockerfilePath)
 }
 
-// EnsureImage ensures the container image is built and available.
-func (c *ContainerEnvironment) EnsureImage() error {
-	// Check if image already exists
-	exists, err := c.builder.ImageExists(c.imageTag)
+// EnsureReady ensures the container image is built and available.
+// Implements RuntimeEnvironment interface.
+func (c *ContainerEnvironment) EnsureReady(ctx context.Context) error {
+	// Check if image already exists and is up-to-date
+	imageTime, err := c.dockerClient.ImageCreatedTime(ctx, c.imageTag)
 	if err != nil {
 		return err
 	}
-	if exists {
+
+	needsBuild := imageTime.IsZero() // Image doesn't exist
+
+	// If image exists, check if Dockerfile is newer
+	if !needsBuild {
+		dockerfileInfo, err := os.Stat(c.dockerfilePath)
+		if err != nil {
+			return fmt.Errorf("failed to stat Dockerfile: %w", err)
+		}
+		if dockerfileInfo.ModTime().After(imageTime) {
+			needsBuild = true
+		}
+	}
+
+	if !needsBuild {
 		return nil
 	}
 
 	// Build the image
-	result, err := c.detector.DetectDockerfile(c.env, c.projectDir)
-	if err != nil {
-		return err
-	}
-
-	if err := c.builder.Build(result.Path, c.imageTag); err != nil {
+	if err := c.dockerClient.BuildImage(ctx, c.dockerfilePath, c.imageTag, c.extraArgs); err != nil {
 		return &ImageBuildError{
 			ImageTag: c.imageTag,
 			Message:  err.Error(),
@@ -106,37 +126,14 @@ func (c *ContainerEnvironment) EnsureImage() error {
 	return nil
 }
 
-// RunCommand runs a command in the container environment.
-func (c *ContainerEnvironment) RunCommand(command []string) *exec.Cmd {
-	return c.runner.RunCommand(c.imageTag, command)
+// RunCommand runs a command in the container environment and returns the result.
+func (c *ContainerEnvironment) RunCommand(ctx context.Context, command []string) (*RunResult, error) {
+	return c.dockerClient.RunCommand(ctx, c.imageTag, command, c.projectDir, c.extraArgs)
 }
 
-// Shell opens an interactive shell in the container.
-func (c *ContainerEnvironment) Shell(shellPath string) *exec.Cmd {
-	if shellPath == "" {
-		shellPath = "/bin/sh"
-	}
-	return c.runner.ShellCommand(c.imageTag, shellPath)
-}
-
-// RunCommandKeepAlive runs a command and keeps the container running.
-func (c *ContainerEnvironment) RunCommandKeepAlive(command []string) (*exec.Cmd, string) {
-	envName := ""
-	if c.env.Name != nil {
-		envName = *c.env.Name
-	}
-	containerName := GenerateContainerName(c.projectName, envName)
-	return c.runner.RunCommandKeepAlive(c.imageTag, command, containerName), containerName
-}
-
-// StopContainer stops a running container by name.
-func (c *ContainerEnvironment) StopContainer(containerName string) *exec.Cmd {
-	return c.runner.StopContainer(containerName)
-}
-
-// RemoveContainer removes a container by name.
-func (c *ContainerEnvironment) RemoveContainer(containerName string) *exec.Cmd {
-	return c.runner.RemoveContainer(containerName)
+// RunCommandStreaming runs a command in the container and streams output.
+func (c *ContainerEnvironment) RunCommandStreaming(ctx context.Context, command []string, stdout, stderr io.Writer) (int, error) {
+	return c.dockerClient.RunCommandStreaming(ctx, c.imageTag, command, c.projectDir, c.extraArgs, stdout, stderr)
 }
 
 // ImageTag returns the image tag for this environment.
@@ -150,6 +147,11 @@ func (c *ContainerEnvironment) RuntimeName() string {
 		return ""
 	}
 	return runtimeName(*c.env.Runtime)
+}
+
+// ProjectDir returns the project directory.
+func (c *ContainerEnvironment) ProjectDir() string {
+	return c.projectDir
 }
 
 // PrintKeepInstructions prints instructions for using a kept-alive container.
