@@ -85,28 +85,50 @@ func (l *LimaEnvironment) EnsureReady(ctx context.Context, output io.Writer) err
 		return nil
 	}
 
-	// Check if VM is already running
-	cmd := l.runCommand("limactl", "list", "--format", "{{.Name}}", "--status", "Running")
+	// Check if VM exists and get its status
+	cmd := l.runCommand("limactl", "list", "--format", "{{.Name}}:{{.Status}}")
 	cmdOutput, err := cmd.Output()
+	
+	vmExists := false
+	vmRunning := false
 	if err == nil {
-		runningVMs := strings.Split(strings.TrimSpace(string(cmdOutput)), "\n")
-		for _, vm := range runningVMs {
-			if vm == l.vmName {
-				l.isStarted = true
-				return nil
+		lines := strings.Split(strings.TrimSpace(string(cmdOutput)), "\n")
+		for _, line := range lines {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 && parts[0] == l.vmName {
+				vmExists = true
+				vmRunning = parts[1] == "Running"
+				break
 			}
 		}
 	}
 
-	// Start the VM
-	if output != nil {
-		fmt.Fprintf(output, "Starting Lima VM %s...\n", l.vmName)
+	if vmRunning {
+		l.isStarted = true
+		return nil
 	}
-	args := []string{"start"}
-	if l.configPath != "" {
-		args = append(args, "--name="+l.vmName, l.configPath)
+
+	// Start or create the VM (use --tty=false to disable interactive prompts)
+	if output != nil {
+		if vmExists {
+			fmt.Fprintf(output, "Starting Lima VM %s...\n", l.vmName)
+		} else {
+			fmt.Fprintf(output, "Creating and starting Lima VM %s...\n", l.vmName)
+		}
+	}
+
+	var args []string
+	if vmExists {
+		// VM exists but is stopped - just start it
+		args = []string{"start", "--tty=false", l.vmName}
 	} else {
-		args = append(args, l.vmName)
+		// VM doesn't exist - create and start it
+		args = []string{"start", "--tty=false"}
+		if l.configPath != "" {
+			args = append(args, "--name="+l.vmName, l.configPath)
+		} else {
+			args = append(args, l.vmName)
+		}
 	}
 	args = append(args, l.args...)
 
@@ -130,11 +152,12 @@ func (l *LimaEnvironment) EnsureReady(ctx context.Context, output io.Writer) err
 func (l *LimaEnvironment) RunCommand(ctx context.Context, command []string) (*RunResult, error) {
 	result := &RunResult{}
 
-	cmdStr := strings.Join(command, " ")
-	// Use lima <vmname> -- sh -c "<command>"
-	args := []string{l.vmName, "--", "sh", "-c", cmdStr}
+	// Use limactl shell with --tty=false to disable interactive prompts
+	// command is already [shell, "-c", script] from the executor
+	args := []string{"shell", "--tty=false", l.vmName, "--"}
+	args = append(args, command...)
 
-	cmd := l.runCommand("lima", args...)
+	cmd := l.runCommand("limactl", args...)
 	cmd.Dir = l.projectDir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -157,10 +180,12 @@ func (l *LimaEnvironment) RunCommand(ctx context.Context, command []string) (*Ru
 
 // RunCommandStreaming runs a command in the Lima VM and streams output.
 func (l *LimaEnvironment) RunCommandStreaming(ctx context.Context, command []string, stdout, stderr io.Writer) (int, error) {
-	cmdStr := strings.Join(command, " ")
-	args := []string{l.vmName, "--", "sh", "-c", cmdStr}
+	// Use limactl shell with --tty=false to disable interactive prompts
+	// command is already [shell, "-c", script] from the executor
+	args := []string{"shell", "--tty=false", l.vmName, "--"}
+	args = append(args, command...)
 
-	cmd := l.runCommand("lima", args...)
+	cmd := l.runCommand("limactl", args...)
 	cmd.Dir = l.projectDir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
