@@ -3,6 +3,8 @@
 # Category: Environment
 # Description: Tests all supported runtime types
 
+# Un-named environment is considered the default when no environment is
+# specified in CLI
 .environment:
     .using: bare
     .requires: echo
