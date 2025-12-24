@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/environ"
 	"github.com/vinayprograms/build/internal/eval"
 	"github.com/vinayprograms/build/internal/executor"
 	"github.com/vinayprograms/build/internal/output"
@@ -94,6 +95,16 @@ func (e *Executor) SetEmitter(emitter *output.Emitter) {
 // SetTarget sets the current target for event context.
 func (e *Executor) SetTarget(target string) {
 	e.exec.SetTarget(target)
+}
+
+// SetRuntimeEnv sets the runtime environment for execution.
+func (e *Executor) SetRuntimeEnv(runtimeEnv environ.RuntimeEnvironment) {
+	e.exec.SetRuntimeEnv(runtimeEnv)
+}
+
+// Close releases resources held by the executor.
+func (e *Executor) Close() error {
+	return e.exec.Close()
 }
 
 // ExecResult represents the result of a command execution.

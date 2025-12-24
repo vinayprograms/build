@@ -313,6 +313,26 @@ func Run(args []string) int {
 		return exitEnvError
 	}
 
+	// Set up runtime environment if applicable
+	// Ensure absolute path for container mount
+	absBuildfileDir, err := filepath.Abs(buildfileDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: cannot resolve buildfile path: %v\n", err)
+		return exitParseError
+	}
+	projectName := filepath.Base(absBuildfileDir)
+	runtimeEnv, err := getRuntimeEnvironment(result, f.env, absBuildfileDir, projectName)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return exitEnvError
+	}
+	if runtimeEnv != nil {
+		defer runtimeEnv.Close()
+		if f.verbose {
+			fmt.Printf("Using %s environment\n", runtimeEnv.RuntimeName())
+		}
+	}
+
 	// Process each resolved target
 	hasFailure := false
 	totalTasks := 0
@@ -338,6 +358,11 @@ func Run(args []string) int {
 
 		// Create executor
 		executor := NewExecutor(shellConfig)
+
+		// Set runtime environment if configured
+		if runtimeEnv != nil {
+			executor.SetRuntimeEnv(runtimeEnv)
+		}
 
 		// Set up emitter for colored output
 		emitter := CreateOutputEmitter(f.verbose, f.quiet, f.color)
@@ -406,6 +431,9 @@ func Run(args []string) int {
 				if recipeShell != globalShell {
 					executor = NewExecutor(shellConfig.WithOverride(recipeShell))
 					executor.SetEmitter(emitter)
+					if runtimeEnv != nil {
+						executor.SetRuntimeEnv(runtimeEnv)
+					}
 				}
 
 				// Set target for event context

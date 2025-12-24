@@ -68,6 +68,93 @@ func validateEnvironmentRequirements(result BuildfileResult, envName string) err
 	return nil
 }
 
+// getRuntimeEnvironment creates a RuntimeEnvironment for the selected environment.
+// Returns nil if the environment is bare (no special runtime needed).
+// Returns an error if the environment doesn't exist or setup fails.
+func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectName string) (environ.RuntimeEnvironment, error) {
+	envs := GetEnvironments(result)
+	if len(envs) == 0 {
+		return nil, nil // No environments defined
+	}
+
+	// Find the selected environment
+	var selectedEnv *ast.Environment
+	if envName == "" {
+		// Look for default (unnamed) environment
+		for _, env := range envs {
+			if env.Name == nil {
+				selectedEnv = env
+				break
+			}
+		}
+	} else {
+		// Look for named environment
+		for _, env := range envs {
+			if env.Name != nil && *env.Name == envName {
+				selectedEnv = env
+				break
+			}
+		}
+		if selectedEnv == nil {
+			return nil, fmt.Errorf("environment '%s' not found", envName)
+		}
+	}
+
+	if selectedEnv == nil {
+		return nil, nil // No environment selected
+	}
+
+	// Check runtime type
+	if selectedEnv.Runtime == nil {
+		return nil, nil // Bare runtime - no special environment needed
+	}
+
+	runtime := *selectedEnv.Runtime
+
+	var runtimeEnv environ.RuntimeEnvironment
+	var err error
+
+	switch runtime {
+	case ast.RuntimeBare:
+		return nil, nil // Bare runtime - no special environment
+
+	case ast.RuntimeDocker, ast.RuntimePodman:
+		runtimeEnv, err = environ.NewContainerEnvironment(selectedEnv, projectDir, projectName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create container environment: %w", err)
+		}
+
+	case ast.RuntimeDevcontainer:
+		runtimeEnv, err = environ.NewDevcontainerEnvironment(selectedEnv, projectDir, projectName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create devcontainer environment: %w", err)
+		}
+
+	case ast.RuntimeNix:
+		runtimeEnv, err = environ.NewNixEnvironment(selectedEnv, projectDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create nix environment: %w", err)
+		}
+
+	case ast.RuntimeLima:
+		runtimeEnv, err = environ.NewLimaEnvironment(selectedEnv, projectDir, projectName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create lima environment: %w", err)
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported runtime: %s", runtime.String())
+	}
+
+	// Validate the environment
+	if err := runtimeEnv.Validate(); err != nil {
+		runtimeEnv.Close()
+		return nil, fmt.Errorf("invalid %s environment: %w", runtime.String(), err)
+	}
+
+	return runtimeEnv, nil
+}
+
 // checkEnvironment verifies the requirements for an environment.
 // If envName is empty, checks the default environment.
 // If showInstall is true, shows install suggestions for missing binaries.
