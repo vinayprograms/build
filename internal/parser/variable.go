@@ -82,6 +82,10 @@ func (p *Parser) ParseValue() *ast.Value {
 			parts = append(parts, &ast.LiteralValue{Text: "}"})
 			p.nextToken()
 
+		case lexer.ERROR:
+			p.addError(p.errorFromLexerToken(p.current))
+			p.nextToken()
+
 		case lexer.IDENTIFIER:
 			// Check if this is a function name followed by (
 			tok := LookupKeyword(p.current.Literal)
@@ -284,6 +288,10 @@ func (p *Parser) parseFunctionArg() *ast.Value {
 
 		case lexer.ESCAPE_RBRACE:
 			parts = append(parts, &ast.LiteralValue{Text: "}"})
+			p.nextToken()
+
+		case lexer.ERROR:
+			p.addError(p.errorFromLexerToken(p.current))
 			p.nextToken()
 
 		default:

@@ -96,6 +96,23 @@ func (p *Parser) parseTargetPattern(isPhony bool) (*ast.TargetPattern, *ParseErr
 		case lexer.PATH:
 			// Literal path segment
 			text := p.current.Literal
+			loc := p.current.Location
+
+			// An unknown dot-keyword (e.g. ".unknown") is lexed as a PATH
+			// token since the lexer doesn't recognize it as a directive. If
+			// it's the very first segment of the pattern and is immediately
+			// followed by ':', the user almost certainly meant a directive,
+			// not a file target - report it as such. A pattern like
+			// ".hidden/output.o" is unaffected: the '/' starts a second PATH
+			// token, so segments is no longer empty by the time we'd check.
+			if len(segments) == 0 && isUnknownDirectiveCandidate(text) {
+				if next := p.nextToken(); next.Type == lexer.COLON {
+					return nil, p.unknownDirectiveError(text, loc)
+				}
+				segments = append(segments, &ast.LiteralSegment{Text: text})
+				continue
+			}
+
 			segments = append(segments, &ast.LiteralSegment{Text: text})
 			p.nextToken()
 
@@ -238,23 +255,27 @@ func (p *Parser) parseDependencyList() ([]ast.Dependency, *ParseError) {
 			p.nextToken()
 
 			// Check if this string contains spaces (meaning multiple deps)
-			if strings.Contains(text, " ") || strings.Contains(text, "\t") {
-				// First flush current dep, then process this string
-				flushDep()
+			if strings.ContainsAny(text, " \t") {
+				leadingSpace := text[0] == ' ' || text[0] == '\t'
+				trailingSpace := text[len(text)-1] == ' ' || text[len(text)-1] == '\t'
 
-				// Split on whitespace
+				// Leading whitespace means the token before this string is a
+				// complete dependency on its own - flush it before we start
+				// accumulating the parts of this string.
+				if leadingSpace {
+					flushDep()
+				}
+
+				// Split on whitespace. Every part except (possibly) the last
+				// is bounded by whitespace on both sides and so is a complete
+				// dependency. The last part continues into whatever token
+				// follows unless this string also has trailing whitespace.
 				parts := strings.Fields(text)
 				for i, part := range parts {
-					if part != "" {
-						if i < len(parts)-1 {
-							// Not the last part - this is a complete dependency
-							deps = append(deps, ast.Dependency{
-								Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: part}},
-							})
-						} else {
-							// Last part - might be start of next pattern
-							currentDep = append(currentDep, &ast.LiteralSegment{Text: part})
-						}
+					currentDep = append(currentDep, &ast.LiteralSegment{Text: part})
+					isLast := i == len(parts)-1
+					if !isLast || trailingSpace {
+						flushDep()
 					}
 				}
 			} else {
@@ -270,6 +291,9 @@ func (p *Parser) parseDependencyList() ([]ast.Dependency, *ParseError) {
 			}
 			currentDep = append(currentDep, braceExpr)
 			// Don't flush - may be part of a larger pattern like {name}.c
+
+		case lexer.ERROR:
+			return nil, p.errorFromLexerToken(p.current)
 
 		default:
 			// Unknown token - flush and skip

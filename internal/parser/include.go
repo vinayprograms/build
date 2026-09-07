@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,151 @@ import (
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/lexer"
 )
+
+// automaticVarNames are the automatic variable names (DESIGN.md Section
+// 3.3.4) that are only ever bound at recipe-execution time. They can never
+// be resolved while parsing, so referencing one in a .include: path is
+// always an error.
+var automaticVarNames = map[string]bool{
+	"target":      true,
+	"deps":        true,
+	"in":          true,
+	"out":         true,
+	"stem":        true,
+	"target.dir":  true,
+	"target.file": true,
+}
+
+// includeVarTracker records the literal values of immediate (non-lazy)
+// variables as they are parsed, in file order. It lets .include: directives
+// interpolate variables defined earlier in the same parse, without needing
+// the full evaluator (which does not exist yet at parse time).
+//
+// A single tracker instance is shared across an entire include chain (see
+// parseIncludedFile), so an included file sees variables defined earlier in
+// whichever file included it, and its own .include: directives can in turn
+// reference them.
+type includeVarTracker struct {
+	literal map[string]string // name -> fully-resolved literal value
+	lazy    map[string]bool   // name -> declared with "lazy"
+	dynamic map[string]bool   // name -> immediate, but value isn't a literal
+}
+
+func newIncludeVarTracker() *includeVarTracker {
+	return &includeVarTracker{
+		literal: make(map[string]string),
+		lazy:    make(map[string]bool),
+		dynamic: make(map[string]bool),
+	}
+}
+
+// record updates the tracker with a variable statement as it is parsed.
+// Redefinition simply overwrites the earlier record, matching normal
+// shadowing: only the most recent definition at this point in the file is
+// visible to a later .include:.
+func (t *includeVarTracker) record(v *ast.Variable) {
+	delete(t.literal, v.Name)
+	delete(t.lazy, v.Name)
+	delete(t.dynamic, v.Name)
+
+	if v.Lazy {
+		t.lazy[v.Name] = true
+		return
+	}
+
+	resolved, ok := t.resolveLiteral(v.Value)
+	if !ok {
+		t.dynamic[v.Name] = true
+		return
+	}
+	t.literal[v.Name] = resolved
+}
+
+// resolveLiteral attempts to fully resolve a Value using only variables
+// already known to be literal. It returns ("", false) if the value contains
+// a function call or references a variable that isn't a known literal
+// (including one not yet defined, or defined non-literally).
+func (t *includeVarTracker) resolveLiteral(v *ast.Value) (string, bool) {
+	if v == nil {
+		return "", true
+	}
+	var b strings.Builder
+	for _, part := range v.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralValue:
+			b.WriteString(p.Text)
+		case *ast.Interpolation:
+			val, ok := t.literal[p.Name]
+			if !ok {
+				return "", false
+			}
+			b.WriteString(val)
+		default:
+			// FunctionCall (or any future part kind) is never a literal.
+			return "", false
+		}
+	}
+	return b.String(), true
+}
+
+// resolveIncludePath resolves a .include:-style path value against the
+// variables known so far, per the rules above. On success it returns the
+// trimmed resolved path. On failure it returns a *ParseError of the form
+// "<directive> cannot resolve '<name>': <reason>", located at the offending
+// interpolation (or function call).
+func (t *includeVarTracker) resolveIncludePath(directive string, v *ast.Value, fallbackLoc lexer.SourceLocation) (string, *ParseError) {
+	if v == nil || len(v.Parts) == 0 {
+		return "", &ParseError{Message: directive + " requires a path", Location: fallbackLoc}
+	}
+
+	var b strings.Builder
+	for _, part := range v.Parts {
+		switch p := part.(type) {
+		case *ast.LiteralValue:
+			b.WriteString(p.Text)
+
+		case *ast.Interpolation:
+			if val, ok := t.literal[p.Name]; ok {
+				b.WriteString(val)
+				continue
+			}
+
+			reason := "undefined variable"
+			switch {
+			case automaticVarNames[p.Name]:
+				reason = "automatic variable"
+			case t.lazy[p.Name]:
+				reason = "lazy variable"
+			case t.dynamic[p.Name]:
+				reason = "value is not a literal"
+			}
+			return "", &ParseError{
+				Message:  fmt.Sprintf("%s cannot resolve '%s': %s", directive, p.Name, reason),
+				Location: astLocToLexerLoc(p.Location),
+			}
+
+		case *ast.FunctionCall:
+			return "", &ParseError{
+				Message:  fmt.Sprintf("%s cannot resolve '%s()': function calls are not supported here", directive, p.Name.String()),
+				Location: astLocToLexerLoc(p.Location),
+			}
+
+		default:
+			return "", &ParseError{
+				Message:  directive + ": unsupported value part",
+				Location: fallbackLoc,
+			}
+		}
+	}
+
+	return strings.TrimSpace(b.String()), nil
+}
+
+// astLocToLexerLoc converts an ast.SourceLocation to a lexer.SourceLocation
+// (identical fields, distinct types across package boundaries).
+func astLocToLexerLoc(loc ast.SourceLocation) lexer.SourceLocation {
+	return lexer.SourceLocation{File: loc.File, Line: loc.Line, Column: loc.Column}
+}
 
 // includeStack tracks files being processed to detect circular includes.
 // This is stored on the parser to persist across recursive calls.
@@ -73,11 +219,15 @@ func (p *Parser) parseIncludeWithStack(stack *includeStack) (*ast.Directive, []a
 	// Parse the include path value
 	value := p.ParseValue()
 
-	// Get the path from the value
-	includePath := extractLiteralPath(value)
+	// Resolve the path, interpolating any variables defined earlier in this
+	// parse (see includeVarTracker).
+	includePath, resolveErr := p.includeVars.resolveIncludePath(".include:", value, loc)
+	if resolveErr != nil {
+		return nil, nil, resolveErr
+	}
 	if includePath == "" {
 		return nil, nil, &ParseError{
-			Message:  ".include: path must be a literal string (interpolation not yet supported)",
+			Message:  ".include: path must not be empty",
 			Location: loc,
 		}
 	}
@@ -131,6 +281,10 @@ func (p *Parser) parseIncludeWithStack(stack *includeStack) (*ast.Directive, []a
 func (p *Parser) parseIncludedFile(path, content string, stack *includeStack) ([]ast.Statement, *ParseError) {
 	l := lexer.New(path, content)
 	includedParser := New(l)
+	// Share this parser's include-var tracker so the included file sees
+	// variables defined earlier in whichever file included it, and any
+	// nested .include: inside it sees the same accumulated set.
+	includedParser.includeVars = p.includeVars
 
 	var statements []ast.Statement
 
@@ -168,6 +322,9 @@ func (p *Parser) parseIncludedFile(path, content string, stack *includeStack) ([
 			return nil, err
 		}
 		if stmt != nil {
+			if v, ok := stmt.(*ast.Variable); ok {
+				includedParser.includeVars.record(v)
+			}
 			statements = append(statements, stmt)
 		}
 	}
@@ -293,25 +450,4 @@ func (p *Parser) skipToNextLine() {
 	if p.current.Type == lexer.NEWLINE {
 		p.nextToken()
 	}
-}
-
-// extractLiteralPath extracts a literal path from a Value.
-// Returns empty string if the value contains interpolations (not supported yet).
-func extractLiteralPath(v *ast.Value) string {
-	if v == nil || len(v.Parts) == 0 {
-		return ""
-	}
-
-	// Check all parts are literals
-	var path string
-	for _, part := range v.Parts {
-		lit, ok := part.(*ast.LiteralValue)
-		if !ok {
-			return "" // Contains non-literal (interpolation)
-		}
-		path += lit.Text
-	}
-
-	// Trim whitespace
-	return strings.TrimSpace(path)
 }

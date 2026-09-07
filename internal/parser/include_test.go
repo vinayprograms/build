@@ -3,6 +3,7 @@ package parser
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -315,6 +316,100 @@ func TestParser_ParseInclude_EmptyFile(t *testing.T) {
 	// Empty file should result in empty statements
 	if len(statements) != 0 {
 		t.Errorf("expected 0 statements from empty file, got %d", len(statements))
+	}
+}
+
+// TestParser_ParseInclude_Interpolation covers C1: a .include: path may
+// reference a variable defined earlier in the same file, including nested
+// {a}/{b} chains.
+func TestParser_ParseInclude_Interpolation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	includedPath := filepath.Join(tmpDir, "sub", "extra.build")
+	if err := os.MkdirAll(filepath.Dir(includedPath), 0755); err != nil {
+		t.Fatalf("failed to create sub dir: %v", err)
+	}
+	if err := os.WriteFile(includedPath, []byte("extra_var = value\n"), 0644); err != nil {
+		t.Fatalf("failed to create included file: %v", err)
+	}
+
+	mainPath := filepath.Join(tmpDir, "main.build")
+	mainContent := "config_dir = sub\n" +
+		"config_file = {config_dir}/extra.build\n" +
+		".include: {config_file}\n"
+
+	l := lexer.New(mainPath, mainContent)
+	p := New(l)
+
+	stmts, errs := p.ParseBuildfile()
+	if errs.HasErrors() {
+		t.Fatalf("unexpected parse errors: %v", errs.Errors)
+	}
+
+	found := false
+	for _, stmt := range stmts {
+		if v, ok := stmt.(*ast.Variable); ok && v.Name == "extra_var" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected to find extra_var from the interpolated include path")
+	}
+}
+
+// TestParser_ParseInclude_InterpolationUndefined covers C1's error path: an
+// undefined variable in a .include: path is a parse error naming the
+// directive and the variable.
+func TestParser_ParseInclude_InterpolationUndefined(t *testing.T) {
+	mainContent := ".include: {nope}/x.build\n"
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	_, errs := p.ParseBuildfile()
+	if !errs.HasErrors() {
+		t.Fatal("expected a parse error for undefined variable in .include: path")
+	}
+	msg := errs.Errors[0].Message
+	if !strings.Contains(msg, ".include: cannot resolve 'nope': undefined variable") {
+		t.Errorf("error message = %q, want to contain %q", msg, ".include: cannot resolve 'nope': undefined variable")
+	}
+}
+
+// TestParser_ParseInclude_InterpolationLazy covers C1: a lazy variable
+// cannot be used in a .include: path (it isn't resolved at parse time).
+func TestParser_ParseInclude_InterpolationLazy(t *testing.T) {
+	mainContent := "lazy config_dir = shell(echo sub)\n" +
+		".include: {config_dir}/x.build\n"
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	_, errs := p.ParseBuildfile()
+	if !errs.HasErrors() {
+		t.Fatal("expected a parse error for lazy variable in .include: path")
+	}
+	msg := errs.Errors[0].Message
+	if !strings.Contains(msg, ".include: cannot resolve 'config_dir': lazy variable") {
+		t.Errorf("error message = %q, want to contain %q", msg, ".include: cannot resolve 'config_dir': lazy variable")
+	}
+}
+
+// TestParser_ParseInclude_InterpolationAutomatic covers C1: automatic
+// variables are never resolvable in a .include: path.
+func TestParser_ParseInclude_InterpolationAutomatic(t *testing.T) {
+	mainContent := ".include: {target}/x.build\n"
+
+	l := lexer.New("main.build", mainContent)
+	p := New(l)
+
+	_, errs := p.ParseBuildfile()
+	if !errs.HasErrors() {
+		t.Fatal("expected a parse error for automatic variable in .include: path")
+	}
+	msg := errs.Errors[0].Message
+	if !strings.Contains(msg, ".include: cannot resolve 'target': automatic variable") {
+		t.Errorf("error message = %q, want to contain %q", msg, ".include: cannot resolve 'target': automatic variable")
 	}
 }
 

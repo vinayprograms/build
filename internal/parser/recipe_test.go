@@ -648,3 +648,208 @@ func TestParser_ParseRecipe_InvalidVersion(t *testing.T) {
 		})
 	}
 }
+
+// TestParser_ParseRecipe_BlankLineDoesNotTerminate covers B1: a blank line
+// with no leading whitespace inside a recipe must not end the recipe.
+func TestParser_ParseRecipe_BlankLineDoesNotTerminate(t *testing.T) {
+	input := "build/app: src/main.c\n    echo one\n\n    echo two\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if target.Recipe == nil {
+		t.Fatal("expected recipe to be parsed")
+	}
+	if len(target.Recipe.Commands) != 2 {
+		t.Fatalf("expected 2 commands (blank line should not terminate recipe), got %d", len(target.Recipe.Commands))
+	}
+}
+
+// TestParser_ParseRecipe_MultipleBlankLines covers B1: several consecutive
+// blank lines inside a recipe must not end the recipe.
+func TestParser_ParseRecipe_MultipleBlankLines(t *testing.T) {
+	input := "build/app: src/main.c\n    echo one\n\n\n    echo two\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(target.Recipe.Commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(target.Recipe.Commands))
+	}
+}
+
+// TestParser_ParseRecipe_BlankLineInBlock covers B1 for block: a blank line
+// with no leading whitespace inside a block must not end the block.
+func TestParser_ParseRecipe_BlankLineInBlock(t *testing.T) {
+	input := "build/app: src/main.c\n    block:\n        echo one\n\n        echo two\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(target.Recipe.Commands) != 1 {
+		t.Fatalf("expected 1 command (block), got %d", len(target.Recipe.Commands))
+	}
+	blockCmd, ok := target.Recipe.Commands[0].(*ast.BlockCommand)
+	if !ok {
+		t.Fatalf("expected BlockCommand, got %T", target.Recipe.Commands[0])
+	}
+	// 3 lines: "echo one", "" (blank), "echo two"
+	if len(blockCmd.Lines) != 3 {
+		t.Fatalf("expected 3 lines in block (including blank), got %d", len(blockCmd.Lines))
+	}
+	if len(blockCmd.Lines[1]) != 0 {
+		t.Errorf("expected blank line to be recorded as empty, got %v", blockCmd.Lines[1])
+	}
+}
+
+// renderLineCommand joins a LineCommand's literal parts back into a string,
+// rendering interpolations as {name}. Used to verify internal spaces survive
+// parsing.
+func renderLineCommand(cmd *ast.LineCommand) string {
+	var b strings.Builder
+	for _, part := range cmd.Parts {
+		switch v := part.(type) {
+		case *ast.LiteralCommand:
+			b.WriteString(v.Text)
+		case *ast.CommandInterpolation:
+			b.WriteString("{" + v.Name + "}")
+		}
+	}
+	return b.String()
+}
+
+// TestParser_ParseRecipe_DotSlashCommandPreservesSpaces covers B2b: a recipe
+// command line starting with "./" must be lexed in command mode so internal
+// spaces are preserved, not merged as if it were a directive line.
+func TestParser_ParseRecipe_DotSlashCommandPreservesSpaces(t *testing.T) {
+	input := "test: build/app\n    ./{build_dir}/app --test\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(target.Recipe.Commands) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(target.Recipe.Commands))
+	}
+	lineCmd, ok := target.Recipe.Commands[0].(*ast.LineCommand)
+	if !ok {
+		t.Fatalf("expected LineCommand, got %T", target.Recipe.Commands[0])
+	}
+	got := renderLineCommand(lineCmd)
+	want := "./{build_dir}/app --test"
+	if got != want {
+		t.Errorf("command = %q, want %q", got, want)
+	}
+}
+
+// TestParser_ParseRecipe_InvalidModifier covers B4: an invalid interpolation
+// modifier inside a recipe command line must surface as a parse error, not
+// be executed as literal text.
+func TestParser_ParseRecipe_InvalidModifier(t *testing.T) {
+	input := "@test:\n    echo \"{msg:invalid}\"\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	_, err := p.ParseTarget()
+	if err == nil {
+		t.Fatal("expected error for invalid modifier, got none")
+	}
+	want := "invalid modifier ':invalid', expected ':raw'"
+	if err.Message != want {
+		t.Errorf("error message = %q, want %q", err.Message, want)
+	}
+}
+
+// TestParser_ParseRecipe_MixedIndentation covers B4/100/101: mixed or
+// inconsistent indentation inside a recipe must surface the lexer's
+// indentation message, not "unexpected token: ERROR".
+func TestParser_ParseRecipe_MixedIndentation(t *testing.T) {
+	input := "@test:\n\techo \"with tab\"\n    echo \"with spaces\"\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	_, errs := p.ParseBuildfile()
+	if !errs.HasErrors() {
+		t.Fatal("expected a parse error for mixed indentation, got none")
+	}
+	for _, e := range errs.Errors {
+		if strings.Contains(e.Message, "unexpected token: ERROR") {
+			t.Errorf("error message leaked raw ERROR token: %q", e.Message)
+		}
+	}
+	found := false
+	for _, e := range errs.Errors {
+		if strings.Contains(e.Message, "indentation") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected an error mentioning 'indentation', got %v", errs.Errors)
+	}
+}
+
+// TestParser_ParseRecipe_UnknownDirective covers B5 inside a recipe: an
+// unknown dot-keyword immediately followed by ':' must be reported as an
+// unknown directive, not silently treated as a command or a target.
+func TestParser_ParseRecipe_UnknownDirective(t *testing.T) {
+	input := "@test:\n    .unknownthing: 1\n    echo done\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	_, err := p.ParseTarget()
+	if err == nil {
+		t.Fatal("expected error for unknown directive in recipe, got none")
+	}
+	if !strings.Contains(err.Message, "unknown directive '.unknownthing'") {
+		t.Errorf("error message = %q, want to contain %q", err.Message, "unknown directive '.unknownthing'")
+	}
+}
+
+// TestParser_ParseRecipe_AfterDirectiveStillWorks is a regression check
+// alongside the B5 recipe-scope fix: a real, recognized directive like
+// .after: must still parse normally (not be mistaken for an unknown one).
+func TestParser_ParseRecipe_AfterDirectiveStillWorks(t *testing.T) {
+	input := "build/app: build/main.o\n    .after: build/\n    gcc -o {target} {deps}\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(target.Recipe.Directives.After) != 1 {
+		t.Fatalf("expected 1 .after directive, got %d", len(target.Recipe.Directives.After))
+	}
+}
+
+// TestParser_ParseRecipe_BlankLinesBeforeFirstCommand covers B1's edge case:
+// blank lines between the target line and the first recipe line (before the
+// recipe-parsing loop even starts) must not be mistaken for "this target has
+// no recipe".
+func TestParser_ParseRecipe_BlankLinesBeforeFirstCommand(t *testing.T) {
+	input := "@test:\n\n\n    echo \"{var1}\"\n\n\n    echo \"{var2}\"\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if target.Recipe == nil {
+		t.Fatal("expected recipe to be parsed, got nil (blank lines before first command were mistaken for 'no recipe')")
+	}
+	if len(target.Recipe.Commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(target.Recipe.Commands))
+	}
+}

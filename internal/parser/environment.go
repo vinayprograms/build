@@ -100,6 +100,13 @@ func (p *Parser) ParseEnvironment() (*ast.Environment, *ParseError) {
 			continue
 		}
 
+		// An unknown dot-keyword is lexed as a PATH token (e.g. ".unknown").
+		// There are no file targets inside an environment block, so this is
+		// always an unknown directive.
+		if p.current.Type == lexer.PATH && isUnknownDirectiveCandidate(p.current.Literal) {
+			return nil, p.unknownDirectiveError(p.current.Literal, p.current.Location)
+		}
+
 		// Unexpected token
 		return nil, &ParseError{
 			Message:  "unexpected token in environment block",

@@ -11,14 +11,22 @@ type Parser struct {
 	current lexer.Token
 	scope   *ScopeStack
 	errors  *ParseErrors
+
+	// includeVars tracks the literal values of immediate variables seen so
+	// far in this parse, in file order, so that .include: paths can
+	// interpolate them. It is shared (same pointer) across an entire
+	// include chain - see parseIncludedFile - so an included file sees the
+	// variables defined earlier in the file that included it.
+	includeVars *includeVarTracker
 }
 
 // New creates a new Parser for the given lexer.
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
-		lexer:  l,
-		scope:  NewScopeStack(),
-		errors: &ParseErrors{},
+		lexer:       l,
+		scope:       NewScopeStack(),
+		errors:      &ParseErrors{},
+		includeVars: newIncludeVarTracker(),
 	}
 	// Prime the parser with the first token
 	p.current = p.lexer.NextToken()
@@ -159,6 +167,12 @@ func (p *Parser) ParseBuildfile() ([]ast.Statement, *ParseErrors) {
 			continue
 		}
 
+		for _, stmt := range stmts {
+			if v, ok := stmt.(*ast.Variable); ok {
+				p.includeVars.record(v)
+			}
+		}
+
 		statements = append(statements, stmts...)
 	}
 
@@ -180,6 +194,13 @@ func (p *Parser) parseTopLevelStatements() ([]ast.Statement, *ParseError) {
 
 	if p.current.Type == lexer.EOF {
 		return nil, nil
+	}
+
+	// Lexer-level error (e.g. mixed indentation, unclosed interpolation) -
+	// surface it as a parse error instead of falling through to the generic
+	// "unexpected token" message.
+	if p.current.Type == lexer.ERROR {
+		return nil, p.errorFromLexerToken(p.current)
 	}
 
 	// Handle comments

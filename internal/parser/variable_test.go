@@ -684,3 +684,26 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+// TestParser_ParseValue_UnclosedInterpolation covers B4: an unclosed
+// interpolation must surface a parse error (via p.Errors()) with the
+// lexer's diagnostic message, not be silently absorbed as literal text.
+func TestParser_ParseValue_UnclosedInterpolation(t *testing.T) {
+	input := "msg = hello {world\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	_, errs := p.ParseBuildfile()
+	if !errs.HasErrors() {
+		t.Fatal("expected a parse error for unclosed interpolation, got none")
+	}
+	found := false
+	for _, e := range errs.Errors {
+		if e.Message == "unclosed interpolation: {world" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected an error with message %q, got %v", "unclosed interpolation: {world", errs.Errors)
+	}
+}

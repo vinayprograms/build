@@ -12,6 +12,13 @@ import (
 // A recipe starts when we see an INDENT token after a target line.
 // It ends when we encounter a line at indentation level 0 (dedent).
 func (p *Parser) parseRecipe() (*ast.Recipe, *ParseError) {
+	// Blank lines (bare NEWLINE, no leading whitespace) between the target
+	// line and the first recipe line must not be mistaken for "no recipe
+	// follows" - skip them before deciding whether a recipe is present.
+	for p.current.Type == lexer.NEWLINE {
+		p.nextToken()
+	}
+
 	// Check if next line is indented (recipe start)
 	if p.current.Type != lexer.INDENT {
 		return nil, nil // No recipe
@@ -33,6 +40,18 @@ func (p *Parser) parseRecipe() (*ast.Recipe, *ParseError) {
 		// Check for end of recipe (no indent, newline, or EOF)
 		if p.current.Type == lexer.EOF {
 			break
+		}
+
+		if p.current.Type == lexer.ERROR {
+			return nil, p.errorFromLexerToken(p.current)
+		}
+
+		// A blank line with no leading whitespace produces a bare NEWLINE (no
+		// INDENT token). Blank lines never terminate a recipe, so skip it and
+		// keep scanning for the next line.
+		if p.current.Type == lexer.NEWLINE {
+			p.nextToken()
+			continue
 		}
 
 		// At the start of each line, we should have an INDENT token
@@ -72,6 +91,31 @@ func (p *Parser) parseRecipe() (*ast.Recipe, *ParseError) {
 		if p.current.Type.IsDotKeyword() {
 			if err := p.parseRecipeDirective(recipe); err != nil {
 				return nil, err
+			}
+			continue
+		}
+
+		// An unknown dot-keyword (e.g. ".unknownthing") is lexed as a PATH
+		// token, since the lexer doesn't recognize it as a directive; this
+		// only happens when PeekNextIsDotKeyword kept the lexer in normal
+		// mode (i.e. the line looked like a directive, not a "./..." command).
+		// If it's immediately followed by ':', it's an unknown directive.
+		if p.current.Type == lexer.PATH && isUnknownDirectiveCandidate(p.current.Literal) {
+			text := p.current.Literal
+			dirLoc := p.current.Location
+			next := p.nextToken()
+			if next.Type == lexer.COLON {
+				return nil, p.unknownDirectiveError(text, dirLoc)
+			}
+			// Not actually a directive attempt - treat the rest of the line
+			// as a command, using the already-consumed token as its start.
+			cmdLoc := ast.SourceLocation{File: dirLoc.File, Line: dirLoc.Line, Column: dirLoc.Column}
+			lineCmd, err := p.parseCommandLineContinuation(cmdLoc, []ast.CommandPart{&ast.LiteralCommand{Text: text}})
+			if err != nil {
+				return nil, err
+			}
+			if lineCmd != nil {
+				recipe.Commands = append(recipe.Commands, lineCmd)
 			}
 			continue
 		}

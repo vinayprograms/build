@@ -10,8 +10,14 @@ import (
 // Grammar: command_part = STRING | interpolation ;
 func (p *Parser) parseCommandLine() (*ast.LineCommand, *ParseError) {
 	loc := ast.SourceLocationFromToken(p.current)
-	var parts []ast.CommandPart
+	return p.parseCommandLineContinuation(loc, nil)
+}
 
+// parseCommandLineContinuation parses the remainder of a command line into
+// parts, given a location and any parts already collected (e.g. a token that
+// had to be consumed to look ahead before recognizing this as a command
+// line). p.current must be positioned right after those initial parts.
+func (p *Parser) parseCommandLineContinuation(loc ast.SourceLocation, parts []ast.CommandPart) (*ast.LineCommand, *ParseError) {
 	// Parse command parts until newline
 	for p.current.Type != lexer.NEWLINE && p.current.Type != lexer.EOF && p.current.Type != lexer.COMMENT {
 		switch p.current.Type {
@@ -39,6 +45,9 @@ func (p *Parser) parseCommandLine() (*ast.LineCommand, *ParseError) {
 		case lexer.PATH, lexer.IDENTIFIER:
 			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})
 			p.nextToken()
+
+		case lexer.ERROR:
+			return nil, p.errorFromLexerToken(p.current)
 
 		default:
 			// Other tokens as literal text
@@ -147,6 +156,20 @@ func (p *Parser) parseBlockCommand() (*ast.BlockCommand, *ParseError) {
 			break
 		}
 
+		if p.current.Type == lexer.ERROR {
+			return nil, p.errorFromLexerToken(p.current)
+		}
+
+		// A blank line with no leading whitespace produces a bare NEWLINE (no
+		// INDENT token). Blank lines never terminate a block, so record them
+		// as an empty line (consistent with the INDENT+NEWLINE case below)
+		// and keep scanning.
+		if p.current.Type == lexer.NEWLINE {
+			lines = append(lines, []ast.CommandPart{})
+			p.nextToken()
+			continue
+		}
+
 		// Check for indent
 		if p.current.Type != lexer.INDENT {
 			break
@@ -240,6 +263,9 @@ func (p *Parser) parseBlockLineWithIndent(indent string) ([]ast.CommandPart, *Pa
 		case lexer.ESCAPE_RBRACE:
 			parts = append(parts, &ast.LiteralCommand{Text: "}"})
 			p.nextToken()
+
+		case lexer.ERROR:
+			return nil, p.errorFromLexerToken(p.current)
 
 		default:
 			parts = append(parts, &ast.LiteralCommand{Text: p.current.Literal})

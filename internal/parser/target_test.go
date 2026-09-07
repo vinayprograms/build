@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
@@ -474,4 +475,115 @@ func TestParser_ParseDependencyList(t *testing.T) {
 			}
 		})
 	}
+}
+
+// renderDepSegments renders a dependency's pattern segments back to a string
+// for easy comparison in tests, without resolving any interpolations.
+func renderDepSegments(segs []ast.PatternSegment) string {
+	var b strings.Builder
+	for _, s := range segs {
+		switch v := s.(type) {
+		case *ast.LiteralSegment:
+			b.WriteString(v.Text)
+		case *ast.BraceExpr:
+			b.WriteString("{" + v.Identifier + "}")
+		}
+	}
+	return b.String()
+}
+
+// TestParser_ParseDependencyList_TrailingSpaceSplit covers B2a: a STRING
+// token that trails a completed dependency with a space (e.g. "/main.o "
+// followed by another interpolation) must flush after the trailing space,
+// not before processing it.
+func TestParser_ParseDependencyList_TrailingSpaceSplit(t *testing.T) {
+	input := "{build_dir}/app: {build_dir}/main.o {build_dir}/utils.o\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"{build_dir}/main.o", "{build_dir}/utils.o"}
+	if len(target.Dependencies) != len(want) {
+		t.Fatalf("got %d deps, want %d: %#v", len(target.Dependencies), len(want), target.Dependencies)
+	}
+	for i, dep := range target.Dependencies {
+		if got := renderDepSegments(dep.Segments); got != want[i] {
+			t.Errorf("dep[%d] = %q, want %q", i, got, want[i])
+		}
+	}
+}
+
+// TestParser_ParseDependencyList_InterpolationSplitting covers the exact
+// scenario from the B2a bug report: leading/trailing/no whitespace around a
+// STRING token between interpolations must split into the right deps.
+func TestParser_ParseDependencyList_InterpolationSplitting(t *testing.T) {
+	input := "@t: {a}/x {a}/y  z {a}\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"{a}/x", "{a}/y", "z", "{a}"}
+	if len(target.Dependencies) != len(want) {
+		t.Fatalf("got %d deps, want %d: %#v", len(target.Dependencies), len(want), target.Dependencies)
+	}
+	for i, dep := range target.Dependencies {
+		if got := renderDepSegments(dep.Segments); got != want[i] {
+			t.Errorf("dep[%d] = %q, want %q", i, got, want[i])
+		}
+	}
+}
+
+// TestParser_ParseTarget_UnknownDirective covers B5: an unknown dot-keyword
+// at the start of a target line (immediately followed by ':') must be
+// reported as an unknown directive, not parsed as a file target.
+func TestParser_ParseTarget_UnknownDirective(t *testing.T) {
+	input := ".unknown: value\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	_, err := p.ParseTarget()
+	if err == nil {
+		t.Fatal("expected error for unknown directive, got none")
+	}
+	if !strings.Contains(err.Message, "unknown directive '.unknown'") {
+		t.Errorf("error message = %q, want to contain %q", err.Message, "unknown directive '.unknown'")
+	}
+	if !strings.Contains(err.Hint, "./") {
+		t.Errorf("hint = %q, want to mention ./ file target prefix", err.Hint)
+	}
+}
+
+// TestParser_ParseTarget_HiddenFileTargetStillWorks covers B5's negative
+// case: a genuine hidden-file target with a '/' must still parse as a file
+// target, not an unknown directive.
+func TestParser_ParseTarget_HiddenFileTargetStillWorks(t *testing.T) {
+	input := ".hidden/output.o: .hidden/input.c\n"
+	l := lexer.New("test.build", input)
+	p := New(l)
+
+	target, err := p.ParseTarget()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if target.Pattern.IsPhony {
+		t.Fatal("expected file target, got phony")
+	}
+	got := renderDepSegments(segmentsFromPattern(target.Pattern))
+	if got != ".hidden/output.o" {
+		t.Errorf("pattern = %q, want %q", got, ".hidden/output.o")
+	}
+}
+
+// segmentsFromPattern is a small helper to reuse renderDepSegments for a
+// TargetPattern's segments.
+func segmentsFromPattern(p ast.TargetPattern) []ast.PatternSegment {
+	return p.Segments
 }

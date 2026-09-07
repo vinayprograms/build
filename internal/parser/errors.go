@@ -70,6 +70,17 @@ func DirectiveNameForError(tok lexer.TokenType) string {
 	return tok.String()
 }
 
+// errorFromLexerToken converts a lexer.ERROR token into a ParseError, using the
+// token's Literal (which carries the lexer's diagnostic message, e.g. "unclosed
+// interpolation: {world") as the error message. This is the single place that
+// should be used to surface lexer.ERROR tokens as parse errors.
+func (p *Parser) errorFromLexerToken(tok lexer.Token) *ParseError {
+	return &ParseError{
+		Message:  tok.Literal,
+		Location: tok.Location,
+	}
+}
+
 // NewScopeError creates a parse error for a directive used at an invalid scope.
 func NewScopeError(directive lexer.TokenType, found Scope, loc lexer.SourceLocation) *ParseError {
 	name := DirectiveNameForError(directive)
