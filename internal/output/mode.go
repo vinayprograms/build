@@ -47,9 +47,15 @@ func ParseOutputMode(s string) OutputMode {
 
 // DetectOutputMode determines the appropriate output mode based on:
 // 1. BUILD_OUTPUT_MODE environment variable (if set)
-// 2. TTY status of stdout/stderr
-// 3. TERM environment variable
-// 4. CI environment indicators
+// 2. CI environment indicators
+//
+// A plain non-TTY pipe (e.g. `build -n | cat`) and TERM=dumb are NOT reasons
+// to switch to headless (timestamped log-line) output on their own - they
+// still use ModeCLI, whose CLIWriter separately auto-disables color and
+// progress indicators when stdout isn't a terminal (see ShouldUseColor /
+// shouldAutoColor in color.go). Headless mode is reserved for cases that
+// actually want structured/logged output: an explicit BUILD_OUTPUT_MODE, or
+// running under a recognized CI system.
 func DetectOutputMode() OutputMode {
 	// Check for explicit override
 	if mode := os.Getenv("BUILD_OUTPUT_MODE"); mode != "" {
@@ -58,16 +64,6 @@ func DetectOutputMode() OutputMode {
 
 	// Check for CI environment indicators
 	if isCI() {
-		return ModeHeadless
-	}
-
-	// Check for dumb terminal
-	if os.Getenv("TERM") == "dumb" {
-		return ModeHeadless
-	}
-
-	// Check if stdout is a TTY
-	if !isTerminal(os.Stdout) {
 		return ModeHeadless
 	}
 

@@ -103,6 +103,10 @@ func TestDetectOutputMode_CI(t *testing.T) {
 	}
 }
 
+// TestDetectOutputMode_DumbTerminal verifies TERM=dumb, by itself, does NOT
+// switch to headless (timestamped log-line) output (C5). Color/progress
+// suppression for a dumb terminal is handled separately by
+// shouldAutoColor/ShouldUseColor, not by the output mode.
 func TestDetectOutputMode_DumbTerminal(t *testing.T) {
 	// Save and restore environment
 	oldTerm := os.Getenv("TERM")
@@ -119,8 +123,34 @@ func TestDetectOutputMode_DumbTerminal(t *testing.T) {
 	os.Setenv("TERM", "dumb")
 
 	got := DetectOutputMode()
-	if got != ModeHeadless {
-		t.Errorf("with TERM=dumb: expected ModeHeadless, got %v", got)
+	if got != ModeCLI {
+		t.Errorf("with TERM=dumb: expected ModeCLI, got %v", got)
+	}
+}
+
+// TestDetectOutputMode_NonTTYWithoutCI verifies that a plain non-TTY pipe
+// (e.g. `build -n | cat`), with no CI indicator and no explicit
+// BUILD_OUTPUT_MODE, stays ModeCLI rather than falling back to ModeHeadless
+// (C5). Test binaries themselves normally run with stdout not attached to a
+// TTY, so this also guards against a regression to the old
+// isTerminal()-based check without needing to fake a TTY.
+func TestDetectOutputMode_NonTTYWithoutCI(t *testing.T) {
+	oldMode := os.Getenv("BUILD_OUTPUT_MODE")
+	oldCI := os.Getenv("CI")
+	oldTerm := os.Getenv("TERM")
+	defer func() {
+		os.Setenv("BUILD_OUTPUT_MODE", oldMode)
+		os.Setenv("CI", oldCI)
+		os.Setenv("TERM", oldTerm)
+	}()
+
+	os.Unsetenv("BUILD_OUTPUT_MODE")
+	os.Unsetenv("CI")
+	os.Setenv("TERM", "xterm-256color")
+
+	got := DetectOutputMode()
+	if got != ModeCLI {
+		t.Errorf("with non-TTY stdout and no CI indicator: expected ModeCLI, got %v", got)
 	}
 }
 

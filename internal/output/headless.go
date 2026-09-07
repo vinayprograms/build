@@ -158,7 +158,7 @@ func (h *HeadlessWriter) WriteEvent(event OutputEvent) {
 			"total":  e.Total,
 		})
 	case DryRunCommand:
-		h.log(logDebug, "Would run command", map[string]any{
+		h.log(logInfo, "Would run command", map[string]any{
 			"target":  e.Target,
 			"command": e.Command,
 		})
