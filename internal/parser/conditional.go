@@ -391,6 +391,7 @@ func (p *Parser) parseBodyStatement() (ast.Statement, *ParseError) {
 		return nil, &ParseError{
 			Message:  "targets cannot be defined inside conditionals",
 			Location: p.current.Location,
+			Hint:     "move the condition into the recipe, or set a variable inside the conditional and use it in the dependency list or command",
 		}
 
 	default:

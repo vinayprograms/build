@@ -418,6 +418,31 @@ end
 	}
 }
 
+// TestParseConditionalTargetInsideHasHint verifies the "targets cannot be
+// defined inside conditionals" error carries the hint pointing users at the
+// two supported workarounds (C4).
+func TestParseConditionalTargetInsideHasHint(t *testing.T) {
+	input := `if {os} == darwin
+    @test:
+        echo "Running on macOS"
+end
+`
+	l := lexer.New("test", input)
+	p := New(l)
+
+	_, err := p.ParseConditional()
+	if err == nil {
+		t.Fatal("expected error for target inside conditional, got nil")
+	}
+	if err.Message != "targets cannot be defined inside conditionals" {
+		t.Errorf("Message = %q, want %q", err.Message, "targets cannot be defined inside conditionals")
+	}
+	wantHint := "move the condition into the recipe, or set a variable inside the conditional and use it in the dependency list or command"
+	if err.Hint != wantHint {
+		t.Errorf("Hint = %q, want %q", err.Hint, wantHint)
+	}
+}
+
 // TestParseConditionalConditionWithRawModifier tests condition with :raw modifier.
 func TestParseConditionalConditionWithRawModifier(t *testing.T) {
 	input := `if {flags:raw} == -O2
