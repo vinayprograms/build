@@ -3,7 +3,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Lexical Error Codes (E001-E099)
@@ -46,7 +46,7 @@ func NewInvalidCharacterError(ch byte, loc ast.SourceLocation) *FormattedError {
 		Code:     CodeInvalidCharacter,
 		Message:  fmt.Sprintf("invalid character %s", charRepr),
 		Location: loc,
-		Note:     "Buildfiles must contain valid UTF-8 text",
+		Note:     "Needfiles must contain valid UTF-8 text",
 	}
 }
 

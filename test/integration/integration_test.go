@@ -251,8 +251,8 @@ func buildBinary(t *testing.T) string {
 	return binPath
 }
 
-// simpleBuildfile returns a minimal valid Buildfile for testing.
-func simpleBuildfile() string {
+// simpleNeedfile returns a minimal valid Needfile for testing.
+func simpleNeedfile() string {
 	return `.shell: bash
 
 @test:
@@ -263,37 +263,37 @@ func simpleBuildfile() string {
 // TestSimpleBuild tests building a simple phony target.
 func TestSimpleBuild(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", simpleBuildfile())
+	h.WriteFile("Needfile", simpleNeedfile())
 
 	result := h.Run("test")
 	result.AssertSuccess().
 		AssertStdoutContains("Hello, World!")
 }
 
-// TestBuildfileDiscovery tests that the build tool finds Buildfile in the current directory.
-func TestBuildfileDiscovery(t *testing.T) {
+// TestNeedfileDiscovery tests that the build tool finds Needfile in the current directory.
+func TestNeedfileDiscovery(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", simpleBuildfile())
+	h.WriteFile("Needfile", simpleNeedfile())
 
-	// Should find Buildfile without -f flag
+	// Should find Needfile without -f flag
 	result := h.Run("test")
 	result.AssertSuccess()
 }
 
-// TestMissingBuildfile tests that the build tool exits with an error when Buildfile is missing.
-func TestMissingBuildfile(t *testing.T) {
+// TestMissingNeedfile tests that the build tool exits with an error when Needfile is missing.
+func TestMissingNeedfile(t *testing.T) {
 	h := NewTestHarness(t)
 
-	// No Buildfile written
+	// No Needfile written
 	result := h.Run("test")
 	result.AssertExitCode(3). // Parse error
-					AssertStderrContains("Buildfile")
+					AssertStderrContains("Needfile")
 }
 
 // TestDefaultTarget tests building the default target when no target is specified.
 func TestDefaultTarget(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 .default: all
 
 @all:
@@ -313,7 +313,7 @@ func TestDefaultTarget(t *testing.T) {
 // TestMultipleTargets tests building multiple targets in order.
 func TestMultipleTargets(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @first:
 	echo "First"
@@ -344,7 +344,7 @@ func TestMultipleTargets(t *testing.T) {
 // TestDryRun tests that --dry-run shows what would be executed without executing it.
 func TestDryRun(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 output.txt:
 	echo "Creating output" > output.txt
@@ -363,7 +363,7 @@ output.txt:
 // TestVerboseMode tests that --verbose shows additional information.
 func TestVerboseMode(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @test:
 	echo "test"
@@ -397,7 +397,7 @@ func TestVersionFlag(t *testing.T) {
 // TestInvalidFlag tests that an invalid flag produces an error.
 func TestInvalidFlag(t *testing.T) {
 	h := NewTestHarness(t)
-	h.WriteFile("Buildfile", simpleBuildfile())
+	h.WriteFile("Needfile", simpleNeedfile())
 
 	result := h.Run("--invalid-flag")
 	result.AssertExitCode(2). // Usage error

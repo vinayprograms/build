@@ -62,13 +62,13 @@ func TestDetectOutputMode_EnvOverride(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.envValue, func(t *testing.T) {
 			// Save and restore environment
-			oldValue := os.Getenv("BUILD_OUTPUT_MODE")
-			defer os.Setenv("BUILD_OUTPUT_MODE", oldValue)
+			oldValue := os.Getenv("NEED_OUTPUT_MODE")
+			defer os.Setenv("NEED_OUTPUT_MODE", oldValue)
 
-			os.Setenv("BUILD_OUTPUT_MODE", tt.envValue)
+			os.Setenv("NEED_OUTPUT_MODE", tt.envValue)
 			got := DetectOutputMode()
 			if got != tt.expected {
-				t.Errorf("with BUILD_OUTPUT_MODE=%s: expected %v, got %v", tt.envValue, tt.expected, got)
+				t.Errorf("with NEED_OUTPUT_MODE=%s: expected %v, got %v", tt.envValue, tt.expected, got)
 			}
 		})
 	}
@@ -87,13 +87,13 @@ func TestDetectOutputMode_CI(t *testing.T) {
 		t.Run(ciVar, func(t *testing.T) {
 			// Save and restore environment
 			oldValue := os.Getenv(ciVar)
-			oldModeValue := os.Getenv("BUILD_OUTPUT_MODE")
+			oldModeValue := os.Getenv("NEED_OUTPUT_MODE")
 			defer func() {
 				os.Setenv(ciVar, oldValue)
-				os.Setenv("BUILD_OUTPUT_MODE", oldModeValue)
+				os.Setenv("NEED_OUTPUT_MODE", oldModeValue)
 			}()
 
-			os.Unsetenv("BUILD_OUTPUT_MODE")
+			os.Unsetenv("NEED_OUTPUT_MODE")
 			os.Setenv(ciVar, "true")
 			got := DetectOutputMode()
 			if got != ModeHeadless {
@@ -110,15 +110,15 @@ func TestDetectOutputMode_CI(t *testing.T) {
 func TestDetectOutputMode_DumbTerminal(t *testing.T) {
 	// Save and restore environment
 	oldTerm := os.Getenv("TERM")
-	oldMode := os.Getenv("BUILD_OUTPUT_MODE")
+	oldMode := os.Getenv("NEED_OUTPUT_MODE")
 	oldCI := os.Getenv("CI")
 	defer func() {
 		os.Setenv("TERM", oldTerm)
-		os.Setenv("BUILD_OUTPUT_MODE", oldMode)
+		os.Setenv("NEED_OUTPUT_MODE", oldMode)
 		os.Setenv("CI", oldCI)
 	}()
 
-	os.Unsetenv("BUILD_OUTPUT_MODE")
+	os.Unsetenv("NEED_OUTPUT_MODE")
 	os.Unsetenv("CI")
 	os.Setenv("TERM", "dumb")
 
@@ -130,21 +130,21 @@ func TestDetectOutputMode_DumbTerminal(t *testing.T) {
 
 // TestDetectOutputMode_NonTTYWithoutCI verifies that a plain non-TTY pipe
 // (e.g. `build -n | cat`), with no CI indicator and no explicit
-// BUILD_OUTPUT_MODE, stays ModeCLI rather than falling back to ModeHeadless
+// NEED_OUTPUT_MODE, stays ModeCLI rather than falling back to ModeHeadless
 // (C5). Test binaries themselves normally run with stdout not attached to a
 // TTY, so this also guards against a regression to the old
 // isTerminal()-based check without needing to fake a TTY.
 func TestDetectOutputMode_NonTTYWithoutCI(t *testing.T) {
-	oldMode := os.Getenv("BUILD_OUTPUT_MODE")
+	oldMode := os.Getenv("NEED_OUTPUT_MODE")
 	oldCI := os.Getenv("CI")
 	oldTerm := os.Getenv("TERM")
 	defer func() {
-		os.Setenv("BUILD_OUTPUT_MODE", oldMode)
+		os.Setenv("NEED_OUTPUT_MODE", oldMode)
 		os.Setenv("CI", oldCI)
 		os.Setenv("TERM", oldTerm)
 	}()
 
-	os.Unsetenv("BUILD_OUTPUT_MODE")
+	os.Unsetenv("NEED_OUTPUT_MODE")
 	os.Unsetenv("CI")
 	os.Setenv("TERM", "xterm-256color")
 

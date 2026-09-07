@@ -105,7 +105,7 @@ func TestCLIWriter_Error(t *testing.T) {
 		Category: "parse",
 		Code:     "E100",
 		Message:  "syntax error",
-		Location: "Buildfile:10:5",
+		Location: "Needfile:10:5",
 		Hint:     "check your syntax",
 	})
 
@@ -119,7 +119,7 @@ func TestCLIWriter_Error(t *testing.T) {
 	if !strings.Contains(got, "syntax error") {
 		t.Errorf("expected 'syntax error', got %q", got)
 	}
-	if !strings.Contains(got, "Buildfile:10:5") {
+	if !strings.Contains(got, "Needfile:10:5") {
 		t.Errorf("expected location, got %q", got)
 	}
 	if !strings.Contains(got, "help:") {

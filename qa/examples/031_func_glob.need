@@ -1,0 +1,10 @@
+# Test: glob() function
+# Expected: Should expand file patterns
+# Category: Functions
+# Description: Tests glob() function for file matching
+
+# This will find all .need files in qa/examples
+needfiles = glob(*.need)
+
+@test:
+    echo "Build files: {needfiles}"

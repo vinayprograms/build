@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-// TestLargeBuildfileParsing_1000Targets tests parsing a Buildfile with 1000+ targets.
+// TestLargeNeedfileParsing_1000Targets tests parsing a Needfile with 1000+ targets.
 // This validates that the parser handles large files without excessive memory or time.
-func TestLargeBuildfileParsing_1000Targets(t *testing.T) {
+func TestLargeNeedfileParsing_1000Targets(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping performance test in short mode")
 	}
 
 	h := NewTestHarness(t)
 
-	// Generate a Buildfile with 1000 targets
+	// Generate a Needfile with 1000 targets
 	var sb strings.Builder
 	sb.WriteString(".shell: bash\n\n")
 
@@ -29,7 +29,7 @@ func TestLargeBuildfileParsing_1000Targets(t *testing.T) {
 		}
 	}
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and validate (don't actually build)
 	start := time.Now()
@@ -47,15 +47,15 @@ func TestLargeBuildfileParsing_1000Targets(t *testing.T) {
 	t.Logf("Parsed 1000 targets in %v", elapsed)
 }
 
-// TestLargeBuildfileParsing_ManyPatternTargets tests parsing with many pattern targets.
-func TestLargeBuildfileParsing_ManyPatternTargets(t *testing.T) {
+// TestLargeNeedfileParsing_ManyPatternTargets tests parsing with many pattern targets.
+func TestLargeNeedfileParsing_ManyPatternTargets(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping performance test in short mode")
 	}
 
 	h := NewTestHarness(t)
 
-	// Generate a Buildfile with 100 pattern targets and many concrete targets
+	// Generate a Needfile with 100 pattern targets and many concrete targets
 	var sb strings.Builder
 	sb.WriteString(".shell: bash\n\n")
 
@@ -77,7 +77,7 @@ func TestLargeBuildfileParsing_ManyPatternTargets(t *testing.T) {
 	}
 	sb.WriteString("\n\techo \"Linking app\"\n")
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and validate (don't actually build)
 	start := time.Now()
@@ -106,7 +106,7 @@ func TestDeepIncludeHierarchy(t *testing.T) {
 
 	h := NewTestHarness(t)
 
-	// Create a deep include hierarchy: level0.build includes level1.build includes level2.build ...
+	// Create a deep include hierarchy: level0.need includes level1.need includes level2.need ...
 	const depth = 20
 
 	// Create include files from deepest to shallowest
@@ -117,14 +117,14 @@ func TestDeepIncludeHierarchy(t *testing.T) {
 			content = fmt.Sprintf("var%d = value%d\n", i, i)
 		} else {
 			// Each file includes the next level
-			content = fmt.Sprintf(".include: ./level%d.build\nvar%d = value%d\n", i+1, i, i)
+			content = fmt.Sprintf(".include: ./level%d.need\nvar%d = value%d\n", i+1, i, i)
 		}
-		h.WriteFile(fmt.Sprintf("level%d.build", i), content)
+		h.WriteFile(fmt.Sprintf("level%d.need", i), content)
 	}
 
-	// Main Buildfile includes level0
-	h.WriteFile("Buildfile", `.shell: bash
-.include: ./level0.build
+	// Main Needfile includes level0
+	h.WriteFile("Needfile", `.shell: bash
+.include: ./level0.need
 
 @test:
 	echo "var0={var0}"
@@ -170,8 +170,8 @@ func TestWideIncludeHierarchy(t *testing.T) {
 	for i := 0; i < width; i++ {
 		// Each sibling defines its own variables and targets
 		content := fmt.Sprintf("var%d = value%d\n\n@target%d:\n\techo \"target%d: {var%d}\"\n", i, i, i, i, i)
-		h.WriteFile(fmt.Sprintf("include%d.build", i), content)
-		mainBuilder.WriteString(fmt.Sprintf(".include: ./include%d.build\n", i))
+		h.WriteFile(fmt.Sprintf("include%d.need", i), content)
+		mainBuilder.WriteString(fmt.Sprintf(".include: ./include%d.need\n", i))
 	}
 
 	// Add an aggregator target that depends on all included targets
@@ -181,7 +181,7 @@ func TestWideIncludeHierarchy(t *testing.T) {
 	}
 	mainBuilder.WriteString("\n\techo \"All targets complete\"\n")
 
-	h.WriteFile("Buildfile", mainBuilder.String())
+	h.WriteFile("Needfile", mainBuilder.String())
 
 	// Parse and validate
 	start := time.Now()
@@ -221,7 +221,7 @@ func TestDeepDependencyChain(t *testing.T) {
 		}
 	}
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and validate the deepest target
 	start := time.Now()
@@ -272,7 +272,7 @@ func TestWideDependencyGraph(t *testing.T) {
 	}
 	sb.WriteString("\n\techo \"All dependencies built\"\n")
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and validate
 	start := time.Now()
@@ -329,7 +329,7 @@ func TestDiamondDependencyPerformance(t *testing.T) {
 	}
 	sb.WriteString("\n\techo \"Top\"\n")
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and validate
 	start := time.Now()
@@ -355,7 +355,7 @@ func TestManyVariables(t *testing.T) {
 
 	h := NewTestHarness(t)
 
-	// Create a Buildfile with many variables (some referencing others)
+	// Create a Needfile with many variables (some referencing others)
 	const numVars = 500
 
 	var sb strings.Builder
@@ -375,7 +375,7 @@ func TestManyVariables(t *testing.T) {
 	// Add a test target that uses some variables
 	sb.WriteString(fmt.Sprintf("\n@test:\n\techo \"var0={var0}\"\n\techo \"var%d={var%d}\"\n", numVars-1, numVars-1))
 
-	h.WriteFile("Buildfile", sb.String())
+	h.WriteFile("Needfile", sb.String())
 
 	// Parse and run
 	start := time.Now()

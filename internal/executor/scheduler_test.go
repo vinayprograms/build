@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
-	"github.com/vinayprograms/build/internal/planner"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
+	"github.com/vinayprograms/need/internal/planner"
 )
 
 // ----------------------------------------------------------------------------
@@ -633,7 +633,7 @@ func TestScheduler_JobsFlagOverride(t *testing.T) {
 	cfg := NewShellConfig()
 	exec := NewExecutor(cfg)
 
-	// Simulate: Buildfile has .parallel: 2, user runs with -j 4
+	// Simulate: Needfile has .parallel: 2, user runs with -j 4
 	cliJobs := 4
 	parallelDirective := 2
 	workerCount := ResolveWorkerCount(cliJobs, parallelDirective)
@@ -647,7 +647,7 @@ func TestScheduler_JobsFlagOverride(t *testing.T) {
 		t.Errorf("expected scheduler to have 4 workers, got %d", sched.Workers())
 	}
 
-	// Simulate: Buildfile has .parallel: 8, user uses default -j (1)
+	// Simulate: Needfile has .parallel: 8, user uses default -j (1)
 	cliJobs = 1
 	parallelDirective = 8
 	workerCount = ResolveWorkerCount(cliJobs, parallelDirective)

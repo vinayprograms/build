@@ -3,12 +3,12 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestParser_New(t *testing.T) {
-	l := lexer.New("test.build", ".shell: bash")
+	l := lexer.New("test.need", ".shell: bash")
 	p := New(l)
 
 	if p == nil {
@@ -32,7 +32,7 @@ func TestParser_ValidateDirective_GlobalScope(t *testing.T) {
 		{".shell at global", ".shell: bash", false},
 		{".parallel at global", ".parallel: 4", false},
 		{".default at global", ".default: @all", false},
-		{".include at global", ".include: ./common.build", false},
+		{".include at global", ".include: ./common.need", false},
 
 		// Invalid directives at global
 		{".using at global", ".using: docker", true},
@@ -45,7 +45,7 @@ func TestParser_ValidateDirective_GlobalScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			// Parse until we get a directive token
@@ -69,7 +69,7 @@ func TestParser_ValidateDirective_GlobalScope(t *testing.T) {
 
 func TestParser_ScopeTransitions(t *testing.T) {
 	// Test that scope changes correctly when entering/exiting blocks
-	l := lexer.New("test.build", "")
+	l := lexer.New("test.need", "")
 	p := New(l)
 
 	// Initially at global
@@ -133,14 +133,14 @@ func TestParser_DirectiveInEnvironmentScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", "")
+			l := lexer.New("test.need", "")
 			p := New(l)
 			p.EnterScope(ScopeEnvironment)
 
 			tok := lexer.Token{
 				Type:     tt.directive,
 				Literal:  DirectiveNameForError(tt.directive),
-				Location: lexer.SourceLocation{File: "test.build", Line: 1, Column: 1},
+				Location: lexer.SourceLocation{File: "test.need", Line: 1, Column: 1},
 			}
 
 			err := p.validateDirectiveScope(tok)
@@ -173,14 +173,14 @@ func TestParser_DirectiveInRecipeScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", "")
+			l := lexer.New("test.need", "")
 			p := New(l)
 			p.EnterScope(ScopeRecipe)
 
 			tok := lexer.Token{
 				Type:     tt.directive,
 				Literal:  DirectiveNameForError(tt.directive),
-				Location: lexer.SourceLocation{File: "test.build", Line: 1, Column: 1},
+				Location: lexer.SourceLocation{File: "test.need", Line: 1, Column: 1},
 			}
 
 			err := p.validateDirectiveScope(tok)
@@ -195,7 +195,7 @@ func TestParser_DirectiveInRecipeScope(t *testing.T) {
 }
 
 func TestParser_CurrentIndentLevel(t *testing.T) {
-	l := lexer.New("test.build", "")
+	l := lexer.New("test.need", "")
 	p := New(l)
 
 	// Global starts at level 0
@@ -264,9 +264,9 @@ func TestParser_RecipeCommandSpaces(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
-			stmts, errs := p.ParseBuildfile()
+			stmts, errs := p.ParseNeedfile()
 
 			if errs.HasErrors() {
 				t.Fatalf("parse errors: %v", errs.Error())
@@ -323,9 +323,9 @@ func TestParser_BlockCommandSpaces(t *testing.T) {
         go build -ldflags "-s -w" -o {target} ./cmd
         echo "Done"`
 
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("parse errors: %v", errs.Error())
@@ -380,9 +380,9 @@ func TestParser_RecipeDirectiveWithCommand(t *testing.T) {
     .after: clean
     go build -o {target}`
 
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("parse errors: %v", errs.Error())

@@ -3,8 +3,8 @@ package eval
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/output"
 )
 
 // TestEvaluator_EmitsVariableEvaluated tests that evaluator emits variable events.

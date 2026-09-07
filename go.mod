@@ -1,4 +1,4 @@
-module github.com/vinayprograms/build
+module github.com/vinayprograms/need
 
 go 1.25.3
 

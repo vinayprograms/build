@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // Parser transforms a token stream into an AST.
@@ -148,10 +148,10 @@ func (p *Parser) parseComment() *ast.Comment {
 // maxErrors is the maximum number of errors to collect before giving up.
 const maxErrors = 10
 
-// ParseBuildfile parses a complete buildfile with error recovery.
+// ParseNeedfile parses a complete needfile with error recovery.
 // It collects multiple errors and attempts to continue parsing after each error.
 // Returns a slice of successfully parsed statements and all collected errors.
-func (p *Parser) ParseBuildfile() ([]ast.Statement, *ParseErrors) {
+func (p *Parser) ParseNeedfile() ([]ast.Statement, *ParseErrors) {
 	var statements []ast.Statement
 
 	for p.current.Type != lexer.EOF {

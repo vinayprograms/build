@@ -1,5 +1,0 @@
-# Simple Buildfile example - basic phony target
-.shell: bash
-
-@hello:
-	echo "Hello, World!"

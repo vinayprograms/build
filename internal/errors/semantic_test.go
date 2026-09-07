@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import (
 // ----------------------------------------------------------------------------
 
 func TestNewUndefinedVariableError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	err := NewUndefinedVariableError("foo", loc)
 
 	if err.Code != "E200" {
@@ -27,8 +27,8 @@ func TestNewUndefinedVariableError(t *testing.T) {
 }
 
 func TestNewDuplicateVariableError(t *testing.T) {
-	first := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1}
-	second := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1}
+	first := ast.SourceLocation{File: "Needfile", Line: 1, Column: 1}
+	second := ast.SourceLocation{File: "Needfile", Line: 5, Column: 1}
 	err := NewDuplicateVariableError("cc", first, second)
 
 	if err.Code != "E201" {
@@ -46,8 +46,8 @@ func TestNewDuplicateVariableError(t *testing.T) {
 }
 
 func TestNewDuplicateTargetError(t *testing.T) {
-	first := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1}
-	second := ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1}
+	first := ast.SourceLocation{File: "Needfile", Line: 3, Column: 1}
+	second := ast.SourceLocation{File: "Needfile", Line: 10, Column: 1}
 	err := NewDuplicateTargetError("build/app", first, second)
 
 	if err.Code != "E202" {
@@ -62,8 +62,8 @@ func TestNewDuplicateTargetError(t *testing.T) {
 }
 
 func TestNewDuplicateEnvironmentError(t *testing.T) {
-	first := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1}
-	second := ast.SourceLocation{File: "Buildfile", Line: 8, Column: 1}
+	first := ast.SourceLocation{File: "Needfile", Line: 2, Column: 1}
+	second := ast.SourceLocation{File: "Needfile", Line: 8, Column: 1}
 	err := NewDuplicateEnvironmentError("ci", first, second)
 
 	if err.Code != "E203" {
@@ -93,7 +93,7 @@ func TestNewCircularDependencyError(t *testing.T) {
 }
 
 func TestNewCaptureConflictError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	err := NewCaptureConflictError("name", "variable", loc)
 
 	if err.Code != "E205" {
@@ -105,8 +105,8 @@ func TestNewCaptureConflictError(t *testing.T) {
 }
 
 func TestNewCaptureMismatchError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 6, Column: 20}
-	targetLoc := ast.SourceLocation{File: "Buildfile", Line: 6, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 6, Column: 20}
+	targetLoc := ast.SourceLocation{File: "Needfile", Line: 6, Column: 1}
 	err := NewCaptureMismatchError("name", loc, targetLoc)
 
 	if err.Code != "E206" {
@@ -121,7 +121,7 @@ func TestNewCaptureMismatchError(t *testing.T) {
 }
 
 func TestNewAutomaticOutsideRecipeError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 10}
 	err := NewAutomaticOutsideRecipeError("target", loc)
 
 	if err.Code != "E207" {
@@ -136,7 +136,7 @@ func TestNewAutomaticOutsideRecipeError(t *testing.T) {
 }
 
 func TestNewAutomaticInPatternError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 4, Column: 8}
+	loc := ast.SourceLocation{File: "Needfile", Line: 4, Column: 8}
 	err := NewAutomaticInPatternError("deps", loc)
 
 	if err.Code != "E208" {

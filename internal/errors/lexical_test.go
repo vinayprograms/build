@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import (
 // ----------------------------------------------------------------------------
 
 func TestNewInvalidCharacterError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	err := NewInvalidCharacterError('\x00', loc)
 
 	if err.Code != "E001" {
@@ -27,7 +27,7 @@ func TestNewInvalidCharacterError(t *testing.T) {
 }
 
 func TestNewMixedIndentationError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 1}
 	err := NewMixedIndentationError(loc)
 
 	if err.Code != "E002" {
@@ -42,7 +42,7 @@ func TestNewMixedIndentationError(t *testing.T) {
 }
 
 func TestNewInconsistentIndentationError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 7, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 7, Column: 1}
 	err := NewInconsistentIndentationError("space", "tab", loc)
 
 	if err.Code != "E003" {
@@ -57,7 +57,7 @@ func TestNewInconsistentIndentationError(t *testing.T) {
 }
 
 func TestNewInvalidIndentWidthError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 1}
 	err := NewInvalidIndentWidthError(5, 4, loc)
 
 	if err.Code != "E004" {
@@ -72,7 +72,7 @@ func TestNewInvalidIndentWidthError(t *testing.T) {
 }
 
 func TestNewUnclosedInterpolationError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 15}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 15}
 	err := NewUnclosedInterpolationError("varname", loc)
 
 	if err.Code != "E005" {
@@ -90,7 +90,7 @@ func TestNewUnclosedInterpolationError(t *testing.T) {
 }
 
 func TestNewInvalidModifierError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 4, Column: 20}
+	loc := ast.SourceLocation{File: "Needfile", Line: 4, Column: 20}
 	err := NewInvalidModifierError("foo", loc)
 
 	if err.Code != "E006" {
@@ -108,7 +108,7 @@ func TestNewInvalidModifierError(t *testing.T) {
 }
 
 func TestNewUnexpectedCharInInterpError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 12}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 12}
 	err := NewUnexpectedCharInInterpError('$', loc)
 
 	if err.Code != "E007" {
@@ -123,7 +123,7 @@ func TestNewUnexpectedCharInInterpError(t *testing.T) {
 }
 
 func TestNewInvalidEscapeSequenceError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5}
+	loc := ast.SourceLocation{File: "Needfile", Line: 1, Column: 5}
 	err := NewInvalidEscapeSequenceError("\\n", loc)
 
 	if err.Code != "E008" {
@@ -140,7 +140,7 @@ func TestNewInvalidEscapeSequenceError(t *testing.T) {
 
 func TestLexicalError_Format_WithContext(t *testing.T) {
 	source := "cc = gcc\n\t foo = bar"
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 1}
 	err := NewMixedIndentationError(loc)
 
 	// Add source context
@@ -155,7 +155,7 @@ func TestLexicalError_Format_WithContext(t *testing.T) {
 	}
 
 	// Should show location
-	if !strings.Contains(formatted, "Buildfile:2:1") {
+	if !strings.Contains(formatted, "Needfile:2:1") {
 		t.Errorf("Formatted error should contain location: %s", formatted)
 	}
 

@@ -3,9 +3,9 @@ package executor
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
-	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
+	"github.com/vinayprograms/need/internal/output"
 )
 
 // ----------------------------------------------------------------------------

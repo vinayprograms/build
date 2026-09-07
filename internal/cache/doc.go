@@ -1,8 +1,8 @@
-// Package cache provides caching for parsed Buildfiles.
+// Package cache provides caching for parsed Needfiles.
 //
 // The cache stores parsed AST keyed by absolute file path. Cache entries are
 // invalidated when the file's modification time changes. This avoids re-parsing
-// unchanged Buildfiles on subsequent builds.
+// unchanged Needfiles on subsequent builds.
 //
 // Cache invalidation strategy:
 //   - Store file mtime with each entry

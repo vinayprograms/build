@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import (
 // ----------------------------------------------------------------------------
 
 func TestNewRecipeFailedError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 5}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 5}
 	err := NewRecipeFailedError("build/app", "gcc -o build/app main.c", 1, loc)
 
 	if err.Code != "E400" {
@@ -41,7 +41,7 @@ func TestNewMissingDependencyError(t *testing.T) {
 }
 
 func TestNewMissingBinaryError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 15}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 15}
 	err := NewMissingBinaryError("gcc", loc)
 
 	if err.Code != "E402" {
@@ -59,7 +59,7 @@ func TestNewMissingBinaryError(t *testing.T) {
 }
 
 func TestNewShellNotFoundError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 8}
+	loc := ast.SourceLocation{File: "Needfile", Line: 1, Column: 8}
 	err := NewShellNotFoundError("/bin/zsh", loc)
 
 	if err.Code != "E403" {
@@ -74,7 +74,7 @@ func TestNewShellNotFoundError(t *testing.T) {
 }
 
 func TestNewVersionMismatchError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 15}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 15}
 	err := NewVersionMismatchError("gcc", "11.0.0", "10.2.0", loc)
 
 	if err.Code != "E404" {

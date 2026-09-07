@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // TestDockerfileDetection tests locating Dockerfile from .source: directive
@@ -596,15 +596,15 @@ func TestPrintKeepInstructions(t *testing.T) {
 func TestGenerateContainerName(t *testing.T) {
 	t.Run("with environment name", func(t *testing.T) {
 		name := GenerateContainerName("/path/to/project", "ci")
-		if name != "build-project-ci" {
-			t.Errorf("expected build-project-ci, got %s", name)
+		if name != "need-project-ci" {
+			t.Errorf("expected need-project-ci, got %s", name)
 		}
 	})
 
 	t.Run("without environment name", func(t *testing.T) {
 		name := GenerateContainerName("/path/to/project", "")
-		if name != "build-project" {
-			t.Errorf("expected build-project, got %s", name)
+		if name != "need-project" {
+			t.Errorf("expected need-project, got %s", name)
 		}
 	})
 }

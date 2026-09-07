@@ -1,8 +1,8 @@
 package parser
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // IsConditionalLine checks if the current token starts a conditional.

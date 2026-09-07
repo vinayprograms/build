@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/platform"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/platform"
 )
 
 // CommandContext extends Context with automatic variables and captures

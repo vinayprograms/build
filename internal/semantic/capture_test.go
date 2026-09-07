@@ -3,7 +3,7 @@ package semantic
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Helper to create a simple variable
@@ -435,10 +435,10 @@ func TestValidateCaptures_ConditionalVariable(t *testing.T) {
 func TestAutomaticInPatternError_Error(t *testing.T) {
 	err := &AutomaticInPatternError{
 		Name:     "target",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 10},
 	}
 
-	expected := "automatic variable 'target' cannot be used as capture in target pattern at Buildfile:5:10"
+	expected := "automatic variable 'target' cannot be used as capture in target pattern at Needfile:5:10"
 	if err.Error() != expected {
 		t.Errorf("Expected error: %s\nGot: %s", expected, err.Error())
 	}
@@ -449,8 +449,8 @@ func TestCaptureMismatchError_Error(t *testing.T) {
 	err := &CaptureMismatchError{
 		Name:      "name",
 		InTarget:  false,
-		Location:  ast.SourceLocation{File: "Buildfile", Line: 3, Column: 20},
-		TargetLoc: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+		Location:  ast.SourceLocation{File: "Needfile", Line: 3, Column: 20},
+		TargetLoc: ast.SourceLocation{File: "Needfile", Line: 3, Column: 1},
 	}
 
 	msg := err.Error()

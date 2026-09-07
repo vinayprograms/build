@@ -4,7 +4,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ContainerRunner runs commands in containers.
@@ -143,7 +143,7 @@ func (r *ContainerRunner) RemoveContainer(containerName string) *exec.Cmd {
 
 // GenerateContainerName generates a unique container name for a build.
 func GenerateContainerName(project, envName string) string {
-	name := "build-" + filepath.Base(project)
+	name := "need-" + filepath.Base(project)
 	if envName != "" {
 		name += "-" + envName
 	}

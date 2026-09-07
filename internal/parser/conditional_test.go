@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // TestParseConditionalSimpleIf tests parsing a simple if/end block.
@@ -483,7 +483,7 @@ func TestParseConditionalSourceLocation(t *testing.T) {
 cc = gcc
 end
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	cond, err := p.ParseConditional()
@@ -491,8 +491,8 @@ end
 		t.Fatalf("ParseConditional returned error: %v", err)
 	}
 
-	if cond.Location.File != "test.build" {
-		t.Errorf("expected file 'test.build', got %q", cond.Location.File)
+	if cond.Location.File != "test.need" {
+		t.Errorf("expected file 'test.need', got %q", cond.Location.File)
 	}
 	if cond.Location.Line != 1 {
 		t.Errorf("expected line 1, got %d", cond.Location.Line)

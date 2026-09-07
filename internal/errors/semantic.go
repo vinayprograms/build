@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Semantic Error Codes (E200-E299)

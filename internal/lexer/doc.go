@@ -1,6 +1,6 @@
-// Package lexer implements lexical analysis for Buildfiles.
+// Package lexer implements lexical analysis for Needfiles.
 //
-// The lexer tokenizes Buildfile source code into a stream of tokens, handling:
+// The lexer tokenizes Needfile source code into a stream of tokens, handling:
 //   - Indentation tracking with consistent space/tab enforcement
 //   - Interpolation boundary detection ({var} syntax)
 //   - Multiple lexing modes (line start, normal, value, interpolation)
@@ -30,7 +30,7 @@
 //
 // # Indentation Tracking
 //
-// The IndentTracker enforces consistent indentation across a Buildfile:
+// The IndentTracker enforces consistent indentation across a Needfile:
 //   - First indented line establishes the indent unit (e.g., 4 spaces or 1 tab)
 //   - Subsequent indents must be exact multiples of this unit
 //   - Mixed tabs and spaces within a single indent string is an error

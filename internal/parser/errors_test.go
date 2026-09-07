@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestParseError_String(t *testing.T) {
 	err := &ParseError{
 		Message: "unexpected token",
 		Location: lexer.SourceLocation{
-			File:   "Buildfile",
+			File:   "Needfile",
 			Line:   10,
 			Column: 5,
 		},
 	}
 
-	want := "Buildfile:10:5: unexpected token"
+	want := "Needfile:10:5: unexpected token"
 	got := err.Error()
 	if got != want {
 		t.Errorf("ParseError.Error() = %q, want %q", got, want)
@@ -28,14 +28,14 @@ func TestParseError_WithHint(t *testing.T) {
 	err := &ParseError{
 		Message: "directive '.after' invalid at global scope",
 		Location: lexer.SourceLocation{
-			File:   "Buildfile",
+			File:   "Needfile",
 			Line:   1,
 			Column: 1,
 		},
 		Hint: ".after is only valid inside a recipe",
 	}
 
-	want := "Buildfile:1:1: directive '.after' invalid at global scope (hint: .after is only valid inside a recipe)"
+	want := "Needfile:1:1: directive '.after' invalid at global scope (hint: .after is only valid inside a recipe)"
 	got := err.Error()
 	if got != want {
 		t.Errorf("ParseError.Error() = %q, want %q", got, want)
@@ -83,7 +83,7 @@ func TestScopeError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewScopeError(tt.directive, tt.found, lexer.SourceLocation{
-				File:   "test.build",
+				File:   "test.need",
 				Line:   1,
 				Column: 1,
 			})
@@ -125,15 +125,15 @@ func TestParseErrors_Error(t *testing.T) {
 	errs := &ParseErrors{}
 	errs.Add(&ParseError{
 		Message:  "first error",
-		Location: lexer.SourceLocation{File: "a.build", Line: 1, Column: 1},
+		Location: lexer.SourceLocation{File: "a.need", Line: 1, Column: 1},
 	})
 	errs.Add(&ParseError{
 		Message:  "second error",
-		Location: lexer.SourceLocation{File: "a.build", Line: 5, Column: 3},
+		Location: lexer.SourceLocation{File: "a.need", Line: 5, Column: 3},
 	})
 
 	got := errs.Error()
-	want := "a.build:1:1: first error\na.build:5:3: second error"
+	want := "a.need:1:1: first error\na.need:5:3: second error"
 	if got != want {
 		t.Errorf("ParseErrors.Error() = %q, want %q", got, want)
 	}

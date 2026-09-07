@@ -3,7 +3,7 @@ package eval
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -203,7 +203,7 @@ func TestEvaluateValue_RawModifier(t *testing.T) {
 func TestUndefinedVariableError_Error(t *testing.T) {
 	err := &UndefinedVariableError{
 		Name:     "missing",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 10},
 	}
 
 	msg := err.Error()
@@ -213,7 +213,7 @@ func TestUndefinedVariableError_Error(t *testing.T) {
 	if !containsString(msg, "missing") {
 		t.Errorf("Expected error to mention variable name, got: %s", msg)
 	}
-	if !containsString(msg, "Buildfile:5:10") {
+	if !containsString(msg, "Needfile:5:10") {
 		t.Errorf("Expected error to include location, got: %s", msg)
 	}
 }

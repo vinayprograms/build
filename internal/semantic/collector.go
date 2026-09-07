@@ -1,7 +1,7 @@
 package semantic
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Collect performs Pass 1: Symbol Collection on the given statements.

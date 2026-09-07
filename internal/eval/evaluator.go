@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/output"
 )
 
 // Evaluator evaluates AST values and expressions.

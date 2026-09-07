@@ -1,8 +1,8 @@
-# Build Tool - Detailed Design
+# need - Detailed Design
 
 ## 1. Overview
 
-This document describes the detailed design for implementing the `build` tool, a Make-inspired build system with a readable syntax optimized for user simplicity.
+This document describes the detailed design for implementing the `need` tool, a Make-inspired recipe runner with a readable syntax optimized for user simplicity.
 
 ### 1.1 Design Priorities
 
@@ -13,7 +13,7 @@ This document describes the detailed design for implementing the `build` tool, a
 
 ### 1.2 Context Sensitivity Acknowledgment
 
-The Buildfile language is **mostly context-free** but has **intentional context-sensitive elements** to keep the user-facing syntax simple:
+The Needfile language is **mostly context-free** but has **intentional context-sensitive elements** to keep the user-facing syntax simple:
 
 | Construct | Context Required | Rationale |
 |-----------|------------------|-----------|
@@ -197,7 +197,7 @@ The parser produces a single, unambiguous AST for any valid input. Where the gra
 ### 3.2 Grammar (EBNF)
 
 ```ebnf
-buildfile       = { statement } EOF ;
+needfile       = { statement } EOF ;
 
 statement       = directive
                 | environment_block
@@ -541,7 +541,7 @@ struct Parser {
 }
 
 impl Parser {
-    fn parse(&mut self) -> Result<Buildfile, ParseError>
+    fn parse(&mut self) -> Result<Needfile, ParseError>
     fn parse_statement(&mut self) -> Result<Statement, ParseError>
     fn parse_directive(&mut self) -> Result<Directive, ParseError>
     fn parse_environment(&mut self) -> Result<Environment, ParseError>
@@ -566,7 +566,7 @@ The AST captures the structure without interpretation. No evaluation happens dur
 ### 4.2 AST Node Definitions
 
 ```
-struct Buildfile {
+struct Needfile {
     statements: Vec<Statement>
     source_path: PathBuf
 }
@@ -949,7 +949,7 @@ struct EvaluationContext {
     arch: String,
 }
 
-fn evaluate_variables(ast: &Buildfile, symbols: &SymbolTable) -> Result<EvaluationContext, EvalError> {
+fn evaluate_variables(ast: &Needfile, symbols: &SymbolTable) -> Result<EvaluationContext, EvalError> {
     let mut ctx = EvaluationContext::new();
     
     // Process conditionals first (they may define variables)
@@ -1292,13 +1292,13 @@ Every error message should:
 
 ```
 error[E001]: capture '{name}' conflicts with variable 'name'
-  --> Buildfile:15:7
+  --> Needfile:15:7
    |
 15 | build/{name}.o: src/{name}.c
    |       ^^^^^^ capture defined here
    |
 note: variable 'name' was defined here
-  --> Buildfile:3:1
+  --> Needfile:3:1
    |
  3 | name = foo
    | ^^^^^^^^^^
@@ -1323,7 +1323,7 @@ help: rename either the capture or the variable to avoid conflict
 ```
                                     ┌─────────────────┐
                                     │   Source File   │
-                                    │   (Buildfile)   │
+                                    │   (Needfile)   │
                                     └────────┬────────┘
                                              │
                                              ▼
@@ -1448,7 +1448,7 @@ See Section 3.2 for the full EBNF grammar.
 
 ### 10.1 Overview
 
-The build tool runs in three distinct contexts with different output requirements:
+The need tool runs in three distinct contexts with different output requirements:
 
 | Context | Characteristics | Output Requirements |
 |---------|----------------|---------------------|
@@ -1491,8 +1491,8 @@ The output mode is determined automatically unless overridden:
 
 ```
 fn detect_output_mode() OutputMode:
-    if env.BUILD_OUTPUT_MODE is set:
-        return parse_mode(env.BUILD_OUTPUT_MODE)
+    if env.NEED_OUTPUT_MODE is set:
+        return parse_mode(env.NEED_OUTPUT_MODE)
     
     if !isatty(stdout) or !isatty(stderr):
         return OutputMode::Headless
@@ -1507,9 +1507,9 @@ fn detect_output_mode() OutputMode:
 ```
 
 **Override via environment**:
-- `BUILD_OUTPUT_MODE=cli` - Force CLI mode
-- `BUILD_OUTPUT_MODE=tui` - Force TUI mode  
-- `BUILD_OUTPUT_MODE=headless` - Force headless mode
+- `NEED_OUTPUT_MODE=cli` - Force CLI mode
+- `NEED_OUTPUT_MODE=tui` - Force TUI mode  
+- `NEED_OUTPUT_MODE=headless` - Force headless mode
 
 ### 10.4 Output Events
 
@@ -1598,7 +1598,7 @@ type ErrorOccurred struct {
     Category string // "parse", "semantic", "eval", "plan", "execute"
     Code     string // "E001", "E200", etc.
     Message  string
-    Location string // "Buildfile:10:5"
+    Location string // "Needfile:10:5"
     Context  string // Source code snippet
     Hint     string // Fix suggestion
 }
@@ -1669,7 +1669,7 @@ Build success: 5 targets built (1.2s)
 **Error display:**
 ```
 error[E201]: undefined variable 'cflags'
- --> Buildfile:10:5
+ --> Needfile:10:5
   |
 9 | cc = gcc
 10|     gcc {cflags} -c {in} -o {out}
@@ -1699,7 +1699,7 @@ The headless writer produces plain text with timestamps and log levels:
 
 ```
 [2024-01-15T10:30:00Z] [INFO] Starting build
-[2024-01-15T10:30:00Z] [INFO] Parsing Buildfile...
+[2024-01-15T10:30:00Z] [INFO] Parsing Needfile...
 [2024-01-15T10:30:00Z] [INFO] Parsed 15 statements
 [2024-01-15T10:30:00Z] [INFO] Building target: foo.o
 [2024-01-15T10:30:00Z] [DEBUG] Command: gcc -c src/main.c -o foo.o
@@ -1748,13 +1748,13 @@ Output behavior is configurable via:
    - `--progress=auto|always|never` - Progress indicators
 
 2. **Environment variables**:
-   - `BUILD_OUTPUT_MODE` - Force output mode
+   - `NEED_OUTPUT_MODE` - Force output mode
    - `BUILD_LOG_FORMAT` - Log format (text|json)
    - `BUILD_LOG_LEVEL` - Minimum log level
    - `NO_COLOR` - Disable colors (standard)
    - `FORCE_COLOR` - Force colors even if not TTY
 
-3. **Buildfile directive** (future):
+3. **Needfile directive** (future):
    ```
    .output: verbose
    ```

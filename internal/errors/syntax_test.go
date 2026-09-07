@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import (
 // ----------------------------------------------------------------------------
 
 func TestNewUnexpectedTokenError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	err := NewUnexpectedTokenError("IDENTIFIER", ":", loc)
 
 	if err.Code != "E100" {
@@ -27,7 +27,7 @@ func TestNewUnexpectedTokenError(t *testing.T) {
 }
 
 func TestNewMissingColonError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 15}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 15}
 	err := NewMissingColonError("build/app", loc)
 
 	if err.Code != "E101" {
@@ -42,7 +42,7 @@ func TestNewMissingColonError(t *testing.T) {
 }
 
 func TestNewMissingEndError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 1, Column: 1}
 	err := NewMissingEndError(loc)
 
 	if err.Code != "E102" {
@@ -54,7 +54,7 @@ func TestNewMissingEndError(t *testing.T) {
 }
 
 func TestNewInvalidDirectiveScopeError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 5}
 	err := NewInvalidDirectiveScopeError(".after", "GLOBAL", []string{"RECIPE"}, loc)
 
 	if err.Code != "E103" {
@@ -72,7 +72,7 @@ func TestNewInvalidDirectiveScopeError(t *testing.T) {
 }
 
 func TestNewMissingConditionError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 4, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 4, Column: 1}
 	err := NewMissingConditionError("if", loc)
 
 	if err.Code != "E104" {
@@ -84,7 +84,7 @@ func TestNewMissingConditionError(t *testing.T) {
 }
 
 func TestNewMissingOperatorError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	err := NewMissingOperatorError(loc)
 
 	if err.Code != "E105" {
@@ -96,7 +96,7 @@ func TestNewMissingOperatorError(t *testing.T) {
 }
 
 func TestNewMissingIdentifierError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 7}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 7}
 	err := NewMissingIdentifierError("ifdef", loc)
 
 	if err.Code != "E106" {
@@ -108,7 +108,7 @@ func TestNewMissingIdentifierError(t *testing.T) {
 }
 
 func TestNewInvalidRuntimeError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 12}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 12}
 	err := NewInvalidRuntimeError("invalid_runtime", loc)
 
 	if err.Code != "E107" {
@@ -123,7 +123,7 @@ func TestNewInvalidRuntimeError(t *testing.T) {
 }
 
 func TestNewMissingFunctionArgumentError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 6, Column: 20}
+	loc := ast.SourceLocation{File: "Needfile", Line: 6, Column: 20}
 	err := NewMissingFunctionArgumentError("replace", 3, 2, loc)
 
 	if err.Code != "E108" {
@@ -138,8 +138,8 @@ func TestNewMissingFunctionArgumentError(t *testing.T) {
 }
 
 func TestNewCircularIncludeError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1}
-	err := NewCircularIncludeError("common.build", loc)
+	loc := ast.SourceLocation{File: "Needfile", Line: 1, Column: 1}
+	err := NewCircularIncludeError("common.need", loc)
 
 	if err.Code != "E109" {
 		t.Errorf("Expected code E109, got %s", err.Code)
@@ -147,19 +147,19 @@ func TestNewCircularIncludeError(t *testing.T) {
 	if !strings.Contains(err.Message, "circular") {
 		t.Errorf("Message should mention circular include: %s", err.Message)
 	}
-	if !strings.Contains(err.Message, "common.build") {
+	if !strings.Contains(err.Message, "common.need") {
 		t.Errorf("Message should mention file: %s", err.Message)
 	}
 }
 
 func TestNewIncludeNotFoundError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 11}
-	err := NewIncludeNotFoundError("missing.build", loc)
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 11}
+	err := NewIncludeNotFoundError("missing.need", loc)
 
 	if err.Code != "E110" {
 		t.Errorf("Expected code E110, got %s", err.Code)
 	}
-	if !strings.Contains(err.Message, "missing.build") {
+	if !strings.Contains(err.Message, "missing.need") {
 		t.Errorf("Message should mention file: %s", err.Message)
 	}
 }
@@ -182,8 +182,8 @@ func TestSyntaxErrorCodes_InRange(t *testing.T) {
 		{"MissingIdentifier", NewMissingIdentifierError("ifdef", ast.SourceLocation{})},
 		{"InvalidRuntime", NewInvalidRuntimeError("foo", ast.SourceLocation{})},
 		{"MissingFunctionArg", NewMissingFunctionArgumentError("replace", 3, 2, ast.SourceLocation{})},
-		{"CircularInclude", NewCircularIncludeError("file.build", ast.SourceLocation{})},
-		{"IncludeNotFound", NewIncludeNotFoundError("file.build", ast.SourceLocation{})},
+		{"CircularInclude", NewCircularIncludeError("file.need", ast.SourceLocation{})},
+		{"IncludeNotFound", NewIncludeNotFoundError("file.need", ast.SourceLocation{})},
 	}
 
 	for _, tc := range testCases {

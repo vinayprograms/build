@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 func TestNixDetector_DetectConfig_ShellNix(t *testing.T) {

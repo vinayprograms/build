@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // directiveScopes maps each directive to its valid scopes.

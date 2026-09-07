@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // parseRequirementsList parses a space-separated list of requirements.

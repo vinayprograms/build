@@ -3,7 +3,7 @@ package eval
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // EvaluateCondition evaluates a condition expression and returns the result.

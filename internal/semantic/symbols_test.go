@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file contains tests for the symbol table implementation.
 package semantic
@@ -6,7 +6,7 @@ package semantic
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // TestNewSymbolTable verifies that a new symbol table is initialized correctly
@@ -59,7 +59,7 @@ func TestSymbolTable_AddVariable(t *testing.T) {
 			varName: "cc",
 			variable: &ast.Variable{
 				Name:     "cc",
-				Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			},
 			wantErr: false,
 		},
@@ -68,7 +68,7 @@ func TestSymbolTable_AddVariable(t *testing.T) {
 			varName: "my_var",
 			variable: &ast.Variable{
 				Name:     "my_var",
-				Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 			},
 			wantErr: false,
 		},
@@ -101,11 +101,11 @@ func TestSymbolTable_DuplicateVariable(t *testing.T) {
 
 	first := &ast.Variable{
 		Name:     "cc",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	second := &ast.Variable{
 		Name:     "cc",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 	}
 
 	// First add should succeed
@@ -149,7 +149,7 @@ func TestSymbolTable_AddTarget(t *testing.T) {
 			},
 			IsPhony: false,
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	err := st.AddTarget(target)
@@ -172,7 +172,7 @@ func TestSymbolTable_DuplicateTarget(t *testing.T) {
 				&ast.LiteralSegment{Text: "build/app"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 	second := &ast.Target{
 		Pattern: ast.TargetPattern{
@@ -180,7 +180,7 @@ func TestSymbolTable_DuplicateTarget(t *testing.T) {
 				&ast.LiteralSegment{Text: "build/app"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 20, Column: 1},
 	}
 
 	// First add should succeed
@@ -215,7 +215,7 @@ func TestSymbolTable_AddPhonyTarget(t *testing.T) {
 			},
 			IsPhony: true,
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	err := st.AddTarget(target)
@@ -235,7 +235,7 @@ func TestSymbolTable_DuplicatePhonyTarget(t *testing.T) {
 			},
 			IsPhony: true,
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 	second := &ast.Target{
 		Pattern: ast.TargetPattern{
@@ -244,7 +244,7 @@ func TestSymbolTable_DuplicatePhonyTarget(t *testing.T) {
 			},
 			IsPhony: true,
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 20, Column: 1},
 	}
 
 	if err := st.AddTarget(first); err != nil {
@@ -271,7 +271,7 @@ func TestSymbolTable_PatternTargetsAllowed(t *testing.T) {
 				&ast.LiteralSegment{Text: ".o"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	// Pattern: build/{name}.a
@@ -283,7 +283,7 @@ func TestSymbolTable_PatternTargetsAllowed(t *testing.T) {
 				&ast.LiteralSegment{Text: ".a"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 20, Column: 1},
 	}
 
 	if err := st.AddTarget(first); err != nil {
@@ -318,7 +318,7 @@ func TestSymbolTable_AddEnvironment(t *testing.T) {
 			st := NewSymbolTable()
 			env := &ast.Environment{
 				Name:     tt.envName,
-				Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			}
 
 			err := st.AddEnvironment(env)
@@ -345,11 +345,11 @@ func TestSymbolTable_DuplicateEnvironment(t *testing.T) {
 	ciName := "ci"
 	first := &ast.Environment{
 		Name:     &ciName,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	second := &ast.Environment{
 		Name:     &ciName,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	if err := st.AddEnvironment(first); err != nil {
@@ -377,11 +377,11 @@ func TestSymbolTable_DuplicateDefaultEnvironment(t *testing.T) {
 
 	first := &ast.Environment{
 		Name:     nil, // default environment
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	second := &ast.Environment{
 		Name:     nil, // another default environment
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	if err := st.AddEnvironment(first); err != nil {
@@ -454,7 +454,7 @@ func TestSymbolTable_LookupVariable(t *testing.T) {
 
 	v := &ast.Variable{
 		Name:     "cc",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	_ = st.AddVariable(v)
 
@@ -475,7 +475,7 @@ func TestSymbolTable_IsDefined(t *testing.T) {
 
 	v := &ast.Variable{
 		Name:     "cc",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	_ = st.AddVariable(v)
 
@@ -565,8 +565,8 @@ func TestDuplicateDefinitionError_Error(t *testing.T) {
 	err := &DuplicateDefinitionError{
 		Kind:   "variable",
 		Name:   "cc",
-		First:  ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
-		Second: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		First:  ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
+		Second: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 	}
 
 	msg := err.Error()
@@ -575,7 +575,7 @@ func TestDuplicateDefinitionError_Error(t *testing.T) {
 	}
 
 	// Check that key information is in the message
-	expectedParts := []string{"duplicate", "variable", "cc", "Buildfile:1:1", "Buildfile:5:1"}
+	expectedParts := []string{"duplicate", "variable", "cc", "Needfile:1:1", "Needfile:5:1"}
 	for _, part := range expectedParts {
 		if !contains(msg, part) {
 			t.Errorf("Error message should contain %q, got: %s", part, msg)

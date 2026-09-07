@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 func TestFormattedError_Basic(t *testing.T) {
@@ -12,7 +12,7 @@ func TestFormattedError_Basic(t *testing.T) {
 		Code:    "E001",
 		Message: "invalid character",
 		Location: ast.SourceLocation{
-			File:   "Buildfile",
+			File:   "Needfile",
 			Line:   10,
 			Column: 5,
 		},
@@ -25,7 +25,7 @@ func TestFormattedError_Basic(t *testing.T) {
 	if !strings.Contains(got, "invalid character") {
 		t.Errorf("Error should contain message, got: %q", got)
 	}
-	if !strings.Contains(got, "Buildfile:10:5") {
+	if !strings.Contains(got, "Needfile:10:5") {
 		t.Errorf("Error should contain location, got: %q", got)
 	}
 }
@@ -34,7 +34,7 @@ func TestFormattedError_WithNote(t *testing.T) {
 	err := &FormattedError{
 		Code:     "E100",
 		Message:  "unexpected token",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 		Note:     "expected ':' after target name",
 	}
 
@@ -51,7 +51,7 @@ func TestFormattedError_WithHelp(t *testing.T) {
 	err := &FormattedError{
 		Code:     "E200",
 		Message:  "undefined variable 'foo'",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 10},
 		Help:     "define the variable before use: foo = value",
 	}
 
@@ -68,7 +68,7 @@ func TestFormattedError_WithSourceContext(t *testing.T) {
 	err := &FormattedError{
 		Code:     "E100",
 		Message:  "unexpected token",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 8},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 8},
 		SourceLines: []SourceLine{
 			{Number: 4, Text: ""},
 			{Number: 5, Text: "build/app deps"},
@@ -93,7 +93,7 @@ func TestFormattedError_CaretPosition(t *testing.T) {
 	err := &FormattedError{
 		Code:     "E001",
 		Message:  "invalid character",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 5},
 		SourceLines: []SourceLine{
 			{Number: 1, Text: "foo{bar}"},
 		},
@@ -121,7 +121,7 @@ func TestFormattedError_Format(t *testing.T) {
 	err := &FormattedError{
 		Code:     "E100",
 		Message:  "missing ':' in target definition",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 10},
 		SourceLines: []SourceLine{
 			{Number: 2, Text: "cc = gcc"},
 			{Number: 3, Text: "build/app deps"},

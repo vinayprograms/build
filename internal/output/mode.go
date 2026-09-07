@@ -46,7 +46,7 @@ func ParseOutputMode(s string) OutputMode {
 }
 
 // DetectOutputMode determines the appropriate output mode based on:
-// 1. BUILD_OUTPUT_MODE environment variable (if set)
+// 1. NEED_OUTPUT_MODE environment variable (if set)
 // 2. CI environment indicators
 //
 // A plain non-TTY pipe (e.g. `build -n | cat`) and TERM=dumb are NOT reasons
@@ -54,11 +54,11 @@ func ParseOutputMode(s string) OutputMode {
 // still use ModeCLI, whose CLIWriter separately auto-disables color and
 // progress indicators when stdout isn't a terminal (see ShouldUseColor /
 // shouldAutoColor in color.go). Headless mode is reserved for cases that
-// actually want structured/logged output: an explicit BUILD_OUTPUT_MODE, or
+// actually want structured/logged output: an explicit NEED_OUTPUT_MODE, or
 // running under a recognized CI system.
 func DetectOutputMode() OutputMode {
 	// Check for explicit override
-	if mode := os.Getenv("BUILD_OUTPUT_MODE"); mode != "" {
+	if mode := os.Getenv("NEED_OUTPUT_MODE"); mode != "" {
 		return ParseOutputMode(mode)
 	}
 

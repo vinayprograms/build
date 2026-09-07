@@ -1,6 +1,6 @@
-// Package ast defines the Abstract Syntax Tree node types for Buildfile parsing.
+// Package ast defines the Abstract Syntax Tree node types for Needfile parsing.
 //
-// The AST captures the syntactic structure of a Buildfile without interpretation.
+// The AST captures the syntactic structure of a Needfile without interpretation.
 // No evaluation happens during parsing - the AST is a pure representation of
 // the source structure.
 //
@@ -14,7 +14,7 @@ package ast
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // SourceLocation represents a position in source code.

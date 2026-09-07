@@ -1,7 +1,7 @@
-// Command build is a Make-inspired build tool with readable syntax.
+// Command need is a Make-inspired recipe runner with readable syntax.
 package main
 
-import "github.com/vinayprograms/build/cmd/build/cli"
+import "github.com/vinayprograms/need/cmd/need/cli"
 
 func main() {
 	cli.Main()

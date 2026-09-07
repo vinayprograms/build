@@ -113,7 +113,7 @@ type ErrorOccurred struct {
 	Category string // "parse", "semantic", "eval", "plan", "execute"
 	Code     string // "E001", "E200", etc.
 	Message  string // Error message
-	Location string // "Buildfile:10:5" or empty
+	Location string // "Needfile:10:5" or empty
 	Context  string // Source code snippet or empty
 	Hint     string // Fix suggestion or empty
 }

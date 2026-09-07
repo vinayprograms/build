@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // LimaDetector detects and validates Lima VM configurations.

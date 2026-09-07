@@ -1,7 +1,7 @@
 package semantic
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // DependencyGraph represents the dependency relationships between targets.

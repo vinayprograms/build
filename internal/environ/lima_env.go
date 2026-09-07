@@ -8,8 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // LimaEnvironment represents a Lima VM-based build environment.

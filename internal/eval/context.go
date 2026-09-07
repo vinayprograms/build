@@ -4,15 +4,15 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
-// Context holds the evaluation context for a Buildfile.
+// Context holds the evaluation context for a Needfile.
 // It stores evaluated variables, lazy variables, and built-in values.
 type Context struct {
 	mu sync.RWMutex
 
-	// workDir is the working directory for shell commands (typically the Buildfile's directory).
+	// workDir is the working directory for shell commands (typically the Needfile's directory).
 	// If empty, commands run in the current process directory.
 	workDir string
 

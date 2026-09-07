@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // TestParser_ParseRecipe_SimpleCommand tests parsing a single command line.
@@ -14,7 +14,7 @@ func TestParser_ParseRecipe_SimpleCommand(t *testing.T) {
 	input := `build/app: src/main.c
     gcc -o build/app src/main.c
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	// Parse the target (which should include the recipe)
@@ -50,7 +50,7 @@ func TestParser_ParseRecipe_MultipleCommands(t *testing.T) {
     gcc -c src/main.c -o build/main.o
     gcc -o build/app build/main.o
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -72,7 +72,7 @@ func TestParser_ParseRecipe_WithInterpolations(t *testing.T) {
 	input := `build/app: src/main.c
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -111,7 +111,7 @@ func TestParser_ParseRecipe_RawModifier(t *testing.T) {
 	input := `build/app: src/main.c
     gcc {cflags:raw} -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -150,7 +150,7 @@ func TestParser_ParseRecipe_ShellDirective(t *testing.T) {
     .shell: bash
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -178,7 +178,7 @@ func TestParser_ParseRecipe_AfterDirective(t *testing.T) {
     .after: build/
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -201,7 +201,7 @@ func TestParser_ParseRecipe_AutodepsDirective(t *testing.T) {
     .autodeps: build/{name}.d
     gcc -MMD -MF build/{name}.d -c {in} -o {out}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -224,7 +224,7 @@ func TestParser_ParseRecipe_RequiresDirective(t *testing.T) {
     .requires: sphinx-build@latest doxygen@latest
     sphinx-build -b html docs/ docs/_build/
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -260,7 +260,7 @@ func TestParser_ParseRecipe_BlockCommand(t *testing.T) {
         gcc -o {target} {deps}
     echo "Finished"
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -296,7 +296,7 @@ func TestParser_ParseRecipe_BlockWithInterpolations(t *testing.T) {
         echo "Building {target}"
         {cc} {cflags:raw} -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -327,7 +327,7 @@ func TestParser_ParseRecipe_BlockWithInterpolations(t *testing.T) {
 func TestParser_ParseRecipe_EmptyRecipe(t *testing.T) {
 	input := `@all: build/app build/test
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -349,7 +349,7 @@ func TestParser_ParseRecipe_Dedent(t *testing.T) {
 build/test: src/test.c
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	// Parse first target
@@ -374,7 +374,7 @@ func TestParser_ParseRecipe_MultipleDirectives(t *testing.T) {
     .shell: bash
     gcc -MMD -MF build/{name}.d -c {in} -o {out}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -410,7 +410,7 @@ func TestParser_ParseRecipe_DirectivesInterspersed(t *testing.T) {
     .requires: pkg-config@latest
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -438,7 +438,7 @@ func TestParser_ParseRecipe_ScopeTracking(t *testing.T) {
 	input := `build/app: src/main.c
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	// Initially at global scope
@@ -463,7 +463,7 @@ func TestParser_ParseRecipe_Location(t *testing.T) {
 	input := `build/app: src/main.c
     gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -487,7 +487,7 @@ func TestParser_ParseRecipe_BlockLocation(t *testing.T) {
     block:
         gcc -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -513,7 +513,7 @@ func TestParser_ParseRecipe_BlockLocation(t *testing.T) {
 // TestParser_ParseRecipe_TabIndentation tests recipe with tab indentation.
 func TestParser_ParseRecipe_TabIndentation(t *testing.T) {
 	input := "build/app: src/main.c\n\tgcc -o {target} {deps}\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -573,7 +573,7 @@ func TestParser_ParseRecipe_VersionParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := "@test:\n    .requires: " + tt.requirement + "\n    echo test\n"
-			l := lexer.New("test.build", input)
+			l := lexer.New("test.need", input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -632,10 +632,10 @@ func TestParser_ParseRecipe_InvalidVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := "@test:\n    .requires: " + tt.requirement + "\n    echo test\n"
-			l := lexer.New("test.build", input)
+			l := lexer.New("test.need", input)
 			p := New(l)
 
-			_, errs := p.ParseBuildfile()
+			_, errs := p.ParseNeedfile()
 			if !errs.HasErrors() {
 				t.Fatalf("expected error for %q, got none", tt.requirement)
 			}
@@ -653,7 +653,7 @@ func TestParser_ParseRecipe_InvalidVersion(t *testing.T) {
 // with no leading whitespace inside a recipe must not end the recipe.
 func TestParser_ParseRecipe_BlankLineDoesNotTerminate(t *testing.T) {
 	input := "build/app: src/main.c\n    echo one\n\n    echo two\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -672,7 +672,7 @@ func TestParser_ParseRecipe_BlankLineDoesNotTerminate(t *testing.T) {
 // blank lines inside a recipe must not end the recipe.
 func TestParser_ParseRecipe_MultipleBlankLines(t *testing.T) {
 	input := "build/app: src/main.c\n    echo one\n\n\n    echo two\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -688,7 +688,7 @@ func TestParser_ParseRecipe_MultipleBlankLines(t *testing.T) {
 // with no leading whitespace inside a block must not end the block.
 func TestParser_ParseRecipe_BlankLineInBlock(t *testing.T) {
 	input := "build/app: src/main.c\n    block:\n        echo one\n\n        echo two\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -732,7 +732,7 @@ func renderLineCommand(cmd *ast.LineCommand) string {
 // spaces are preserved, not merged as if it were a directive line.
 func TestParser_ParseRecipe_DotSlashCommandPreservesSpaces(t *testing.T) {
 	input := "test: build/app\n    ./{build_dir}/app --test\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -758,7 +758,7 @@ func TestParser_ParseRecipe_DotSlashCommandPreservesSpaces(t *testing.T) {
 // be executed as literal text.
 func TestParser_ParseRecipe_InvalidModifier(t *testing.T) {
 	input := "@test:\n    echo \"{msg:invalid}\"\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	_, err := p.ParseTarget()
@@ -776,10 +776,10 @@ func TestParser_ParseRecipe_InvalidModifier(t *testing.T) {
 // indentation message, not "unexpected token: ERROR".
 func TestParser_ParseRecipe_MixedIndentation(t *testing.T) {
 	input := "@test:\n\techo \"with tab\"\n    echo \"with spaces\"\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 	if !errs.HasErrors() {
 		t.Fatal("expected a parse error for mixed indentation, got none")
 	}
@@ -804,7 +804,7 @@ func TestParser_ParseRecipe_MixedIndentation(t *testing.T) {
 // unknown directive, not silently treated as a command or a target.
 func TestParser_ParseRecipe_UnknownDirective(t *testing.T) {
 	input := "@test:\n    .unknownthing: 1\n    echo done\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	_, err := p.ParseTarget()
@@ -821,7 +821,7 @@ func TestParser_ParseRecipe_UnknownDirective(t *testing.T) {
 // .after: must still parse normally (not be mistaken for an unknown one).
 func TestParser_ParseRecipe_AfterDirectiveStillWorks(t *testing.T) {
 	input := "build/app: build/main.o\n    .after: build/\n    gcc -o {target} {deps}\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -839,7 +839,7 @@ func TestParser_ParseRecipe_AfterDirectiveStillWorks(t *testing.T) {
 // no recipe".
 func TestParser_ParseRecipe_BlankLinesBeforeFirstCommand(t *testing.T) {
 	input := "@test:\n\n\n    echo \"{var1}\"\n\n\n    echo \"{var2}\"\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()

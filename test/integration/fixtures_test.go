@@ -10,7 +10,7 @@ import (
 // fixtureTest represents a test case from a fixture file.
 type fixtureTest struct {
 	name           string
-	buildfile      string
+	needfile      string
 	target         string
 	expectSuccess  bool
 	expectContains []string // Substrings expected in output
@@ -36,7 +36,7 @@ func TestValidFixtures(t *testing.T) {
 	}
 
 	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".build" {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".need" {
 			continue
 		}
 
@@ -49,13 +49,13 @@ func TestValidFixtures(t *testing.T) {
 				t.Fatalf("failed to read fixture: %v", err)
 			}
 
-			// Write it as Buildfile in test directory
-			h.WriteFile("Buildfile", string(content))
+			// Write it as Needfile in test directory
+			h.WriteFile("Needfile", string(content))
 
 			// Try to parse with --dry-run
 			result := h.Run("--dry-run", "--help")
 			// Just checking that it doesn't crash on valid input
-			// --help should always succeed regardless of buildfile content
+			// --help should always succeed regardless of needfile content
 			result.AssertSuccess()
 		})
 	}
@@ -71,12 +71,12 @@ func TestInvalidFixtures(t *testing.T) {
 		expectError string
 		expectCode  int
 	}{
-		{"missing_end.build", "end", 3},
-		{"undefined_var.build", "undefined", 3},
-		{"wrong_scope.build", "scope", 3},
-		{"duplicate_target.build", "duplicate", 3},
-		{"circular_dep.build", "circular", 3},
-		{"mixed_indent.build", "unexpected token", 3}, // Mixed indent produces lexer error
+		{"missing_end.need", "end", 3},
+		{"undefined_var.need", "undefined", 3},
+		{"wrong_scope.need", "scope", 3},
+		{"duplicate_target.need", "duplicate", 3},
+		{"circular_dep.need", "circular", 3},
+		{"mixed_indent.need", "indentation", 3}, // Mixed indent produces a lexer indentation error
 	}
 
 	for _, tc := range testCases {
@@ -90,8 +90,8 @@ func TestInvalidFixtures(t *testing.T) {
 				return
 			}
 
-			// Write it as Buildfile in test directory
-			h.WriteFile("Buildfile", string(content))
+			// Write it as Needfile in test directory
+			h.WriteFile("Needfile", string(content))
 
 			// Try to run (should fail)
 			result := h.Run()
@@ -139,36 +139,36 @@ func matchIgnoreCase(a, b string) bool {
 	return true
 }
 
-// TestSimpleBuildfileFixture tests the simple.build fixture specifically.
-func TestSimpleBuildfileFixture(t *testing.T) {
+// TestSimpleNeedfileFixture tests the simple.need fixture specifically.
+func TestSimpleNeedfileFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "simple.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "simple.need"))
 	if err != nil {
-		t.Skipf("simple.build fixture not found")
+		t.Skipf("simple.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("hello")
 	result.AssertSuccess().
 		AssertStdoutContains("Hello, World!")
 }
 
-// TestVariablesFixture tests the variables.build fixture.
+// TestVariablesFixture tests the variables.need fixture.
 func TestVariablesFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "variables.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "variables.need"))
 	if err != nil {
-		t.Skipf("variables.build fixture not found")
+		t.Skipf("variables.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("build")
 	result.AssertSuccess().
@@ -178,36 +178,36 @@ func TestVariablesFixture(t *testing.T) {
 		AssertStdoutContains("-Wall")
 }
 
-// TestConditionalsFixture tests the conditionals.build fixture.
+// TestConditionalsFixture tests the conditionals.need fixture.
 func TestConditionalsFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "conditionals.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "conditionals.need"))
 	if err != nil {
-		t.Skipf("conditionals.build fixture not found")
+		t.Skipf("conditionals.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("info")
 	result.AssertSuccess().
 		AssertStdoutContains("Platform:")
 }
 
-// TestDependenciesFixture tests the dependencies.build fixture.
+// TestDependenciesFixture tests the dependencies.need fixture.
 func TestDependenciesFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "dependencies.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "dependencies.need"))
 	if err != nil {
-		t.Skipf("dependencies.build fixture not found")
+		t.Skipf("dependencies.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("all")
 	result.AssertSuccess().
@@ -216,18 +216,18 @@ func TestDependenciesFixture(t *testing.T) {
 		AssertStdoutContains("Packaging...")
 }
 
-// TestFunctionsFixture tests the functions.build fixture.
+// TestFunctionsFixture tests the functions.need fixture.
 func TestFunctionsFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "functions.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "functions.need"))
 	if err != nil {
-		t.Skipf("functions.build fixture not found")
+		t.Skipf("functions.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("test")
 	result.AssertSuccess().
@@ -236,18 +236,18 @@ func TestFunctionsFixture(t *testing.T) {
 		AssertStdoutContains("Objects:")
 }
 
-// TestBlockCommandsFixture tests the block_commands.build fixture.
+// TestBlockCommandsFixture tests the block_commands.need fixture.
 func TestBlockCommandsFixture(t *testing.T) {
 	h := NewTestHarness(t)
 
 	fixturesDir := getFixturesDir()
-	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "block_commands.build"))
+	content, err := os.ReadFile(filepath.Join(fixturesDir, "valid", "block_commands.need"))
 	if err != nil {
-		t.Skipf("block_commands.build fixture not found")
+		t.Skipf("block_commands.need fixture not found")
 		return
 	}
 
-	h.WriteFile("Buildfile", string(content))
+	h.WriteFile("Needfile", string(content))
 
 	result := h.Run("generate")
 	result.AssertSuccess().

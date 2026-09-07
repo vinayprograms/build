@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // TestParser_ParseTarget_Simple tests basic target patterns.
@@ -61,7 +61,7 @@ func TestParser_ParseTarget_Simple(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -126,7 +126,7 @@ func TestParser_ParseTarget_PatternCaptures(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -204,7 +204,7 @@ func TestParser_ParseTarget_PhonyTargets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -257,7 +257,7 @@ func TestParser_ParseTarget_DirectoryTargets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -286,7 +286,7 @@ func TestParser_ParseTarget_DirectoryTargets(t *testing.T) {
 // TestParser_ParseTarget_SourceLocation tests that location tracking works.
 func TestParser_ParseTarget_SourceLocation(t *testing.T) {
 	input := "build/app: src/main.c"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -294,8 +294,8 @@ func TestParser_ParseTarget_SourceLocation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if target.Location.File != "test.build" {
-		t.Errorf("Location.File = %q, want %q", target.Location.File, "test.build")
+	if target.Location.File != "test.need" {
+		t.Errorf("Location.File = %q, want %q", target.Location.File, "test.need")
 	}
 	if target.Location.Line != 1 {
 		t.Errorf("Location.Line = %d, want %d", target.Location.Line, 1)
@@ -308,7 +308,7 @@ func TestParser_ParseTarget_SourceLocation(t *testing.T) {
 // TestParser_ParseTarget_BraceExprLocation tests location tracking for brace expressions.
 func TestParser_ParseTarget_BraceExprLocation(t *testing.T) {
 	input := "build/{name}.o:"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -360,7 +360,7 @@ func TestParser_ParseTarget_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			_, err := p.ParseTarget()
@@ -403,7 +403,7 @@ func TestParser_ParseTargetPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input+":")
+			l := lexer.New("test.need", tt.input+":")
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -462,7 +462,7 @@ func TestParser_ParseDependencyList(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			target, err := p.ParseTarget()
@@ -498,7 +498,7 @@ func renderDepSegments(segs []ast.PatternSegment) string {
 // not before processing it.
 func TestParser_ParseDependencyList_TrailingSpaceSplit(t *testing.T) {
 	input := "{build_dir}/app: {build_dir}/main.o {build_dir}/utils.o\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -522,7 +522,7 @@ func TestParser_ParseDependencyList_TrailingSpaceSplit(t *testing.T) {
 // STRING token between interpolations must split into the right deps.
 func TestParser_ParseDependencyList_InterpolationSplitting(t *testing.T) {
 	input := "@t: {a}/x {a}/y  z {a}\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()
@@ -546,7 +546,7 @@ func TestParser_ParseDependencyList_InterpolationSplitting(t *testing.T) {
 // reported as an unknown directive, not parsed as a file target.
 func TestParser_ParseTarget_UnknownDirective(t *testing.T) {
 	input := ".unknown: value\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	_, err := p.ParseTarget()
@@ -566,7 +566,7 @@ func TestParser_ParseTarget_UnknownDirective(t *testing.T) {
 // target, not an unknown directive.
 func TestParser_ParseTarget_HiddenFileTargetStillWorks(t *testing.T) {
 	input := ".hidden/output.o: .hidden/input.c\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	target, err := p.ParseTarget()

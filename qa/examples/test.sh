@@ -5,7 +5,7 @@ run() {
   flag="$1"
   file="$2"
   echo "=+=+=+=+=+=+=+= $flag =+=+=+=+=+=+=+=+="
-  build "$flag" -f "$file"
+  need "$flag" -f "$file"
   printf "Press enter to continue..."
   read ans
 }

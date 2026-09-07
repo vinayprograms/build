@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vinayprograms/build/internal/environ"
-	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/need/internal/environ"
+	"github.com/vinayprograms/need/internal/output"
 )
 
 // ContainerExecutor executes commands inside a container environment.

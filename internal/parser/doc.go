@@ -1,4 +1,4 @@
-// Package parser implements syntactic analysis for Buildfiles.
+// Package parser implements syntactic analysis for Needfiles.
 //
 // The parser transforms a token stream from the lexer into an AST. It maintains
 // scope context to validate directive placement and handles error recovery to
@@ -21,7 +21,7 @@
 // The parser uses two complementary error handling patterns:
 //
 // Top-level parsing functions (ParseVariable, ParseTarget, ParseConditional,
-// etc.) return *ParseError. This allows ParseBuildfile to catch errors and
+// etc.) return *ParseError. This allows ParseNeedfile to catch errors and
 // perform recovery via recoverToLevel0().
 //
 // Value/content parsing functions (ParseValue, parseInterpolation,
@@ -43,13 +43,13 @@
 // This enables partial analysis of broken files and provides comprehensive
 // error feedback rather than stopping at the first error.
 //
-// # Parsing Buildfiles
+// # Parsing Needfiles
 //
-// Use ParseBuildfile() for complete buildfile parsing with error recovery:
+// Use ParseNeedfile() for complete needfile parsing with error recovery:
 //
-//	lex := lexer.New("Buildfile", content)
+//	lex := lexer.New("Needfile", content)
 //	p := parser.New(lex)
-//	stmts, errs := p.ParseBuildfile()
+//	stmts, errs := p.ParseNeedfile()
 //
 // For parsing individual constructs (useful in testing or tooling), use
 // the specific Parse* methods: ParseVariable, ParseTarget, ParseEnvironment,

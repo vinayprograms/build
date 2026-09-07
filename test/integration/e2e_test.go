@@ -18,8 +18,8 @@ int main() {
 }
 `)
 
-	// Write Buildfile
-	h.WriteFile("Buildfile", `.shell: bash
+	// Write Needfile
+	h.WriteFile("Needfile", `.shell: bash
 
 app: main.c
 	gcc -o {target} {in}
@@ -62,8 +62,8 @@ int main() {
 }
 `)
 
-	// Write Buildfile with pattern targets
-	h.WriteFile("Buildfile", `.shell: bash
+	// Write Needfile with pattern targets
+	h.WriteFile("Needfile", `.shell: bash
 
 objects = build/main.o build/utils.o
 
@@ -105,8 +105,8 @@ int main() {
 }
 `)
 
-	// Write Buildfile with conditionals
-	h.WriteFile("Buildfile", `.shell: bash
+	// Write Needfile with conditionals
+	h.WriteFile("Needfile", `.shell: bash
 
 if {os} == darwin
 	cflags = -Wall -Wextra
@@ -136,7 +136,7 @@ func TestPhonyTargets(t *testing.T) {
 	// Create a test file that clean should remove
 	h.WriteFile("temp.txt", "temporary")
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @all: @build @test
 
@@ -186,7 +186,7 @@ func TestPhonyTargets(t *testing.T) {
 func TestDependencyChain(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @final: @middle
 	echo "final" >> order.txt
@@ -218,7 +218,7 @@ func TestDependencyChain(t *testing.T) {
 func TestPhonyDependenciesWithoutAtPrefix(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @first:
 	echo "First target"
@@ -241,7 +241,7 @@ func TestPhonyDependenciesWithoutAtPrefix(t *testing.T) {
 func TestVariableInterpolation(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 name = world
 greeting = Hello
@@ -259,7 +259,7 @@ greeting = Hello
 func TestLazyVariables(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 counter = 0
 lazy next = shell(echo $((++counter)))
@@ -289,7 +289,7 @@ func TestBuiltInFunctions(t *testing.T) {
 	h.WriteFile("src/file2.c", "")
 	h.WriteFile("src/file3.c", "")
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 sources = glob(src/*.c)
 objects = replace({sources}, .c, .o)
@@ -319,7 +319,7 @@ func TestAutomaticVariables(t *testing.T) {
 
 	h.WriteFile("input.txt", "input content")
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 output.txt: input.txt
 	echo "Target: {target}" > {out}
@@ -351,7 +351,7 @@ output.txt: input.txt
 func TestBlockCommands(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 output.txt:
 	block:
@@ -376,13 +376,13 @@ func TestIncludeDirective(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Write included file
-	h.WriteFile("common.build", `# Common build configuration
+	h.WriteFile("common.need", `# Common build configuration
 cc = gcc
 cflags = -Wall -O2
 `)
 
-	// Write main Buildfile
-	h.WriteFile("Buildfile", `.include: ./common.build
+	// Write main Needfile
+	h.WriteFile("Needfile", `.include: ./common.need
 
 app: main.c
 	{cc} {cflags} -o {target} {in}
@@ -405,7 +405,7 @@ func TestStalenessDetection(t *testing.T) {
 	h := NewTestHarness(t)
 
 	h.WriteFile("input.txt", "original")
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 output.txt: input.txt
 	cp {in} {out}
@@ -431,7 +431,7 @@ output.txt: input.txt
 func TestErrorHandling(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @fail:
 	echo "About to fail"
@@ -450,17 +450,17 @@ func TestNestedIncludes(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Create the base file
-	h.WriteFile("base.build", `base_var = base_value
+	h.WriteFile("base.need", `base_var = base_value
 `)
 
 	// Create the common file that includes base
-	h.WriteFile("common.build", `.include: ./base.build
+	h.WriteFile("common.need", `.include: ./base.need
 common_var = common_value
 `)
 
-	// Create main Buildfile that includes common
-	h.WriteFile("Buildfile", `.shell: bash
-.include: ./common.build
+	// Create main Needfile that includes common
+	h.WriteFile("Needfile", `.shell: bash
+.include: ./common.need
 
 main_var = main_value
 
@@ -485,17 +485,17 @@ func TestCircularIncludeDetection(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Create file A that includes file B
-	h.WriteFile("a.build", `.include: ./b.build
+	h.WriteFile("a.need", `.include: ./b.need
 varA = value
 `)
 
 	// Create file B that includes file A (circular)
-	h.WriteFile("b.build", `.include: ./a.build
+	h.WriteFile("b.need", `.include: ./a.need
 varB = value
 `)
 
-	// Create main Buildfile that includes A
-	h.WriteFile("Buildfile", `.include: ./a.build
+	// Create main Needfile that includes A
+	h.WriteFile("Needfile", `.include: ./a.need
 
 @test:
 	echo "test"
@@ -511,20 +511,20 @@ func TestDeepNestedIncludes(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Create deep include chain
-	h.WriteFile("d.build", `d_var = d_value
+	h.WriteFile("d.need", `d_var = d_value
 `)
-	h.WriteFile("c.build", `.include: ./d.build
+	h.WriteFile("c.need", `.include: ./d.need
 c_var = c_value
 `)
-	h.WriteFile("b.build", `.include: ./c.build
+	h.WriteFile("b.need", `.include: ./c.need
 b_var = b_value
 `)
-	h.WriteFile("a.build", `.include: ./b.build
+	h.WriteFile("a.need", `.include: ./b.need
 a_var = a_value
 `)
 
-	h.WriteFile("Buildfile", `.shell: bash
-.include: ./a.build
+	h.WriteFile("Needfile", `.shell: bash
+.include: ./a.need
 
 @test:
 	echo "{a_var} {b_var} {c_var} {d_var}"
@@ -543,12 +543,12 @@ func TestIncludeWithTargets(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Create included file with targets
-	h.WriteFile("targets.build", `@included-target:
+	h.WriteFile("targets.need", `@included-target:
 	echo "from included file"
 `)
 
-	h.WriteFile("Buildfile", `.shell: bash
-.include: ./targets.build
+	h.WriteFile("Needfile", `.shell: bash
+.include: ./targets.need
 
 @main-target: @included-target
 	echo "from main file"

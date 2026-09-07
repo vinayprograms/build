@@ -1,0 +1,4 @@
+# Test: Empty/Minimal Needfile
+# Expected: Should parse without errors
+# Category: Minimal/Edge Cases
+# Description: Tests that an empty needfile (just comments) is valid

@@ -3,7 +3,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Execution Error Codes (E400-E499)
@@ -24,7 +24,7 @@ const (
 	// E404: Binary version does not meet requirement
 	CodeVersionMismatch = "E404"
 
-	// E405: Requested target not defined in Buildfile
+	// E405: Requested target not defined in Needfile
 	CodeTargetNotFound = "E405"
 
 	// E406: No default target and none specified
@@ -95,7 +95,7 @@ func NewTargetNotFoundError(target string) *FormattedError {
 	return &FormattedError{
 		Code:    CodeTargetNotFound,
 		Message: fmt.Sprintf("target not found: '%s'", target),
-		Note:    "no target with this name is defined in the Buildfile",
+		Note:    "no target with this name is defined in the Needfile",
 		Help:    "check spelling or add a target definition",
 	}
 }

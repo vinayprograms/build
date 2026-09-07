@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/cache"
-	"github.com/vinayprograms/build/internal/eval"
-	"github.com/vinayprograms/build/internal/output"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/cache"
+	"github.com/vinayprograms/need/internal/eval"
+	"github.com/vinayprograms/need/internal/output"
 )
 
 // BuildReason indicates why a target needs to be rebuilt.

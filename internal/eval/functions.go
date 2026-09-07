@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/platform"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/platform"
 )
 
 // evaluateFunction evaluates a function call and returns the result.

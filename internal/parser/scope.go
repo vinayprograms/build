@@ -1,4 +1,4 @@
-// Package parser implements the parsing phase for Buildfile source code.
+// Package parser implements the parsing phase for Needfile source code.
 // It transforms a token stream from the lexer into an Abstract Syntax Tree (AST).
 package parser
 

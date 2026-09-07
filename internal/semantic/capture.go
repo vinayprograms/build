@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file implements Pass 2: Capture Validation.
 // It resolves BraceExpr nodes in target patterns to either:
@@ -11,7 +11,7 @@
 package semantic
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // CaptureInfo holds information about captures in a target pattern.

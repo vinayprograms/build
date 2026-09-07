@@ -12,7 +12,7 @@
 // Errors are formatted in a Rust-like style:
 //
 //	error[E100]: missing ':' in target definition
-//	 --> Buildfile:3:10
+//	 --> Needfile:3:10
 //	2 | cc = gcc
 //	3 | build/app deps
 //	  |          ^

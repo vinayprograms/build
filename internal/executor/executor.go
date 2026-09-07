@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/environ"
-	"github.com/vinayprograms/build/internal/eval"
-	"github.com/vinayprograms/build/internal/output"
-	"github.com/vinayprograms/build/internal/platform"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/environ"
+	"github.com/vinayprograms/need/internal/eval"
+	"github.com/vinayprograms/need/internal/output"
+	"github.com/vinayprograms/need/internal/platform"
 )
 
 // ShellConfig holds shell configuration for command execution.

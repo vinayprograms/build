@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // Semantic analysis validates the AST produced by the parser and resolves
 // context-sensitive constructs. It runs in four passes, each building on
@@ -58,7 +58,7 @@
 // Typical usage runs all four passes in sequence:
 //
 //	// Parse
-//	stmts, errs := parser.ParseBuildfile()
+//	stmts, errs := parser.ParseNeedfile()
 //
 //	// Pass 1
 //	collectResult := semantic.Collect(stmts)

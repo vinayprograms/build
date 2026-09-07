@@ -4,8 +4,8 @@ package ast
 // Root Node
 // ----------------------------------------------------------------------------
 
-// Buildfile is the root AST node representing an entire Buildfile.
-type Buildfile struct {
+// Needfile is the root AST node representing an entire Needfile.
+type Needfile struct {
 	SourcePath string      // Path to the source file
 	Statements []Statement // Top-level statements
 }

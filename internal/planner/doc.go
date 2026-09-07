@@ -1,4 +1,4 @@
-// Package planner provides build planning for Buildfiles.
+// Package planner provides build planning for Needfiles.
 //
 // Build planning involves:
 //   - Target pattern matching (literal and pattern targets)

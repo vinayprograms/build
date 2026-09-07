@@ -3,7 +3,7 @@ package eval
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // EvaluateVariables evaluates all immediate variables in definition order.

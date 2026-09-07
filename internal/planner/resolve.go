@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // UndefinedVariableError is returned when a variable in a dependency pattern

@@ -4,18 +4,18 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestSourceLocation(t *testing.T) {
 	loc := ast.SourceLocation{
-		File:   "Buildfile",
+		File:   "Needfile",
 		Line:   10,
 		Column: 5,
 	}
 
-	want := "Buildfile:10:5"
+	want := "Needfile:10:5"
 	if got := loc.String(); got != want {
 		t.Errorf("String() = %q, want %q", got, want)
 	}
@@ -26,7 +26,7 @@ func TestSourceLocationFromToken(t *testing.T) {
 		Type:    lexer.IDENTIFIER,
 		Literal: "foo",
 		Location: lexer.SourceLocation{
-			File:   "test.build",
+			File:   "test.need",
 			Line:   3,
 			Column: 7,
 		},
@@ -34,8 +34,8 @@ func TestSourceLocationFromToken(t *testing.T) {
 
 	loc := ast.SourceLocationFromToken(tok)
 
-	if loc.File != "test.build" {
-		t.Errorf("File = %q, want %q", loc.File, "test.build")
+	if loc.File != "test.need" {
+		t.Errorf("File = %q, want %q", loc.File, "test.need")
 	}
 	if loc.Line != 3 {
 		t.Errorf("Line = %d, want %d", loc.Line, 3)
@@ -45,14 +45,14 @@ func TestSourceLocationFromToken(t *testing.T) {
 	}
 }
 
-func TestBuildfile(t *testing.T) {
-	bf := &ast.Buildfile{
-		SourcePath: "Buildfile",
+func TestNeedfile(t *testing.T) {
+	bf := &ast.Needfile{
+		SourcePath: "Needfile",
 		Statements: []ast.Statement{},
 	}
 
-	if bf.SourcePath != "Buildfile" {
-		t.Errorf("SourcePath = %q, want %q", bf.SourcePath, "Buildfile")
+	if bf.SourcePath != "Needfile" {
+		t.Errorf("SourcePath = %q, want %q", bf.SourcePath, "Needfile")
 	}
 	if len(bf.Statements) != 0 {
 		t.Errorf("len(Statements) = %d, want %d", len(bf.Statements), 0)
@@ -87,7 +87,7 @@ func TestDirective(t *testing.T) {
 				&ast.LiteralValue{Text: "bash"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	if dir.Kind != ast.DirectiveShell {
@@ -136,7 +136,7 @@ func TestEnvironment(t *testing.T) {
 		Requires: []ast.Requirement{
 			{Name: "gcc", Version: ast.VersionLatest{}},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 	}
 
 	if *env.Name != "ci" {
@@ -179,7 +179,7 @@ func TestVariable(t *testing.T) {
 			},
 		},
 		Lazy:     false,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
 	}
 
 	if v.Name != "cc" {
@@ -203,7 +203,7 @@ func TestLazyVariable(t *testing.T) {
 			},
 		},
 		Lazy:     true,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 15, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 15, Column: 1},
 	}
 
 	if v.Lazy != true {
@@ -236,7 +236,7 @@ func TestConditional(t *testing.T) {
 		ElseBody: []ast.Statement{
 			&ast.Variable{Name: "ldflags", Value: &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: ""}}}},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 20, Column: 1},
 	}
 
 	// Verify it implements Statement interface
@@ -293,7 +293,7 @@ func TestTarget(t *testing.T) {
 			{Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "build/utils.o"}}},
 		},
 		Recipe:   nil,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 30, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 30, Column: 1},
 	}
 
 	if target.Pattern.IsPhony {
@@ -317,7 +317,7 @@ func TestPhonyTarget(t *testing.T) {
 			{Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "build/app"}}},
 		},
 		Recipe:   nil,
-		Location: ast.SourceLocation{File: "Buildfile", Line: 25, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 25, Column: 1},
 	}
 
 	if !target.Pattern.IsPhony {
@@ -341,7 +341,7 @@ func TestDirectoryTarget(t *testing.T) {
 				}},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 35, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 35, Column: 1},
 	}
 
 	if !target.Pattern.IsDirectory {
@@ -367,7 +367,7 @@ func TestPatternTarget(t *testing.T) {
 				&ast.LiteralSegment{Text: ".c"},
 			}},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 40, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 40, Column: 1},
 	}
 
 	if len(target.Pattern.Segments) != 3 {
@@ -418,7 +418,7 @@ func TestRecipe(t *testing.T) {
 				&ast.CommandInterpolation{Name: "deps"},
 			}},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 31, Column: 5},
+		Location: ast.SourceLocation{File: "Needfile", Line: 31, Column: 5},
 	}
 
 	if recipe.Directives.Shell == nil {
@@ -448,7 +448,7 @@ func TestBlockCommand(t *testing.T) {
 				&ast.LiteralCommand{Text: "fi"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 45, Column: 5},
+		Location: ast.SourceLocation{File: "Needfile", Line: 45, Column: 5},
 	}
 
 	// Verify it implements Command interface
@@ -535,7 +535,7 @@ func TestFunctionName(t *testing.T) {
 func TestComment(t *testing.T) {
 	c := &ast.Comment{
 		Text:     "# This is a comment",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	if c.Text != "# This is a comment" {
@@ -547,7 +547,7 @@ func TestComment(t *testing.T) {
 
 func TestBlank(t *testing.T) {
 	b := &ast.Blank{
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 	}
 
 	// Verify it implements Statement interface
@@ -569,7 +569,7 @@ func TestComplexValue(t *testing.T) {
 				},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 11},
+		Location: ast.SourceLocation{File: "Needfile", Line: 20, Column: 11},
 	}
 
 	if len(v.Parts) != 1 {
@@ -597,7 +597,7 @@ func TestLineCommand(t *testing.T) {
 			&ast.LiteralCommand{Text: "gcc -o "},
 			&ast.CommandInterpolation{Name: "target"},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 32, Column: 5},
+		Location: ast.SourceLocation{File: "Needfile", Line: 32, Column: 5},
 	}
 
 	// Verify it implements Command interface
@@ -607,21 +607,21 @@ func TestLineCommand(t *testing.T) {
 	}
 }
 
-func TestBuildfileWithStatements(t *testing.T) {
-	// Build a complete Buildfile AST
-	bf := &ast.Buildfile{
-		SourcePath: "Buildfile",
+func TestNeedfileWithStatements(t *testing.T) {
+	// Build a complete Needfile AST
+	bf := &ast.Needfile{
+		SourcePath: "Needfile",
 		Statements: []ast.Statement{
 			&ast.Directive{
 				Kind:     ast.DirectiveShell,
 				Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "bash"}}},
-				Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			},
 			&ast.Variable{
 				Name:     "cc",
 				Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "gcc"}}},
 				Lazy:     false,
-				Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 1},
 			},
 			&ast.Target{
 				Pattern: ast.TargetPattern{
@@ -633,7 +633,7 @@ func TestBuildfileWithStatements(t *testing.T) {
 					{Segments: []ast.PatternSegment{&ast.LiteralSegment{Text: "build/app"}}},
 				},
 				Recipe:   nil,
-				Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 			},
 			&ast.Target{
 				Pattern: ast.TargetPattern{
@@ -655,7 +655,7 @@ func TestBuildfileWithStatements(t *testing.T) {
 						}},
 					},
 				},
-				Location: ast.SourceLocation{File: "Buildfile", Line: 7, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 7, Column: 1},
 			},
 		},
 	}
@@ -693,7 +693,7 @@ func TestDirectiveString(t *testing.T) {
 		Value: &ast.Value{
 			Parts: []ast.ValuePart{&ast.LiteralValue{Text: "bash"}},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	got := dir.String()

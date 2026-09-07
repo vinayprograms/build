@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // ----------------------------------------------------------------------------

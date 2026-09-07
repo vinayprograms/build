@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -15,18 +15,18 @@ func TestDuplicateDefinitionError_Variable(t *testing.T) {
 	err := &DuplicateDefinitionError{
 		Kind:   "variable",
 		Name:   "cc",
-		First:  ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
-		Second: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+		First:  ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
+		Second: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 	}
 
 	msg := err.Error()
 	if !strings.Contains(msg, "duplicate variable 'cc'") {
 		t.Errorf("Expected error to mention 'duplicate variable', got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:1:1") {
+	if !strings.Contains(msg, "Needfile:1:1") {
 		t.Errorf("Expected error to mention first location, got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:5:1") {
+	if !strings.Contains(msg, "Needfile:5:1") {
 		t.Errorf("Expected error to mention second location, got: %s", msg)
 	}
 }
@@ -35,8 +35,8 @@ func TestDuplicateDefinitionError_Target(t *testing.T) {
 	err := &DuplicateDefinitionError{
 		Kind:   "target",
 		Name:   "build/app",
-		First:  ast.SourceLocation{File: "Buildfile", Line: 10, Column: 1},
-		Second: ast.SourceLocation{File: "Buildfile", Line: 20, Column: 1},
+		First:  ast.SourceLocation{File: "Needfile", Line: 10, Column: 1},
+		Second: ast.SourceLocation{File: "Needfile", Line: 20, Column: 1},
 	}
 
 	msg := err.Error()
@@ -49,8 +49,8 @@ func TestDuplicateDefinitionError_Environment(t *testing.T) {
 	err := &DuplicateDefinitionError{
 		Kind:   "environment",
 		Name:   "ci",
-		First:  ast.SourceLocation{File: "Buildfile", Line: 15, Column: 1},
-		Second: ast.SourceLocation{File: "Buildfile", Line: 25, Column: 1},
+		First:  ast.SourceLocation{File: "Needfile", Line: 15, Column: 1},
+		Second: ast.SourceLocation{File: "Needfile", Line: 25, Column: 1},
 	}
 
 	msg := err.Error()
@@ -66,7 +66,7 @@ func TestDuplicateDefinitionError_Environment(t *testing.T) {
 func TestAutomaticInPatternError_Target(t *testing.T) {
 	err := &AutomaticInPatternError{
 		Name:     "target",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 10},
 	}
 
 	msg := err.Error()
@@ -76,7 +76,7 @@ func TestAutomaticInPatternError_Target(t *testing.T) {
 	if !strings.Contains(msg, "cannot be used") || !strings.Contains(msg, "capture") {
 		t.Errorf("Expected error to explain capture prohibition, got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:5:10") {
+	if !strings.Contains(msg, "Needfile:5:10") {
 		t.Errorf("Expected error to include location, got: %s", msg)
 	}
 }
@@ -105,8 +105,8 @@ func TestCaptureMismatchError_ExtraInDependency(t *testing.T) {
 	err := &CaptureMismatchError{
 		Name:      "name",
 		InTarget:  false,
-		Location:  ast.SourceLocation{File: "Buildfile", Line: 3, Column: 20},
-		TargetLoc: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+		Location:  ast.SourceLocation{File: "Needfile", Line: 3, Column: 20},
+		TargetLoc: ast.SourceLocation{File: "Needfile", Line: 3, Column: 1},
 	}
 
 	msg := err.Error()
@@ -116,7 +116,7 @@ func TestCaptureMismatchError_ExtraInDependency(t *testing.T) {
 	if !strings.Contains(msg, "dependency") {
 		t.Errorf("Expected error to mention dependency, got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:3:20") {
+	if !strings.Contains(msg, "Needfile:3:20") {
 		t.Errorf("Expected error to include capture location, got: %s", msg)
 	}
 }
@@ -128,14 +128,14 @@ func TestCaptureMismatchError_ExtraInDependency(t *testing.T) {
 func TestUndefinedVariableError_Basic(t *testing.T) {
 	err := &UndefinedVariableError{
 		Name:     "foo",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 7, Column: 15},
+		Location: ast.SourceLocation{File: "Needfile", Line: 7, Column: 15},
 	}
 
 	msg := err.Error()
 	if !strings.Contains(msg, "undefined variable 'foo'") {
 		t.Errorf("Expected error to mention 'undefined variable', got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:7:15") {
+	if !strings.Contains(msg, "Needfile:7:15") {
 		t.Errorf("Expected error to include location, got: %s", msg)
 	}
 }
@@ -143,7 +143,7 @@ func TestUndefinedVariableError_Basic(t *testing.T) {
 func TestUndefinedVariableError_DottedName(t *testing.T) {
 	err := &UndefinedVariableError{
 		Name:     "some.var",
-		Location: ast.SourceLocation{File: "test.build", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "test.need", Line: 1, Column: 1},
 	}
 
 	msg := err.Error()
@@ -159,7 +159,7 @@ func TestUndefinedVariableError_DottedName(t *testing.T) {
 func TestAutomaticOutsideRecipeError_InVariable(t *testing.T) {
 	err := &AutomaticOutsideRecipeError{
 		Name:     "target",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 10},
 	}
 
 	msg := err.Error()
@@ -169,7 +169,7 @@ func TestAutomaticOutsideRecipeError_InVariable(t *testing.T) {
 	if !strings.Contains(msg, "recipe") || !strings.Contains(msg, "block") {
 		t.Errorf("Expected error to mention valid scopes, got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:2:10") {
+	if !strings.Contains(msg, "Needfile:2:10") {
 		t.Errorf("Expected error to include location, got: %s", msg)
 	}
 }
@@ -258,8 +258,8 @@ func TestAllErrorsImplementError(t *testing.T) {
 // ----------------------------------------------------------------------------
 
 func TestErrorsIncludeLocation(t *testing.T) {
-	loc := ast.SourceLocation{File: "test.build", Line: 42, Column: 7}
-	expectedLocStr := "test.build:42:7"
+	loc := ast.SourceLocation{File: "test.need", Line: 42, Column: 7}
+	expectedLocStr := "test.need:42:7"
 
 	tests := []struct {
 		name string
@@ -271,7 +271,7 @@ func TestErrorsIncludeLocation(t *testing.T) {
 				Kind:   "variable",
 				Name:   "x",
 				First:  loc,
-				Second: ast.SourceLocation{File: "test.build", Line: 50, Column: 1},
+				Second: ast.SourceLocation{File: "test.need", Line: 50, Column: 1},
 			},
 		},
 		{

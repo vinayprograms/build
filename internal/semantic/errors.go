@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file defines all semantic error types for the build tool.
 // These errors are generated during semantic analysis passes:
@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -20,7 +20,7 @@ import (
 // ----------------------------------------------------------------------------
 
 // DuplicateDefinitionError is returned when a symbol (variable, target, or environment)
-// is defined multiple times in the same Buildfile or included files.
+// is defined multiple times in the same Needfile or included files.
 type DuplicateDefinitionError struct {
 	Kind   string             // "variable", "target", or "environment"
 	Name   string             // The name that was duplicated

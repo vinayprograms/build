@@ -3,8 +3,8 @@ package planner
 import (
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // CompiledPattern is a pre-processed target pattern for faster matching.

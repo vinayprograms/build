@@ -3,13 +3,13 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
-// TestParseBuildfile_AllStatementTypes tests that ParseBuildfile correctly
-// parses all statement types in a complete buildfile.
-func TestParseBuildfile_AllStatementTypes(t *testing.T) {
+// TestParseNeedfile_AllStatementTypes tests that ParseNeedfile correctly
+// parses all statement types in a complete needfile.
+func TestParseNeedfile_AllStatementTypes(t *testing.T) {
 	input := `# Comment at top
 .shell: bash
 .parallel: 4
@@ -54,10 +54,10 @@ build/{name}.o: src/{name}.c
 build/:
     mkdir -p {target}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Errorf("unexpected errors: %s", errs.Error())
@@ -101,16 +101,16 @@ build/:
 	}
 }
 
-// TestParseBuildfile_DirectiveDetails tests that directives are parsed correctly.
-func TestParseBuildfile_DirectiveDetails(t *testing.T) {
+// TestParseNeedfile_DirectiveDetails tests that directives are parsed correctly.
+func TestParseNeedfile_DirectiveDetails(t *testing.T) {
 	input := `.shell: bash
 .parallel: 4
 .default: @all
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -148,16 +148,16 @@ func TestParseBuildfile_DirectiveDetails(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_VariableDetails tests variable parsing in buildfile context.
-func TestParseBuildfile_VariableDetails(t *testing.T) {
+// TestParseNeedfile_VariableDetails tests variable parsing in needfile context.
+func TestParseNeedfile_VariableDetails(t *testing.T) {
 	input := `cc = gcc
 lazy cflags = -Wall {optimization}
 path = /usr/bin:{extra_path}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -196,8 +196,8 @@ path = /usr/bin:{extra_path}
 	}
 }
 
-// TestParseBuildfile_TargetDetails tests target parsing with recipes.
-func TestParseBuildfile_TargetDetails(t *testing.T) {
+// TestParseNeedfile_TargetDetails tests target parsing with recipes.
+func TestParseNeedfile_TargetDetails(t *testing.T) {
 	input := `build/app: src/main.o src/utils.o
     .shell: bash
     .requires: gcc@11
@@ -209,10 +209,10 @@ func TestParseBuildfile_TargetDetails(t *testing.T) {
 build/{name}.o: src/{name}.c
     gcc -c -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -268,8 +268,8 @@ build/{name}.o: src/{name}.c
 	}
 }
 
-// TestParseBuildfile_EnvironmentDetails tests environment block parsing.
-func TestParseBuildfile_EnvironmentDetails(t *testing.T) {
+// TestParseNeedfile_EnvironmentDetails tests environment block parsing.
+func TestParseNeedfile_EnvironmentDetails(t *testing.T) {
 	input := `.environment: ci
     .using: docker
     .source: Dockerfile.ci
@@ -280,10 +280,10 @@ func TestParseBuildfile_EnvironmentDetails(t *testing.T) {
     .using: bare
     .requires: gcc make
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -327,8 +327,8 @@ func TestParseBuildfile_EnvironmentDetails(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_ConditionalDetails tests conditional parsing.
-func TestParseBuildfile_ConditionalDetails(t *testing.T) {
+// TestParseNeedfile_ConditionalDetails tests conditional parsing.
+func TestParseNeedfile_ConditionalDetails(t *testing.T) {
 	input := `if {os} == linux
 cc = gcc
 cflags = -Wall
@@ -346,10 +346,10 @@ ifndef RELEASE
 optimize = false
 end
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -393,8 +393,8 @@ end
 	}
 }
 
-// TestParseBuildfile_NestedBlocks tests recipe with block command.
-func TestParseBuildfile_NestedBlocks(t *testing.T) {
+// TestParseNeedfile_NestedBlocks tests recipe with block command.
+func TestParseNeedfile_NestedBlocks(t *testing.T) {
 	input := `@setup:
     block:
         if [ ! -d build ]; then
@@ -402,10 +402,10 @@ func TestParseBuildfile_NestedBlocks(t *testing.T) {
         fi
         echo "Setup complete"
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -439,16 +439,16 @@ func TestParseBuildfile_NestedBlocks(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_SourceLocations tests that source locations are correct.
-func TestParseBuildfile_SourceLocations(t *testing.T) {
+// TestParseNeedfile_SourceLocations tests that source locations are correct.
+func TestParseNeedfile_SourceLocations(t *testing.T) {
 	input := `cc = gcc
 @test:
     echo hello
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -482,13 +482,13 @@ func TestParseBuildfile_SourceLocations(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_EmptyFile tests parsing an empty file.
-func TestParseBuildfile_EmptyFile(t *testing.T) {
+// TestParseNeedfile_EmptyFile tests parsing an empty file.
+func TestParseNeedfile_EmptyFile(t *testing.T) {
 	input := ``
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -499,16 +499,16 @@ func TestParseBuildfile_EmptyFile(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_OnlyComments tests parsing file with only comments.
-func TestParseBuildfile_OnlyComments(t *testing.T) {
+// TestParseNeedfile_OnlyComments tests parsing file with only comments.
+func TestParseNeedfile_OnlyComments(t *testing.T) {
 	input := `# This is a comment
 # Another comment
 # Yet another
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -525,8 +525,8 @@ func TestParseBuildfile_OnlyComments(t *testing.T) {
 	}
 }
 
-// TestParseBuildfile_MixedWithBlankLines tests that blank lines don't cause issues.
-func TestParseBuildfile_MixedWithBlankLines(t *testing.T) {
+// TestParseNeedfile_MixedWithBlankLines tests that blank lines don't cause issues.
+func TestParseNeedfile_MixedWithBlankLines(t *testing.T) {
 	input := `cc = gcc
 
 cflags = -Wall
@@ -535,10 +535,10 @@ cflags = -Wall
     echo hello
 
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -563,8 +563,8 @@ cflags = -Wall
 	}
 }
 
-// TestParseBuildfile_ErrorRecoveryIntegration tests error recovery in full buildfile.
-func TestParseBuildfile_ErrorRecoveryIntegration(t *testing.T) {
+// TestParseNeedfile_ErrorRecoveryIntegration tests error recovery in full needfile.
+func TestParseNeedfile_ErrorRecoveryIntegration(t *testing.T) {
 	input := `cc = gcc
 .after: invalid
 cflags = -Wall
@@ -572,10 +572,10 @@ cflags = -Wall
 @test:
     echo hello
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	// Should have errors
 	if !errs.HasErrors() {

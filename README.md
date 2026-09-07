@@ -1,6 +1,6 @@
-# build - a simpler recipe runner
+# need - a simpler recipe runner
 
-`build` is a recipe runner inspired by GNU Make's target and recipe specification philosophy minus the complexities and quirks of GNU Make. It runs any recipe that keeps files up to date — software builds are just the common case.
+`need` is a recipe runner inspired by GNU Make's target and recipe specification philosophy minus the complexities and quirks of GNU Make. It runs any recipe that keeps files up to date — software builds are just the common case.
 
 ## Features
 
@@ -11,12 +11,12 @@
 - **Conditionals** - `if/elif/else/end` and `ifdef/ifndef` blocks
 - **Parallel execution** - Built-in parallel job support with `-j` flag
 - **Environment management** - Docker, Podman, devcontainer, Nix, and Lima support
-- **Include files** - Split large Buildfiles with `.include:`
+- **Include files** - Split large Needfiles with `.include:`
 
 ## Installation
 
 ```bash
-go install github.com/vinayprograms/build@latest
+go install github.com/vinayprograms/need@latest
 ```
 
 ### Prerequisites
@@ -25,7 +25,7 @@ go install github.com/vinayprograms/build@latest
 
 ## Quick Start
 
-Create a `Buildfile` in your project:
+Create a `Needfile` in your project:
 
 ```bash
 # Set shell
@@ -52,18 +52,18 @@ build/{name}.o: src/{name}.c
 Run it:
 
 ```bash
-build app     # Build the app target
-build clean   # Run the clean target
-build         # Run the default target (first defined)
+need app     # Build the app target
+need clean   # Run the clean target
+need         # Run the default target (first defined)
 ```
 
 ## Usage
 
 ```
-build [options] [targets...]
+need [options] [targets...]
 
 Options:
-  -f, --file PATH     Use alternate Buildfile
+  -f, --file PATH     Use alternate Needfile
   -e, --env NAME      Use named environment
   -j, --jobs N        Parallel jobs (default: 1)
   -n, --dry-run       Show what would execute
@@ -185,7 +185,7 @@ result = shell(echo hello)
 
 ## Documentation
 
-- [Buildfile Specification](design/BUILDFILE_SPEC.md)
+- [Needfile Specification](design/NEEDFILE_SPEC.md)
 - [Design Document](design/DESIGN.md)
 - [Code Architecture](design/CODE.md)
 
@@ -196,7 +196,7 @@ result = shell(echo hello)
 | 0 | Success |
 | 1 | Build failure (recipe returned non-zero) |
 | 2 | Usage error (bad arguments) |
-| 3 | Parse error (invalid Buildfile) |
+| 3 | Parse error (invalid Needfile) |
 | 4 | Environment error (missing requirements) |
 
 ## License

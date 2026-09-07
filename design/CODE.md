@@ -1,11 +1,11 @@
-# Build Tool - Code Design
+# need - Code Design
 
 This document tracks the implementation architecture and design decisions as code is written.
 
 ## Package Structure
 
 ```
-github.com/vinayprograms/build/
+github.com/vinayprograms/need/
 ├── cmd/
 │   └── build/          # CLI entry point
 │       ├── main.go
@@ -19,7 +19,7 @@ github.com/vinayprograms/build/
 │   ├── ast/            # Abstract Syntax Tree
 │   │   ├── doc.go         # Package documentation
 │   │   ├── location.go     # SourceLocation type
-│   │   ├── statement.go    # Buildfile, Statement, Comment, Blank
+│   │   ├── statement.go    # Needfile, Statement, Comment, Blank
 │   │   ├── directives.go   # Directive, DirectiveKind
 │   │   ├── environment.go  # Environment, Runtime, VersionSpec types
 │   │   ├── variables.go    # Variable
@@ -97,10 +97,10 @@ github.com/vinayprograms/build/
 │   │   ├── version.go     # Version parsing and detection
 │   │   ├── version_test.go
 │   │   └── errors.go      # Environment error types
-│   ├── cache/          # Buildfile caching
+│   ├── cache/          # Needfile caching
 │   │   ├── doc.go         # Package documentation
-│   │   ├── buildfile.go   # BuildfileCache implementation
-│   │   └── buildfile_test.go
+│   │   ├── needfile.go   # NeedfileCache implementation
+│   │   └── needfile_test.go
 │   ├── output/         # Build output formatting
 │   │   ├── doc.go         # Package documentation
 │   │   ├── reporter.go    # Reporter interface and NormalReporter
@@ -121,22 +121,22 @@ github.com/vinayprograms/build/
 │   ├── build.bash    # Bash completion
 │   ├── _build        # Zsh completion
 │   └── build.fish    # Fish completion
-├── Buildfile           # Build configuration for this project
+├── Needfile           # Build configuration for this project
 └── go.mod
 ```
 
-## CLI (`cmd/build/cli`)
+## CLI (`cmd/need/cli`)
 
-The command-line interface for the build tool.
+The command-line interface for need.
 
 ### Architecture
 
-The CLI follows interface-based design where `cmd/build/cli` defines the interfaces and internal packages provide implementations:
+The CLI follows interface-based design where `cmd/need/cli` defines the interfaces and internal packages provide implementations:
 
 ```
-cmd/build/
-├── main.go             # CLI entry point, flag handling, Buildfile discovery
-├── cache_adapter.go    # Buildfile cache adapter and cached parsing
+cmd/need/
+├── main.go             # CLI entry point, flag handling, Needfile discovery
+├── cache_adapter.go    # Needfile cache adapter and cached parsing
 ├── debug.go            # Debug command implementations (--debug-*)
 ├── interfaces.go       # Interface definitions (Lexer, Parser, Token, Scope)
 ├── lexer_adapter.go    # Lexer adapters (Token, Lexer)
@@ -171,8 +171,8 @@ cmd/build/
 | `ConditionalParser` | Parses conditional blocks |
 | `Statement` | Represents a parsed AST statement |
 | `ParseError` | Represents a parse error with location and hint |
-| `BuildfileResult` | Contains parsed statements and collected errors |
-| `BuildfileParser` | Parses complete buildfiles with error recovery |
+| `NeedfileResult` | Contains parsed statements and collected errors |
+| `NeedfileParser` | Parses complete needfiles with error recovery |
 | `EvalContext` | Represents evaluation context with variable values |
 | `EvalResult` | Contains evaluation results and any errors |
 | `CommandContext` | Extends EvalContext with automatic variables and captures |
@@ -204,16 +204,16 @@ build [options] [targets...]
 | 0 | Success |
 | 1 | Build failure (recipe returned non-zero) |
 | 2 | Usage error (bad arguments) |
-| 3 | Parse error (invalid Buildfile) |
+| 3 | Parse error (invalid Needfile) |
 | 4 | Environment error (missing requirements) |
 
 ### Flags
 
-All flags from BUILDFILE_SPEC.md are implemented:
+All flags from NEEDFILE_SPEC.md are implemented:
 
 | Flag | Description |
 |------|-------------|
-| `-f, --file` | Use alternate Buildfile |
+| `-f, --file` | Use alternate Needfile |
 | `-e, --env` | Use named environment |
 | `-j, --jobs` | Parallel jobs |
 | `-n, --dry-run` | Show what would execute |
@@ -227,11 +227,11 @@ All flags from BUILDFILE_SPEC.md are implemented:
 | `-V, --version` | Show version |
 | `-h, --help` | Show help |
 
-### Buildfile Discovery
+### Needfile Discovery
 
-The `findBuildfile()` function searches for Buildfile in the following order:
+The `findNeedfile()` function searches for Needfile in the following order:
 
-1. Current directory: `Buildfile`, `buildfile`, `Buildfile.build`
+1. Current directory: `Needfile`, `needfile`, `Needfile.need`
 2. Parent directories: same candidates, up to filesystem root
 3. Returns the first match found
 
@@ -259,7 +259,7 @@ The `-f` / `--file` flag overrides this discovery.
 Version and commit are embedded at build time via `-ldflags`:
 
 ```bash
-go build -ldflags "-X main.version=v1.0.0 -X main.commit=abc123" ./cmd/build
+go build -ldflags "-X main.version=v1.0.0 -X main.commit=abc123" ./cmd/need
 ```
 
 ### Shell Completions (`completions/`)
@@ -274,8 +274,8 @@ Tab completion scripts for common shells:
 
 **Features:**
 - Complete all CLI flags with descriptions
-- Dynamic target completion from Buildfile
-- Dynamic environment name completion from Buildfile
+- Dynamic target completion from Needfile
+- Dynamic environment name completion from Needfile
 - Completion for `--color` and `--progress` mode values (auto, always, never)
 - Completion for job counts (1, 2, 4, 8, 16)
 
@@ -307,7 +307,7 @@ The CLI integrates with the `internal/errors` package to provide structured, use
 
 ```
 error[E103]: directive '.after' invalid at GLOBAL scope
- --> Buildfile:2:1
+ --> Needfile:2:1
 1 | # Test file
 2 | .after: invalid
   | ^
@@ -319,7 +319,7 @@ help: .after is only valid in: RECIPE
 
 1. **File reader initialization**: The `initFileReader()` function is called in `main()` to enable source context extraction from files.
 
-2. **Interface unwrapping**: Parse errors from the BuildfileResult interface are unwrapped to extract the underlying `parser.ParseError` for formatting.
+2. **Interface unwrapping**: Parse errors from the NeedfileResult interface are unwrapped to extract the underlying `parser.ParseError` for formatting.
 
 3. **Source context**: All formatting functions accept the source code string to enable extraction of source lines for display.
 
@@ -333,7 +333,7 @@ help: .after is only valid in: RECIPE
 
 ### Token Types (`token.go`)
 
-Defines all token types for the Buildfile language as specified in `DESIGN.md` Section 2.2.
+Defines all token types for the Needfile language as specified in `DESIGN.md` Section 2.2.
 
 #### Token Categories
 
@@ -354,7 +354,7 @@ Tracks position in source files for error reporting:
 - `Line`: 1-based line number
 - `Column`: 1-based column number
 
-Format: `file:line:column` (e.g., `Buildfile:10:5`)
+Format: `file:line:column` (e.g., `Needfile:10:5`)
 
 #### Token Structure
 
@@ -412,7 +412,7 @@ Represents the type of whitespace character used for indentation:
 
 #### IndentTracker
 
-Stateful tracker that enforces consistent indentation across a Buildfile:
+Stateful tracker that enforces consistent indentation across a Needfile:
 
 ```go
 type IndentTracker struct {
@@ -567,7 +567,7 @@ The lexer is split across multiple files for maintainability:
 
 ### Core Lexer (`lexer.go`)
 
-The main lexer implementation that tokenizes Buildfile source code.
+The main lexer implementation that tokenizes Needfile source code.
 
 #### Lexer Modes
 
@@ -694,7 +694,7 @@ Contains methods for lexing identifiers, paths, and general strings:
 
 ## AST Package (`internal/ast`)
 
-Defines the Abstract Syntax Tree node types for Buildfile parsing. The AST captures syntactic structure without interpretation—no evaluation happens during parsing.
+Defines the Abstract Syntax Tree node types for Needfile parsing. The AST captures syntactic structure without interpretation—no evaluation happens during parsing.
 
 ### Package Structure
 
@@ -703,7 +703,7 @@ The AST package is split into logical files by domain:
 | File | Contents |
 |------|----------|
 | `location.go` | `SourceLocation`, `SourceLocationFromToken()` |
-| `statement.go` | `Buildfile`, `Statement` interface, `Comment`, `Blank` |
+| `statement.go` | `Needfile`, `Statement` interface, `Comment`, `Blank` |
 | `directives.go` | `DirectiveKind`, `Directive` |
 | `environment.go` | `Runtime`, `VersionSpec` types, `Requirement`, `Environment` |
 | `variables.go` | `Variable` |
@@ -715,7 +715,7 @@ The AST package is split into logical files by domain:
 ### Root Node
 
 ```go
-type Buildfile struct {
+type Needfile struct {
     SourcePath string      // Path to the source file
     Statements []Statement // Top-level statements
 }
@@ -934,7 +934,7 @@ Can be created from a lexer token using `SourceLocationFromToken(tok)`.
 
 1. **BraceExpr remains unresolved during parsing**: In target patterns, `{name}` could be either a capture or a variable interpolation. The parser produces `BraceExpr` nodes; semantic analysis resolves them based on the symbol table.
 
-2. **Separate Statement and Node interfaces**: All top-level constructs implement `Statement`. This allows type-safe iteration over `Buildfile.Statements` with type switches.
+2. **Separate Statement and Node interfaces**: All top-level constructs implement `Statement`. This allows type-safe iteration over `Needfile.Statements` with type switches.
 
 3. **Marker method pattern**: Interfaces use unexported marker methods (`statementNode()`, `valuePartNode()`, etc.) to enforce interface implementation at compile time while preventing external implementation.
 
@@ -1070,7 +1070,7 @@ Scopes map to expected indentation:
 4. **Exported methods for public API**: Scope and state methods (`EnterScope`, `ExitScope`, `CurrentScope`, `CurrentIndentLevel`, `CurrentToken`) are exported for CLI/testing access. Since the package is `internal/`, the exported status primarily serves documentation purposes and adapter access.
 
 5. **Two-tier error handling pattern**: The parser uses two consistent error handling approaches:
-   - **Top-level parsing functions** (`ParseVariable`, `ParseTarget`, `ParseConditional`, etc.) return `*ParseError`. These are called by `ParseBuildfile()` which catches errors and performs recovery via `recoverToLevel0()`.
+   - **Top-level parsing functions** (`ParseVariable`, `ParseTarget`, `ParseConditional`, etc.) return `*ParseError`. These are called by `ParseNeedfile()` which catches errors and performs recovery via `recoverToLevel0()`.
    - **Value/content parsing functions** (`ParseValue`, `parseInterpolation`, `parseFunctionCall`, etc.) use `addError()` internally and return partial results (or nil). This allows continued parsing despite malformed values.
    
    This design enables error recovery: structural errors stop the current block and trigger recovery, while value-level errors are collected but don't halt parsing.
@@ -1594,8 +1594,8 @@ global_directive = ".include:" value ;
 
 An `.include:` directive is detected when `DOT_INCLUDE` token is encountered at global scope:
 ```
-.include: ./common.build
-.include: {config_dir}/settings.build
+.include: ./common.need
+.include: {config_dir}/settings.need
 ```
 
 **Recursive Parsing:**
@@ -1626,10 +1626,10 @@ This detects both direct circular includes (A→A) and indirect circular include
 
 Include paths are resolved relative to the including file:
 ```
-# In /project/build/Buildfile:
-.include: ./common.build    # → /project/build/common.build
-.include: ../lib/deps.build # → /project/lib/deps.build
-.include: /etc/defaults.build # → /etc/defaults.build (absolute)
+# In /project/build/Needfile:
+.include: ./common.need    # → /project/build/common.need
+.include: ../lib/deps.need # → /project/lib/deps.need
+.include: /etc/defaults.need # → /etc/defaults.need (absolute)
 ```
 
 **Statement Parsing:**
@@ -1646,7 +1646,7 @@ The `parseStatement()` function handles all statement types in included files:
 
 1. **Literal paths only**: Currently, interpolation in include paths is not supported. The path must be a literal string. This simplifies implementation and avoids chicken-and-egg issues with variable evaluation order.
 
-2. **Included statements merged into parent**: `ParseBuildfile()` uses `parseTopLevelStatements()` which handles includes specially. When an include is encountered, the included statements are prepended to the directive statement, ensuring variables/targets from included files are visible to subsequent content in the including file.
+2. **Included statements merged into parent**: `ParseNeedfile()` uses `parseTopLevelStatements()` which handles includes specially. When an include is encountered, the included statements are prepended to the directive statement, ensuring variables/targets from included files are visible to subsequent content in the including file.
 
 3. **Recursive with stack**: The include stack is passed through recursive calls to detect circular includes at any depth.
 
@@ -1662,7 +1662,7 @@ Implements error recovery to collect multiple parse errors and continue parsing 
 
 | Function | Description |
 |----------|-------------|
-| `ParseBuildfile() ([]Statement, *ParseErrors)` | Parses complete buildfile with error recovery |
+| `ParseNeedfile() ([]Statement, *ParseErrors)` | Parses complete needfile with error recovery |
 | `parseTopLevelStatements() ([]Statement, *ParseError)` | Parses one or more statements (handles includes) |
 | `recoverToLevel0()` | Skips to next line at indentation level 0 |
 | `looksLikeVariableLine() bool` | Heuristic to detect variable definitions |
@@ -1714,7 +1714,7 @@ All parse errors include:
 
 Example error output:
 ```
-Buildfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only valid in: RECIPE)
+Needfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only valid in: RECIPE)
 ```
 
 **Design Decisions:**
@@ -1731,7 +1731,7 @@ Buildfile:1:1: directive '.after' invalid at GLOBAL scope (hint: .after is only 
 
 ## Semantic Package (`internal/semantic`)
 
-The semantic package provides semantic analysis for Buildfiles. It validates the AST produced by the parser and resolves context-sensitive constructs.
+The semantic package provides semantic analysis for Needfiles. It validates the AST produced by the parser and resolves context-sensitive constructs.
 
 ### Semantic Error Types (`errors.go`)
 
@@ -1759,7 +1759,7 @@ type DuplicateDefinitionError struct {
 }
 ```
 
-Error format: `duplicate variable 'cc': first defined at Buildfile:1:1, redefined at Buildfile:5:1`
+Error format: `duplicate variable 'cc': first defined at Needfile:1:1, redefined at Needfile:5:1`
 
 #### AutomaticInPatternError
 
@@ -1772,7 +1772,7 @@ type AutomaticInPatternError struct {
 }
 ```
 
-Error format: `automatic variable 'target' cannot be used as capture in target pattern at Buildfile:5:10`
+Error format: `automatic variable 'target' cannot be used as capture in target pattern at Needfile:5:10`
 
 Automatic variables (`target`, `deps`, `in`, `out`, `stem`, `target.dir`, `target.file`) are only available during recipe execution.
 
@@ -1789,7 +1789,7 @@ type CaptureMismatchError struct {
 }
 ```
 
-Error format: `capture '{name}' in dependency but not defined in target pattern at Buildfile:3:20 (target at Buildfile:3:1)`
+Error format: `capture '{name}' in dependency but not defined in target pattern at Needfile:3:20 (target at Needfile:3:1)`
 
 #### UndefinedVariableError
 
@@ -1802,7 +1802,7 @@ type UndefinedVariableError struct {
 }
 ```
 
-Error format: `undefined variable 'foo' at Buildfile:7:15`
+Error format: `undefined variable 'foo' at Needfile:7:15`
 
 #### AutomaticOutsideRecipeError
 
@@ -1815,7 +1815,7 @@ type AutomaticOutsideRecipeError struct {
 }
 ```
 
-Error format: `automatic variable 'target' is only valid inside recipe or block scope at Buildfile:2:10`
+Error format: `automatic variable 'target' is only valid inside recipe or block scope at Needfile:2:10`
 
 #### CircularDependencyError
 
@@ -1833,7 +1833,7 @@ The cycle path includes the starting node at both ends to show where the cycle c
 
 ### Symbol Table (`symbols.go`)
 
-The symbol table tracks all defined symbols in a Buildfile for semantic validation.
+The symbol table tracks all defined symbols in a Needfile for semantic validation.
 
 #### SymbolTable Structure
 
@@ -2247,27 +2247,27 @@ The parser package has comprehensive test coverage across all parsing features:
 | `conditional_test.go` | Conditionals (if/elif/else/end, ifdef/ifndef, ==, !=, multiple branches) |
 | `include_test.go` | Include directive (simple, nested, circular, relative paths, empty files) |
 | `recovery_test.go` | Error recovery (skip-to-level-0, actionable messages, max errors) |
-| `parser_integration_test.go` | Full `ParseBuildfile` integration tests |
+| `parser_integration_test.go` | Full `ParseNeedfile` integration tests |
 | `edge_cases_test.go` | Edge cases and negative tests |
 
 ### Integration Tests (`parser_integration_test.go`)
 
-Tests `ParseBuildfile()` end-to-end parsing:
+Tests `ParseNeedfile()` end-to-end parsing:
 
 | Test | Description |
 |------|-------------|
-| `TestParseBuildfile_AllStatementTypes` | Parses buildfile with all statement types |
-| `TestParseBuildfile_DirectiveDetails` | Verifies directive parsing details |
-| `TestParseBuildfile_VariableDetails` | Verifies variable parsing with interpolations |
-| `TestParseBuildfile_TargetDetails` | Verifies target and recipe parsing |
-| `TestParseBuildfile_EnvironmentDetails` | Verifies environment block parsing |
-| `TestParseBuildfile_ConditionalDetails` | Verifies conditional branch parsing |
-| `TestParseBuildfile_NestedBlocks` | Tests recipe with block command |
-| `TestParseBuildfile_SourceLocations` | Verifies source location tracking |
-| `TestParseBuildfile_EmptyFile` | Tests empty file handling |
-| `TestParseBuildfile_OnlyComments` | Tests comment-only file |
-| `TestParseBuildfile_MixedWithBlankLines` | Tests blank line handling |
-| `TestParseBuildfile_ErrorRecoveryIntegration` | Tests error recovery in full buildfile |
+| `TestParseNeedfile_AllStatementTypes` | Parses needfile with all statement types |
+| `TestParseNeedfile_DirectiveDetails` | Verifies directive parsing details |
+| `TestParseNeedfile_VariableDetails` | Verifies variable parsing with interpolations |
+| `TestParseNeedfile_TargetDetails` | Verifies target and recipe parsing |
+| `TestParseNeedfile_EnvironmentDetails` | Verifies environment block parsing |
+| `TestParseNeedfile_ConditionalDetails` | Verifies conditional branch parsing |
+| `TestParseNeedfile_NestedBlocks` | Tests recipe with block command |
+| `TestParseNeedfile_SourceLocations` | Verifies source location tracking |
+| `TestParseNeedfile_EmptyFile` | Tests empty file handling |
+| `TestParseNeedfile_OnlyComments` | Tests comment-only file |
+| `TestParseNeedfile_MixedWithBlankLines` | Tests blank line handling |
+| `TestParseNeedfile_ErrorRecoveryIntegration` | Tests error recovery in full needfile |
 
 ### Edge Case Tests (`edge_cases_test.go`)
 
@@ -2288,7 +2288,7 @@ Tests `ParseBuildfile()` end-to-end parsing:
 | `TestEdgeCase_CommentAfterStatement` | Inline comments |
 | `TestEdgeCase_PathWithInterpolation` | Patterns with captures |
 
-### CLI Tests (`cmd/build/main_test.go`)
+### CLI Tests (`cmd/need/main_test.go`)
 
 All debug flags have corresponding tests:
 
@@ -2307,7 +2307,7 @@ All debug flags have corresponding tests:
 | `TestRunDebugPlan` | `--debug-plan` |
 
 Each debug test includes:
-- Success case with valid buildfile
+- Success case with valid needfile
 - Missing file error case
 - (Some) edge cases like empty files or files without target content
 
@@ -2397,7 +2397,7 @@ Each debug test includes:
 | `TestCollector_PatternTargets` | Pattern targets with captures |
 | `TestCollector_MultipleErrors` | Multiple errors collected |
 | `TestCollector_LazyVariables` | Lazy variable collection |
-| `TestCollector_EmptyBuildfile` | Empty buildfile handling |
+| `TestCollector_EmptyNeedfile` | Empty needfile handling |
 | `TestCollector_CommentsAndBlanks` | Comments and blanks ignored |
 | `TestCollector_GlobalDirectives` | Directives don't add symbols |
 | `TestCollector_PreservesOrder` | Target order preserved |
@@ -2483,7 +2483,7 @@ Each debug test includes:
 
 ## Eval Package (`internal/eval`)
 
-The eval package provides variable evaluation for Buildfiles. It evaluates variables after semantic analysis and before build planning.
+The eval package provides variable evaluation for Needfiles. It evaluates variables after semantic analysis and before build planning.
 
 ### Context (`context.go`)
 
@@ -2756,7 +2756,7 @@ log = shell(date +%s)-log   # Returns same timestamp due to cache
 
 ## Planner Package (`internal/planner`)
 
-The planner package provides build planning for Buildfiles. It handles target pattern matching, dependency resolution, and build task ordering.
+The planner package provides build planning for Needfiles. It handles target pattern matching, dependency resolution, and build task ordering.
 
 ### Target Pattern Matching (`match.go`)
 
@@ -3174,7 +3174,7 @@ The `:raw` modifier disables quoting:
 
 ## Executor Package (`internal/executor`)
 
-The executor package provides recipe execution for Buildfiles, handling shell invocation and command orchestration.
+The executor package provides recipe execution for Needfiles, handling shell invocation and command orchestration.
 
 ### Shell Configuration (`executor.go`)
 
@@ -3519,7 +3519,7 @@ The planner:
 
 ## Environ Package (`internal/environ`)
 
-The environ package handles environment management for the build tool, including requirements checking and version detection.
+The environ package handles environment management for need, including requirements checking and version detection.
 
 ### Package Structure
 
@@ -3637,7 +3637,7 @@ Attempts to detect version by:
 | `EnvironmentNotFoundError` | Named environment not found |
 | `NoDefaultEnvironmentError` | No default environment when required |
 
-### CLI Integration (`cmd/build/environ.go`, `environ_adapter.go`)
+### CLI Integration (`cmd/need/environ.go`, `environ_adapter.go`)
 
 #### --check-env Flag
 
@@ -3649,7 +3649,7 @@ build --check-env -e ci        # Check named environment
 ```
 
 **Behavior:**
-1. Parse buildfile and extract environments
+1. Parse needfile and extract environments
 2. Select environment (default or by `--env` name)
 3. For bare environments: check all `.requires:` entries
 4. Report status with ✓/✗ symbols
@@ -3820,7 +3820,7 @@ Handles running commands in a devcontainer using the `devcontainer` CLI.
 The `checkDevcontainerEnvironment` function validates devcontainer environments:
 
 ```go
-func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+func checkDevcontainerEnvironment(env *ast.Environment, needfileDir string, verbose, showInstall bool) int
 ```
 
 **Validation Steps:**
@@ -3932,7 +3932,7 @@ Handles running commands in a Nix environment.
 The `checkNixEnvironment` function validates Nix environments:
 
 ```go
-func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+func checkNixEnvironment(env *ast.Environment, needfileDir string, verbose, showInstall bool) int
 ```
 
 **Validation Steps:**
@@ -4024,7 +4024,7 @@ Handles running commands in a Lima VM.
 The `checkLimaEnvironment` function validates Lima environments:
 
 ```go
-func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int
+func checkLimaEnvironment(env *ast.Environment, needfileDir string, verbose, showInstall bool) int
 ```
 
 **Validation Steps:**
@@ -4055,7 +4055,7 @@ type EnvironmentSelector struct{}
 #### Selection Priority
 
 1. `--env` flag takes highest precedence
-2. `BUILD_ENV` environment variable is used as fallback
+2. `NEED_ENV` environment variable is used as fallback
 3. Unnamed (default) environment is used if no explicit selection
 4. Error if only named environments exist and no selection is made
 
@@ -4077,12 +4077,12 @@ type EnvironmentSelector struct{}
 | Test | Description |
 |------|-------------|
 | `TestSelectEnvironment_EnvFlagPrecedence` | --env flag takes priority |
-| `TestSelectEnvironment_BuildEnvFallback` | BUILD_ENV used as fallback |
+| `TestSelectEnvironment_BuildEnvFallback` | NEED_ENV used as fallback |
 | `TestSelectEnvironment_DefaultEnv` | Default environment selected |
 | `TestSelectEnvironment_ErrorWhenOnlyNamedAndNoSelection` | Error when no default |
 | `TestSelectEnvironment_EmptyEnvsList` | Bare environment (nil) returned |
 | `TestSelectEnvironment_EnvFlagNotFound` | Error for unknown environment |
-| `TestSelectEnvironment_EnvFlagOverridesBuildEnv` | Flag overrides BUILD_ENV |
+| `TestSelectEnvironment_EnvFlagOverridesBuildEnv` | Flag overrides NEED_ENV |
 
 ### Install Suggestions (`install.go`)
 
@@ -4556,7 +4556,7 @@ The legacy `NormalReporter`, `DryRunReporter`, `VerboseReporter`, and `ProgressR
 
 ### CLI Integration
 
-The CLI adapters in `cmd/build/output_adapter.go` now use emitter-backed reporters:
+The CLI adapters in `cmd/need/output_adapter.go` now use emitter-backed reporters:
 
 ```go
 // Creates an emitter-backed normal reporter
@@ -4623,7 +4623,7 @@ func NewProgressReporterWithConfig(w io.Writer, total int, verbose, quiet bool, 
 
 6. **Color and mode support**: The new system supports color modes (auto, always, never) and output modes (CLI, TUI, headless).
 
-## Target Resolution (`cmd/build/target_resolve.go`)
+## Target Resolution (`cmd/need/target_resolve.go`)
 
 The target resolution module handles command-line target argument parsing and resolution to canonical target names.
 
@@ -4752,7 +4752,7 @@ Errors are formatted in a Rust-like style:
 
 ```
 error[E100]: missing ':' in target definition
- --> Buildfile:3:10
+ --> Needfile:3:10
 2 | cc = gcc
 3 | build/app deps
   |          ^
@@ -4877,11 +4877,11 @@ type SourceLine struct {
 
 ## Complete Execution Pipeline
 
-The build tool now has a fully functional execution pipeline wired up in `cmd/build/main.go`. When a user runs `build target`, the following steps occur:
+need now has a fully functional execution pipeline wired up in `cmd/need/cli/main.go`. When a user runs `need target`, the following steps occur:
 
 ### Pipeline Stages
 
-1. **Parse & Lex**: Read Buildfile and convert to AST
+1. **Parse & Lex**: Read Needfile and convert to AST
 2. **Semantic Analysis**: Run 4-pass semantic validation
    - Pass 1: Symbol collection (variables, targets, environments)
    - Pass 2: Capture validation (resolve {name} to capture vs interpolation)
@@ -4950,8 +4950,8 @@ result.AssertSuccess().
 | Test | Description |
 |------|-------------|
 | `TestSimpleBuild` | Build phony target with echo command |
-| `TestBuildfileDiscovery` | Automatic Buildfile discovery in current directory |
-| `TestMissingBuildfile` | Error when no Buildfile found |
+| `TestNeedfileDiscovery` | Automatic Needfile discovery in current directory |
+| `TestMissingNeedfile` | Error when no Needfile found |
 | `TestDefaultTarget` | Build `.default:` target when none specified |
 | `TestMultipleTargets` | Build multiple targets in order |
 | `TestDryRun` | `--dry-run` shows commands without executing |
@@ -4990,25 +4990,25 @@ The project includes test fixtures for regression testing:
 
 | Fixture | Description |
 |---------|-------------|
-| `simple.build` | Basic phony target with echo command |
-| `variables.build` | Immediate and lazy variable definitions |
-| `conditionals.build` | OS-based conditional blocks |
-| `patterns.build` | Pattern targets for C compilation |
-| `dependencies.build` | Phony target dependency chains |
-| `functions.build` | Built-in functions (dirname, basename, replace) |
-| `block_commands.build` | Block commands with shell loops |
-| `environment.build` | Environment blocks with requirements |
+| `simple.need` | Basic phony target with echo command |
+| `variables.need` | Immediate and lazy variable definitions |
+| `conditionals.need` | OS-based conditional blocks |
+| `patterns.need` | Pattern targets for C compilation |
+| `dependencies.need` | Phony target dependency chains |
+| `functions.need` | Built-in functions (dirname, basename, replace) |
+| `block_commands.need` | Block commands with shell loops |
+| `environment.need` | Environment blocks with requirements |
 
 ### Invalid Fixtures (`test/integration/fixtures/invalid/`)
 
 | Fixture | Expected Error |
 |---------|----------------|
-| `missing_end.build` | Missing `end` for conditional |
-| `undefined_var.build` | Reference to undefined variable |
-| `wrong_scope.build` | Directive in wrong scope |
-| `duplicate_target.build` | Duplicate target definition |
-| `circular_dep.build` | Circular dependency chain |
-| `mixed_indent.build` | Mixed tabs and spaces |
+| `missing_end.need` | Missing `end` for conditional |
+| `undefined_var.need` | Reference to undefined variable |
+| `wrong_scope.need` | Directive in wrong scope |
+| `duplicate_target.need` | Duplicate target definition |
+| `circular_dep.need` | Circular dependency chain |
+| `mixed_indent.need` | Mixed tabs and spaces |
 
 ### Environment Tests (`environment_test.go`)
 
@@ -5084,12 +5084,12 @@ The `skipIfNoPodman(t)` helper function skips tests when Podman is not available
 
 ### Performance Tests (`performance_test.go`)
 
-Performance tests validate that the parser and planner handle real-world scale Buildfiles efficiently:
+Performance tests validate that the parser and planner handle real-world scale Needfiles efficiently:
 
 | Test | Description | Performance Target |
 |------|-------------|-------------------|
-| `TestLargeBuildfileParsing_1000Targets` | Parse Buildfile with 1000 phony targets | < 10s |
-| `TestLargeBuildfileParsing_ManyPatternTargets` | Parse 100 targets with file dependencies | < 10s |
+| `TestLargeNeedfileParsing_1000Targets` | Parse Needfile with 1000 phony targets | < 10s |
+| `TestLargeNeedfileParsing_ManyPatternTargets` | Parse 100 targets with file dependencies | < 10s |
 | `TestDeepIncludeHierarchy` | Parse 20-level deep include chain | < 5s |
 | `TestWideIncludeHierarchy` | Parse 50 sibling include files | < 10s |
 | `TestDeepDependencyChain` | Plan 100-deep dependency chain | < 5s |
@@ -5118,15 +5118,15 @@ All integration tests pass:
 ```
 === RUN   TestSimpleBuild
 --- PASS: TestSimpleBuild (0.40s)
-=== RUN   TestBuildfileDiscovery
---- PASS: TestBuildfileDiscovery (0.40s)
+=== RUN   TestNeedfileDiscovery
+--- PASS: TestNeedfileDiscovery (0.40s)
 === RUN   TestBareEnvironmentNoRequirements
 --- PASS: TestBareEnvironmentNoRequirements (0.65s)
 === RUN   TestCheckEnvBareEnvironmentSatisfied
 --- PASS: TestCheckEnvBareEnvironmentSatisfied (0.40s)
 ...
 PASS
-ok  	github.com/vinayprograms/build/test/integration	26.507s
+ok  	github.com/vinayprograms/need/test/integration	26.507s
 ```
 
 The core build pipeline is fully functional with comprehensive test coverage including environment handling.
@@ -5257,7 +5257,7 @@ func DetectOutputMode() OutputMode
 ```
 
 Detection order:
-1. `BUILD_OUTPUT_MODE` environment variable (if set)
+1. `NEED_OUTPUT_MODE` environment variable (if set)
 2. CI environment indicators (`CI`, `GITHUB_ACTIONS`, `GITLAB_CI`, etc.)
 3. `TERM=dumb` → headless
 4. TTY status of stdout → CLI if TTY, headless otherwise
@@ -5435,7 +5435,7 @@ func NewNoOpWriter() OutputWriter
 **CLI Integration:**
 
 ```go
-// In cmd/build/output_adapter.go
+// In cmd/need/output_adapter.go
 func CreateOutputEmitter(verbose, quiet bool, color string) *output.Emitter
 func CreateOutputWriter(verbose, quiet bool, color string) output.OutputWriter
 ```
@@ -5482,7 +5482,7 @@ func CreateOutputWriter(verbose, quiet bool, color string) output.OutputWriter
 |------|-------------|
 | `TestOutputModeString` | Mode string representation |
 | `TestParseOutputMode` | Parse mode from string |
-| `TestDetectOutputMode_EnvOverride` | BUILD_OUTPUT_MODE override |
+| `TestDetectOutputMode_EnvOverride` | NEED_OUTPUT_MODE override |
 | `TestDetectOutputMode_CI` | CI environment detection |
 | `TestDetectOutputMode_DumbTerminal` | TERM=dumb detection |
 | `TestIsCI` | CI indicator detection |
@@ -5567,15 +5567,15 @@ func CreateOutputWriter(verbose, quiet bool, color string) output.OutputWriter
 
 | File | Description |
 |------|-------------|
-| `design/BUILDFILE_SPEC.md` | Complete language specification |
+| `design/NEEDFILE_SPEC.md` | Complete language specification |
 | `design/DESIGN.md` | System architecture and design decisions |
 | `design/CODE.md` | Implementation documentation (this file) |
 | `design/TODO.md` | Implementation task tracking |
-| `design/MIGRATION.md` | Guide for migrating from Make to Buildfile |
+| `design/MIGRATION.md` | Guide for migrating from Make to Needfile |
 
 ### Migration Guide (`design/MIGRATION.md`)
 
-The migration guide provides comprehensive documentation for users transitioning from GNU Make to Buildfile. It covers:
+The migration guide provides comprehensive documentation for users transitioning from GNU Make to Needfile. It covers:
 
 **Quick Reference Table:**
 - Variable syntax mapping (`$(VAR)` → `{var}`)
@@ -5607,9 +5607,9 @@ The migration guide provides comprehensive documentation for users transitioning
 
 ## Cache Package (`internal/cache`)
 
-The cache package provides caching for parsed Buildfiles to avoid re-parsing unchanged files.
+The cache package provides caching for parsed Needfiles to avoid re-parsing unchanged files.
 
-### BuildfileCache (`buildfile.go`)
+### NeedfileCache (`needfile.go`)
 
 #### Purpose
 
@@ -5618,7 +5618,7 @@ Stores parsed AST keyed by absolute file path. Cache entries are invalidated whe
 #### Structure
 
 ```go
-type BuildfileCache struct {
+type NeedfileCache struct {
     mu      sync.RWMutex
     entries map[string]*cacheEntry
 }
@@ -5633,7 +5633,7 @@ type cacheEntry struct {
 
 | Method | Description |
 |--------|-------------|
-| `NewBuildfileCache()` | Creates an empty cache |
+| `NewNeedfileCache()` | Creates an empty cache |
 | `Put(path, statements) error` | Stores parsed statements with file mtime |
 | `Get(path) ([]Statement, bool, error)` | Retrieves cached statements, validates mtime |
 | `Invalidate(path)` | Removes a specific entry |
@@ -5652,16 +5652,16 @@ type cacheEntry struct {
 - Both relative and absolute paths work as keys
 - Same file accessed via different paths resolves to same cache entry
 
-### CLI Integration (`cmd/build/cache_adapter.go`)
+### CLI Integration (`cmd/need/cache_adapter.go`)
 
 The CLI uses a global cache singleton:
 
 ```go
 // Global cache singleton
-var globalBuildfileCache BuildfileCache
+var globalNeedfileCache NeedfileCache
 
-// ParseBuildfileWithCache uses the global cache
-func ParseBuildfileWithCache(buildfile string) (BuildfileResult, string, error)
+// ParseNeedfileWithCache uses the global cache
+func ParseNeedfileWithCache(needfile string) (NeedfileResult, string, error)
 ```
 
 #### Cached Parsing Flow
@@ -5671,17 +5671,17 @@ func ParseBuildfileWithCache(buildfile string) (BuildfileResult, string, error)
 3. On cache miss: parse file, cache result (if no errors)
 4. Return result
 
-#### cachedBuildfileResultAdapter
+#### cachedNeedfileResultAdapter
 
-Wraps cached AST statements as a `BuildfileResult`:
+Wraps cached AST statements as a `NeedfileResult`:
 
 ```go
-type cachedBuildfileResultAdapter struct {
+type cachedNeedfileResultAdapter struct {
     statements []ast.Statement
 }
 ```
 
-- Implements `BuildfileResult` interface
+- Implements `NeedfileResult` interface
 - Always reports no errors (only successful parses are cached)
 - `GetASTStatements()` handles both regular and cached results
 
@@ -5768,9 +5768,9 @@ The cache is passed to `PlanBuildWithOptions()` from the CLI.
 
 #### Design Decisions
 
-1. **Separate from Buildfile cache**: Different data structures ([]string vs []ast.Statement) and use cases (planner vs parser).
+1. **Separate from Needfile cache**: Different data structures ([]string vs []ast.Statement) and use cases (planner vs parser).
 
-2. **Mtime-based invalidation**: Same strategy as Buildfile cache. When a build regenerates a `.d` file, the cache entry is automatically invalidated.
+2. **Mtime-based invalidation**: Same strategy as Needfile cache. When a build regenerates a `.d` file, the cache entry is automatically invalidated.
 
 3. **Missing file handling**: `ParseAutodepsFile()` returns `(nil, nil)` for missing files. These are not cached since the file may be created by the build.
 

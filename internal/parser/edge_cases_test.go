@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // TestEdgeCase_NestedConditionals tests conditionals inside conditionals.
@@ -16,10 +16,10 @@ func TestEdgeCase_NestedConditionals(t *testing.T) {
     cc = gcc
 end
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -92,10 +92,10 @@ func TestEdgeCase_DirectiveInWrongScope(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
-			_, errs := p.ParseBuildfile()
+			_, errs := p.ParseNeedfile()
 
 			if !errs.HasErrors() {
 				t.Fatal("expected error")
@@ -116,10 +116,10 @@ func TestEdgeCase_BlockAtWrongIndentation(t *testing.T) {
 	input := `block:
     echo hello
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	// This input is ambiguous - 'block:' could be interpreted as a target
 	// The behavior depends on lexer/parser implementation
@@ -134,10 +134,10 @@ func TestEdgeCase_EnvironmentInRecipe(t *testing.T) {
     .environment:
         .using: docker
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 
 	// .environment at recipe scope should be invalid
 	if !errs.HasErrors() {
@@ -150,10 +150,10 @@ func TestEdgeCase_ParallelInEnvironment(t *testing.T) {
 	input := `.environment:
     .parallel: 4
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 
 	if !errs.HasErrors() {
 		t.Error("expected error for .parallel in environment scope")
@@ -169,10 +169,10 @@ func TestEdgeCase_DefaultInRecipe(t *testing.T) {
 	input := `@test:
     .default: @other
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 
 	if !errs.HasErrors() {
 		t.Error("expected error for .default in recipe scope")
@@ -191,10 +191,10 @@ func TestEdgeCase_DeeplyNestedBlocks(t *testing.T) {
     cflags = -Wall
 end
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -244,10 +244,10 @@ func TestEdgeCase_MultipleErrorsCollected(t *testing.T) {
 .autodeps: err5
 cc = valid
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if len(errs.Errors) != 5 {
 		t.Errorf("expected 5 errors, got %d", len(errs.Errors))
@@ -271,10 +271,10 @@ func TestEdgeCase_RecipeWithOnlyDirectives(t *testing.T) {
     .shell: bash
     .requires: gcc cmake
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -312,10 +312,10 @@ func TestEdgeCase_TargetWithNoRecipe(t *testing.T) {
 @test: build/test
 @build: build/app
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -341,10 +341,10 @@ func TestEdgeCase_VersionSpecFormats(t *testing.T) {
 	input := `.environment:
     .requires: gcc gcc@latest gcc@11 gcc@11.4 gcc@11.4.0
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -398,10 +398,10 @@ func TestEdgeCase_FunctionCallsInCommands(t *testing.T) {
 	input := `@test:
     echo {cc} builds to {target}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -442,10 +442,10 @@ func TestEdgeCase_FunctionCallsInCommands(t *testing.T) {
 func TestEdgeCase_EscapedBracesInValue(t *testing.T) {
 	input := `template = Hello {{name}}!
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -480,10 +480,10 @@ func TestEdgeCase_CommentAfterStatement(t *testing.T) {
 	input := `cc = gcc # This is the C compiler
 cflags = -Wall # Warning flags
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -510,10 +510,10 @@ func TestEdgeCase_PathWithInterpolation(t *testing.T) {
 	input := `build/{name}.o: src/{name}.c
     {cc} -c -o {target} {deps}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -562,10 +562,10 @@ func TestEdgeCase_TargetStartingWithInterpolation(t *testing.T) {
 {out_dir}/:
     mkdir -p {target}
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())
@@ -609,10 +609,10 @@ func TestEdgeCase_PhonyTargetWithHyphen(t *testing.T) {
 
 @my-long-target-name: @test-cover @debug-lex-tokens
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	if errs.HasErrors() {
 		t.Fatalf("unexpected errors: %s", errs.Error())

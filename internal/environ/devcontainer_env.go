@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 
 	"github.com/loft-sh/devpod/pkg/devcontainer/config"
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // DevcontainerEnvironment represents a devcontainer-based build environment.

@@ -6,8 +6,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/eval"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/eval"
 )
 
 // ContainerEnvironment represents a container-based build environment.

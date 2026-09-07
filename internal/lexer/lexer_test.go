@@ -5,17 +5,17 @@ import (
 )
 
 func TestNewLexer(t *testing.T) {
-	l := New("test.build", "cc = gcc")
+	l := New("test.need", "cc = gcc")
 	if l == nil {
 		t.Fatal("New() returned nil")
 	}
-	if l.file != "test.build" {
-		t.Errorf("file = %q, want %q", l.file, "test.build")
+	if l.file != "test.need" {
+		t.Errorf("file = %q, want %q", l.file, "test.need")
 	}
 }
 
 func TestLexerEmptyInput(t *testing.T) {
-	l := New("test.build", "")
+	l := New("test.need", "")
 	tok := l.NextToken()
 	if tok.Type != EOF {
 		t.Errorf("empty input: got %v, want EOF", tok.Type)
@@ -23,7 +23,7 @@ func TestLexerEmptyInput(t *testing.T) {
 }
 
 func TestLexerNewlines(t *testing.T) {
-	l := New("test.build", "a\nb\n")
+	l := New("test.need", "a\nb\n")
 
 	// First line content
 	tok := l.NextToken()
@@ -78,7 +78,7 @@ func TestLexerComments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -119,7 +119,7 @@ func TestLexerIndentation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -200,7 +200,7 @@ func TestLexerDirectives(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -240,7 +240,7 @@ func TestLexerVariables(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -304,7 +304,7 @@ func TestLexerValueMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -360,7 +360,7 @@ func TestLexerTargets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -416,7 +416,7 @@ func TestLexerKeywords(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -474,7 +474,7 @@ func TestLexerInterpolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -523,7 +523,7 @@ func TestLexerFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -569,7 +569,7 @@ func TestLexerOperators(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -582,7 +582,7 @@ func TestLexerOperators(t *testing.T) {
 
 func TestLexerSourceLocation(t *testing.T) {
 	input := "foo\n  bar"
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	// "foo" at line 1, col 1
 	tok := l.NextToken()
@@ -611,7 +611,7 @@ func TestLexerSourceLocation(t *testing.T) {
 
 func TestLexerBlankLines(t *testing.T) {
 	input := "foo\n\nbar"
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	tok := l.NextToken()
 	if tok.Type != IDENTIFIER || tok.Literal != "foo" {
@@ -638,7 +638,7 @@ func TestLexerRecipe(t *testing.T) {
 	input := `build/app: src/main.c
     gcc -o {target} {in}`
 
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	expected := []TokenType{
 		PATH,         // build/app
@@ -676,7 +676,7 @@ cc = gcc
 build/app: build/main.o
     {cc} -o {target} {deps}`
 
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	// Just verify we can lex without errors and get EOF
 	var tokens []Token
@@ -702,7 +702,7 @@ build/app: build/main.o
 func TestLexerErrorRecovery(t *testing.T) {
 	// Unclosed interpolation
 	input := "{unclosed"
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	tok := l.NextToken()
 	if tok.Type != ERROR {
@@ -825,7 +825,7 @@ func TestLexerEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			for i, want := range tt.want {
 				tok := l.NextToken()
 				if tok.Type != want {
@@ -870,7 +870,7 @@ func TestLexerInterpolationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			var foundError bool
 			var errorMsg string
 			for i := 0; i < 20; i++ {
@@ -911,7 +911,7 @@ func TestLexerIndentationErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			var foundError bool
 			for i := 0; i < 20; i++ {
 				tok := l.NextToken()
@@ -1011,7 +1011,7 @@ func TestLexerCommandMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			l.SetCommandMode() // Explicitly set command mode
 
 			for i, want := range tt.wantTokens {
@@ -1109,7 +1109,7 @@ func TestLexerPeekMethods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 
 			if got := l.PeekNextIsDotKeyword(); got != tt.wantIsDotKeyword {
 				t.Errorf("PeekNextIsDotKeyword() = %v, want %v", got, tt.wantIsDotKeyword)
@@ -1123,7 +1123,7 @@ func TestLexerPeekMethods(t *testing.T) {
 
 func TestLexerCommandModeWithNewlines(t *testing.T) {
 	input := "rm -rf build\necho done"
-	l := New("test.build", input)
+	l := New("test.need", input)
 	l.SetCommandMode()
 
 	// First command
@@ -1148,7 +1148,7 @@ func TestLexerCommandModeWithNewlines(t *testing.T) {
 
 func TestLexerCommandModeInterpolationRestoresMode(t *testing.T) {
 	input := "cmd {var} rest"
-	l := New("test.build", input)
+	l := New("test.need", input)
 	l.SetCommandMode()
 
 	// String before interpolation
@@ -1188,7 +1188,7 @@ func TestLexerCommandModeInterpolationRestoresMode(t *testing.T) {
 // command-mode content are all left untouched.
 func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	t.Run("trailing spaces before newline", func(t *testing.T) {
-		l := New("test.build", "x = value   \ny = other\n")
+		l := New("test.need", "x = value   \ny = other\n")
 		l.NextToken() // IDENTIFIER x
 		l.NextToken() // EQUALS
 		tok := l.NextToken()
@@ -1198,7 +1198,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	})
 
 	t.Run("trailing spaces at EOF", func(t *testing.T) {
-		l := New("test.build", "x = value   ")
+		l := New("test.need", "x = value   ")
 		l.NextToken() // IDENTIFIER x
 		l.NextToken() // EQUALS
 		tok := l.NextToken()
@@ -1208,7 +1208,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	})
 
 	t.Run("trailing tabs before newline", func(t *testing.T) {
-		l := New("test.build", "x = value\t\t\n")
+		l := New("test.need", "x = value\t\t\n")
 		l.NextToken() // IDENTIFIER x
 		l.NextToken() // EQUALS
 		tok := l.NextToken()
@@ -1218,7 +1218,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	})
 
 	t.Run("internal spaces preserved", func(t *testing.T) {
-		l := New("test.build", "x = a  b\n")
+		l := New("test.need", "x = a  b\n")
 		l.NextToken() // IDENTIFIER x
 		l.NextToken() // EQUALS
 		tok := l.NextToken()
@@ -1230,7 +1230,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	t.Run("spaces before interpolation are not trailing", func(t *testing.T) {
 		// The segment before {y} isn't the end of the value, so it must not
 		// be trimmed even though it ends in whitespace.
-		l := New("test.build", "x = value   {y}\n")
+		l := New("test.need", "x = value   {y}\n")
 		l.NextToken() // IDENTIFIER x
 		l.NextToken() // EQUALS
 		tok := l.NextToken()
@@ -1240,7 +1240,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	})
 
 	t.Run("dependency list trailing spaces trimmed", func(t *testing.T) {
-		l := New("test.build", "app: dep   \n")
+		l := New("test.need", "app: dep   \n")
 		l.NextToken() // IDENTIFIER app
 		l.NextToken() // COLON
 		tok := l.NextToken()
@@ -1250,7 +1250,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 	})
 
 	t.Run("command mode trailing spaces preserved", func(t *testing.T) {
-		l := New("test.build", "echo hi   \n")
+		l := New("test.need", "echo hi   \n")
 		l.SetCommandMode()
 		tok := l.NextToken()
 		if tok.Type != STRING || tok.Literal != "echo hi   " {
@@ -1261,7 +1261,7 @@ func TestLexerValueModeTrailingWhitespace(t *testing.T) {
 
 func TestLexerSetModes(t *testing.T) {
 	input := "test value"
-	l := New("test.build", input)
+	l := New("test.need", input)
 
 	// Default is ModeLineStart, then ModeNormal
 	l.SetValueMode()
@@ -1271,7 +1271,7 @@ func TestLexerSetModes(t *testing.T) {
 		t.Errorf("value mode: got %v, want STRING", tok.Type)
 	}
 
-	l = New("test.build", input)
+	l = New("test.need", input)
 	l.SetCommandMode()
 	tok = l.NextToken()
 	// In command mode, the whole string is returned
@@ -1279,7 +1279,7 @@ func TestLexerSetModes(t *testing.T) {
 		t.Errorf("command mode: got %v(%q), want STRING(\"test value\")", tok.Type, tok.Literal)
 	}
 
-	l = New("test.build", input)
+	l = New("test.need", input)
 	l.SetNormalMode()
 	tok = l.NextToken()
 	// In normal mode, identifiers are parsed
@@ -1362,7 +1362,7 @@ func TestLexerPeekIsVariableLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := New("test.build", tt.input)
+			l := New("test.need", tt.input)
 			got := l.PeekIsVariableLine()
 			if got != tt.isVariable {
 				t.Errorf("PeekIsVariableLine() = %v, want %v", got, tt.isVariable)
@@ -1383,7 +1383,7 @@ func TestLexerPeekIsVariableLine_NoStateChange(t *testing.T) {
 
 	for _, input := range inputs {
 		t.Run(input, func(t *testing.T) {
-			l := New("test.build", input)
+			l := New("test.need", input)
 
 			// Record state before peek
 			posBefore := l.pos

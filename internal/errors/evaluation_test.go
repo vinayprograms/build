@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -12,7 +12,7 @@ import (
 // ----------------------------------------------------------------------------
 
 func TestNewShellCommandFailedError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 3, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 3, Column: 10}
 	err := NewShellCommandFailedError("ls /nonexistent", 1, "No such file or directory", loc)
 
 	if err.Code != "E300" {
@@ -27,7 +27,7 @@ func TestNewShellCommandFailedError(t *testing.T) {
 }
 
 func TestNewGlobNoMatchError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 5, Column: 15}
+	loc := ast.SourceLocation{File: "Needfile", Line: 5, Column: 15}
 	err := NewGlobNoMatchError("*.xyz", loc)
 
 	if err.Code != "E301" {
@@ -42,7 +42,7 @@ func TestNewGlobNoMatchError(t *testing.T) {
 }
 
 func TestNewInvalidFunctionArgumentsError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 2, Column: 20}
+	loc := ast.SourceLocation{File: "Needfile", Line: 2, Column: 20}
 	err := NewInvalidFunctionArgumentsError("basename", "path cannot be empty", loc)
 
 	if err.Code != "E302" {
@@ -57,7 +57,7 @@ func TestNewInvalidFunctionArgumentsError(t *testing.T) {
 }
 
 func TestNewForwardReferenceError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 1, Column: 10}
+	loc := ast.SourceLocation{File: "Needfile", Line: 1, Column: 10}
 	err := NewForwardReferenceError("foo", "bar", loc)
 
 	if err.Code != "E303" {
@@ -72,7 +72,7 @@ func TestNewForwardReferenceError(t *testing.T) {
 }
 
 func TestNewLazyEvaluationError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 4, Column: 1}
+	loc := ast.SourceLocation{File: "Needfile", Line: 4, Column: 1}
 	err := NewLazyEvaluationError("config", "undefined variable 'x'", loc)
 
 	if err.Code != "E304" {
@@ -87,7 +87,7 @@ func TestNewLazyEvaluationError(t *testing.T) {
 }
 
 func TestNewConditionEvaluationError(t *testing.T) {
-	loc := ast.SourceLocation{File: "Buildfile", Line: 6, Column: 4}
+	loc := ast.SourceLocation{File: "Needfile", Line: 6, Column: 4}
 	err := NewConditionEvaluationError("undefined variable 'mode'", loc)
 
 	if err.Code != "E305" {

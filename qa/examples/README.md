@@ -1,6 +1,6 @@
-# Build Tool Test Suite
+# need Test Suite
 
-This directory contains test cases for the `build` tool. Each `.build` file is a complete, self-contained test case.
+This directory contains test cases for the `need` tool. Each `.need` file is a complete, self-contained test case.
 
 ## Test Organization
 
@@ -8,7 +8,7 @@ Tests are organized by number ranges:
 
 | Range | Category | Description |
 |-------|----------|-------------|
-| 001-009 | Minimal/Edge Cases | Minimal buildfiles, empty, single elements |
+| 001-009 | Minimal/Edge Cases | Minimal needfiles, empty, single elements |
 | 010-019 | Directives | Global and recipe-level directives |
 | 020-029 | Variables | Variable assignment, interpolation, modifiers |
 | 030-039 | Functions | Built-in functions (shell, glob, etc.) |
@@ -16,8 +16,8 @@ Tests are organized by number ranges:
 | 050-059 | Recipes | Commands, blocks, automatic variables |
 | 060-069 | Conditionals | if/elif/else, ifdef/ifndef |
 | 070-079 | Environments | Environment definitions and runtimes |
-| 100-119 | Error Cases | Invalid buildfiles that should produce errors |
-| 200-209 | Complex/Integration | Realistic, complex buildfiles |
+| 100-119 | Error Cases | Invalid needfiles that should produce errors |
+| 200-209 | Complex/Integration | Realistic, complex needfiles |
 | 210-219 | Edge Cases | Unusual but valid inputs |
 
 ## File Format
@@ -32,23 +32,23 @@ Each test file includes a header comment with:
 
 To parse/validate all test files:
 ```bash
-for f in qa/examples/*.build; do
+for f in qa/examples/*.need; do
     echo "=== $f ==="
-    build --debug-ast -f "$f" 2>&1 | head -20
+    need --debug-ast -f "$f" 2>&1 | head -20
 done
 ```
 
 To check that valid files parse successfully:
 ```bash
-for f in qa/examples/0*.build qa/examples/2*.build; do
-    build -n -f "$f" 2>&1 || echo "FAIL: $f"
+for f in qa/examples/0*.need qa/examples/2*.need; do
+    need -n -f "$f" 2>&1 || echo "FAIL: $f"
 done
 ```
 
 To verify error cases detect issues:
 ```bash
-for f in qa/examples/1*.build; do
-    if build -n -f "$f" 2>&1 >/dev/null; then
+for f in qa/examples/1*.need; do
+    if need -n -f "$f" 2>&1 >/dev/null; then
         echo "UNEXPECTED SUCCESS: $f"
     else
         echo "OK (expected failure): $f"
@@ -59,7 +59,7 @@ done
 ## Test Categories
 
 ### Minimal/Edge Cases (001-009)
-- Empty buildfiles
+- Empty needfiles
 - Minimal targets
 - Comments only
 
@@ -149,7 +149,7 @@ done
 - Many targets
 - Many variables
 - Phony names with hyphens
-- Shell variables vs build variables
+- Shell variables vs recipe variables
 - Dot paths and hidden files
 - Brace boundary rules
 - Multiple blank lines

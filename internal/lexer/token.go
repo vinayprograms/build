@@ -1,4 +1,4 @@
-// Package lexer implements the lexical analysis phase for Buildfile parsing.
+// Package lexer implements the lexical analysis phase for Needfile parsing.
 package lexer
 
 import "fmt"

@@ -64,7 +64,7 @@ func TestTUIWriter_Error(t *testing.T) {
 		Category: "parse",
 		Code:     "E100",
 		Message:  "syntax error",
-		Location: "Buildfile:10:5",
+		Location: "Needfile:10:5",
 		Hint:     "check syntax",
 	})
 

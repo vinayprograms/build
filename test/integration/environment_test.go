@@ -9,7 +9,7 @@ import (
 func TestBareEnvironmentNoRequirements(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -30,7 +30,7 @@ func TestBareEnvironmentWithSatisfiedRequirements(t *testing.T) {
 	h := NewTestHarness(t)
 
 	// Use common binaries that should exist on any Unix system
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -50,7 +50,7 @@ func TestBareEnvironmentWithSatisfiedRequirements(t *testing.T) {
 func TestCheckEnvBareEnvironmentSatisfied(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -71,7 +71,7 @@ func TestCheckEnvBareEnvironmentSatisfied(t *testing.T) {
 func TestCheckEnvBareEnvironmentMissing(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -91,7 +91,7 @@ func TestCheckEnvBareEnvironmentMissing(t *testing.T) {
 func TestCheckEnvNamedEnvironment(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment: dev
 	.using: bare
@@ -112,7 +112,7 @@ func TestCheckEnvNamedEnvironment(t *testing.T) {
 func TestCheckEnvNoEnvironment(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @test:
 	echo "test"
@@ -128,7 +128,7 @@ func TestCheckEnvNoEnvironment(t *testing.T) {
 func TestCheckEnvWithShowInstall(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -148,7 +148,7 @@ func TestCheckEnvWithShowInstall(t *testing.T) {
 func TestListEnvNoEnvironments(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 @test:
 	echo "test"
@@ -163,7 +163,7 @@ func TestListEnvNoEnvironments(t *testing.T) {
 func TestListEnvSingleDefaultEnvironment(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -184,7 +184,7 @@ func TestListEnvSingleDefaultEnvironment(t *testing.T) {
 func TestListEnvMultipleEnvironments(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -223,7 +223,7 @@ func TestListEnvMultipleEnvironments(t *testing.T) {
 func TestCheckEnvEnvironmentNotFound(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment: dev
 	.using: bare
@@ -241,7 +241,7 @@ func TestCheckEnvEnvironmentNotFound(t *testing.T) {
 func TestCheckEnvRequiresEnvSelection(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment: dev
 	.using: bare
@@ -264,7 +264,7 @@ func TestCheckEnvRequiresEnvSelection(t *testing.T) {
 func TestCheckEnvVerbose(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -288,7 +288,7 @@ func TestBareEnvironmentWithVersionedRequirement(t *testing.T) {
 
 	// Use bash which should exist on any system
 	// Note: version checking is best-effort, not all binaries support --version
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -308,7 +308,7 @@ func TestBareEnvironmentWithVersionedRequirement(t *testing.T) {
 func TestListEnvShowsRequirementCount(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -335,7 +335,7 @@ func TestListEnvShowsRequirementCount(t *testing.T) {
 func TestBuildWithBareEnvironmentSucceeds(t *testing.T) {
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: bash
+	h.WriteFile("Needfile", `.shell: bash
 
 .environment:
 	.using: bare
@@ -379,7 +379,7 @@ func TestDockerEnvironmentCheckEnv(t *testing.T) {
 RUN echo "test"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -401,7 +401,7 @@ func TestDockerEnvironmentCheckEnvMissingDockerfile(t *testing.T) {
 	skipIfNoDocker(t)
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -425,7 +425,7 @@ func TestDockerEnvironmentCheckEnvInvalidDockerfile(t *testing.T) {
 	h.WriteFile("Dockerfile", `RUN echo "no FROM instruction"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -448,7 +448,7 @@ func TestDockerEnvironmentListEnv(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -479,7 +479,7 @@ func TestDockerEnvironmentDryRun(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -502,7 +502,7 @@ func TestDockerEnvironmentVerbose(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -525,7 +525,7 @@ func TestDockerEnvironmentRecipeFailure(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -548,7 +548,7 @@ func TestDockerEnvironmentWithVariables(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: docker
@@ -575,7 +575,7 @@ func TestDockerEnvironmentSourceInSubdirectory(t *testing.T) {
 RUN echo "CI image"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: ci
 	.using: docker
@@ -602,7 +602,7 @@ func TestDockerEnvironmentNamedEnvironmentCheckEnv(t *testing.T) {
 	h.WriteFile("Dockerfile.prod", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: dev
 	.using: docker
@@ -637,7 +637,7 @@ func TestDockerEnvironmentWithArgsInListEnv(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: linux-amd64
 	.using: docker
@@ -662,7 +662,7 @@ func TestDockerEnvironmentNoDefaultWithNamedOnly(t *testing.T) {
 	h.WriteFile("Dockerfile.dev", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: dev
 	.using: docker
@@ -686,7 +686,7 @@ func TestDockerEnvironmentMixedRuntimes(t *testing.T) {
 	h.WriteFile("Dockerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: bare
@@ -732,7 +732,7 @@ func TestPodmanEnvironmentCheckEnv(t *testing.T) {
 RUN echo "test"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -754,7 +754,7 @@ func TestPodmanEnvironmentCheckEnvMissingContainerfile(t *testing.T) {
 	skipIfNoPodman(t)
 	h := NewTestHarness(t)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -778,7 +778,7 @@ func TestPodmanEnvironmentCheckEnvInvalidContainerfile(t *testing.T) {
 	h.WriteFile("Containerfile", `RUN echo "no FROM instruction"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -801,7 +801,7 @@ func TestPodmanEnvironmentListEnv(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -831,7 +831,7 @@ func TestPodmanEnvironmentDryRun(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -854,7 +854,7 @@ func TestPodmanEnvironmentVerbose(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: podman
@@ -879,7 +879,7 @@ func TestPodmanEnvironmentNamedEnvironmentCheckEnv(t *testing.T) {
 	h.WriteFile("Containerfile.prod", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: dev
 	.using: podman
@@ -916,7 +916,7 @@ func TestPodmanEnvironmentSourceInSubdirectory(t *testing.T) {
 RUN echo "CI image"
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: ci
 	.using: podman
@@ -940,7 +940,7 @@ func TestPodmanEnvironmentWithArgsInListEnv(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: linux-amd64
 	.using: podman
@@ -965,7 +965,7 @@ func TestPodmanEnvironmentNoDefaultWithNamedOnly(t *testing.T) {
 	h.WriteFile("Containerfile.dev", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment: dev
 	.using: podman
@@ -989,7 +989,7 @@ func TestPodmanEnvironmentMixedRuntimes(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	h.WriteFile("Buildfile", `.shell: sh
+	h.WriteFile("Needfile", `.shell: sh
 
 .environment:
 	.using: bare
@@ -1025,11 +1025,11 @@ func TestMixedDockerPodmanEnvironments(t *testing.T) {
 	h.WriteFile("Containerfile", `FROM alpine:latest
 `)
 
-	// Build a Buildfile with both Docker and Podman environments
+	// Build a Needfile with both Docker and Podman environments
 	// Note: Only use the available runtime(s)
-	var buildfileContent string
+	var needfileContent string
 	if dockerResult.exitCode == 0 && podmanResult.exitCode == 0 {
-		buildfileContent = `.shell: sh
+		needfileContent = `.shell: sh
 
 .environment: docker-env
 	.using: docker
@@ -1043,7 +1043,7 @@ func TestMixedDockerPodmanEnvironments(t *testing.T) {
 	echo "test"
 `
 	} else if dockerResult.exitCode == 0 {
-		buildfileContent = `.shell: sh
+		needfileContent = `.shell: sh
 
 .environment: docker-env
 	.using: docker
@@ -1053,7 +1053,7 @@ func TestMixedDockerPodmanEnvironments(t *testing.T) {
 	echo "test"
 `
 	} else {
-		buildfileContent = `.shell: sh
+		needfileContent = `.shell: sh
 
 .environment: podman-env
 	.using: podman
@@ -1064,7 +1064,7 @@ func TestMixedDockerPodmanEnvironments(t *testing.T) {
 `
 	}
 
-	h.WriteFile("Buildfile", buildfileContent)
+	h.WriteFile("Needfile", needfileContent)
 
 	result := h.Run("--list-env")
 	result.AssertSuccess().

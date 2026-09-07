@@ -67,12 +67,12 @@ func TestTokenTypeString(t *testing.T) {
 
 func TestSourceLocation(t *testing.T) {
 	loc := SourceLocation{
-		File:   "Buildfile",
+		File:   "Needfile",
 		Line:   10,
 		Column: 5,
 	}
 
-	expected := "Buildfile:10:5"
+	expected := "Needfile:10:5"
 	if got := loc.String(); got != expected {
 		t.Errorf("SourceLocation.String() = %q, want %q", got, expected)
 	}
@@ -80,19 +80,19 @@ func TestSourceLocation(t *testing.T) {
 
 func TestSourceLocationZeroBased(t *testing.T) {
 	loc := SourceLocation{
-		File:   "test.build",
+		File:   "test.need",
 		Line:   1,
 		Column: 1,
 	}
 
-	expected := "test.build:1:1"
+	expected := "test.need:1:1"
 	if got := loc.String(); got != expected {
 		t.Errorf("SourceLocation.String() = %q, want %q", got, expected)
 	}
 }
 
 func TestTokenCreation(t *testing.T) {
-	loc := SourceLocation{File: "Buildfile", Line: 5, Column: 10}
+	loc := SourceLocation{File: "Needfile", Line: 5, Column: 10}
 	tok := Token{
 		Type:     IDENTIFIER,
 		Literal:  "foo",
@@ -121,7 +121,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     IDENTIFIER,
 				Literal:  "foo",
-				Location: SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			},
 			want: "IDENTIFIER(foo)",
 		},
@@ -130,7 +130,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     EOF,
 				Literal:  "",
-				Location: SourceLocation{File: "Buildfile", Line: 10, Column: 1},
+				Location: SourceLocation{File: "Needfile", Line: 10, Column: 1},
 			},
 			want: "EOF",
 		},
@@ -139,7 +139,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     NEWLINE,
 				Literal:  "\n",
-				Location: SourceLocation{File: "Buildfile", Line: 5, Column: 20},
+				Location: SourceLocation{File: "Needfile", Line: 5, Column: 20},
 			},
 			want: "NEWLINE",
 		},
@@ -148,7 +148,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     STRING,
 				Literal:  "hello world",
-				Location: SourceLocation{File: "Buildfile", Line: 3, Column: 5},
+				Location: SourceLocation{File: "Needfile", Line: 3, Column: 5},
 			},
 			want: "STRING(hello world)",
 		},
@@ -157,7 +157,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     DOT_SHELL,
 				Literal:  ".shell",
-				Location: SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			},
 			want: "DOT_SHELL(.shell)",
 		},
@@ -166,7 +166,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     ERROR,
 				Literal:  "unexpected character",
-				Location: SourceLocation{File: "Buildfile", Line: 7, Column: 3},
+				Location: SourceLocation{File: "Needfile", Line: 7, Column: 3},
 			},
 			want: "ERROR(unexpected character)",
 		},
@@ -175,7 +175,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     EQUALS,
 				Literal:  "",
-				Location: SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+				Location: SourceLocation{File: "Needfile", Line: 2, Column: 5},
 			},
 			want: "EQUALS",
 		},
@@ -184,7 +184,7 @@ func TestTokenString(t *testing.T) {
 			token: Token{
 				Type:     INDENT,
 				Literal:  "    ",
-				Location: SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+				Location: SourceLocation{File: "Needfile", Line: 3, Column: 1},
 			},
 			want: "INDENT",
 		},

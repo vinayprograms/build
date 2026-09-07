@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestDirectiveValidation_GlobalScope(t *testing.T) {

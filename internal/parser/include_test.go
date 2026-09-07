@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestParser_ParseInclude_Simple(t *testing.T) {
@@ -18,7 +18,7 @@ func TestParser_ParseInclude_Simple(t *testing.T) {
 	includedContent := `cc = gcc
 cflags = -Wall
 `
-	includedPath := filepath.Join(tmpDir, "common.build")
+	includedPath := filepath.Join(tmpDir, "common.need")
 	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
@@ -28,7 +28,7 @@ cflags = -Wall
 binary = app
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	// Parse include directive
@@ -75,7 +75,7 @@ func TestParser_ParseInclude_WithInterpolation(t *testing.T) {
 	// Create included file
 	includedContent := `extra_flags = -O2
 `
-	includedPath := filepath.Join(tmpDir, "extra.build")
+	includedPath := filepath.Join(tmpDir, "extra.need")
 	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestParser_ParseInclude_WithInterpolation(t *testing.T) {
 	mainContent := `.include: ` + includedPath + `
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	directive, _, err := p.ParseInclude()
@@ -101,10 +101,10 @@ func TestParser_ParseInclude_WithInterpolation(t *testing.T) {
 }
 
 func TestParser_ParseInclude_FileNotFound(t *testing.T) {
-	mainContent := `.include: /nonexistent/path/file.build
+	mainContent := `.include: /nonexistent/path/file.need
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	_, _, err := p.ParseInclude()
@@ -118,8 +118,8 @@ func TestParser_ParseInclude_CircularInclude(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create file A that includes file B
-	fileAPath := filepath.Join(tmpDir, "a.build")
-	fileBPath := filepath.Join(tmpDir, "b.build")
+	fileAPath := filepath.Join(tmpDir, "a.need")
+	fileBPath := filepath.Join(tmpDir, "b.need")
 
 	fileAContent := `.include: ` + fileBPath + `
 varA = value
@@ -152,8 +152,8 @@ func TestParser_ParseInclude_NestedInclude(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create nested include chain: main -> common -> base
-	basePath := filepath.Join(tmpDir, "base.build")
-	commonPath := filepath.Join(tmpDir, "common.build")
+	basePath := filepath.Join(tmpDir, "base.need")
+	commonPath := filepath.Join(tmpDir, "common.need")
 
 	baseContent := `base_var = base_value
 `
@@ -172,7 +172,7 @@ common_var = common_value
 main_var = main_value
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	directive, statements, err := p.ParseInclude()
@@ -185,8 +185,8 @@ main_var = main_value
 	}
 
 	// Should have statements from both common and base files
-	// base.build: base_var
-	// common.build: .include (processed), common_var
+	// base.need: base_var
+	// common.need: .include (processed), common_var
 	// So we expect: base_var, common_var
 	if len(statements) < 2 {
 		t.Fatalf("expected at least 2 statements from nested includes, got %d", len(statements))
@@ -221,14 +221,14 @@ func TestParser_ParseInclude_RelativePath(t *testing.T) {
 	// Create included file
 	includedContent := `rel_var = value
 `
-	includedPath := filepath.Join(tmpDir, "included.build")
+	includedPath := filepath.Join(tmpDir, "included.need")
 	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
 
 	// Create main file in same directory
-	mainPath := filepath.Join(tmpDir, "main.build")
-	mainContent := `.include: ./included.build
+	mainPath := filepath.Join(tmpDir, "main.need")
+	mainContent := `.include: ./included.need
 `
 	if err := os.WriteFile(mainPath, []byte(mainContent), 0644); err != nil {
 		t.Fatalf("failed to create main file: %v", err)
@@ -263,7 +263,7 @@ func TestParser_ParseInclude_SourceLocation(t *testing.T) {
 	// Create included file
 	includedContent := `inc_var = value
 `
-	includedPath := filepath.Join(tmpDir, "inc.build")
+	includedPath := filepath.Join(tmpDir, "inc.need")
 	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestParser_ParseInclude_SourceLocation(t *testing.T) {
 	mainContent := `.include: ` + includedPath + `
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	directive, _, err := p.ParseInclude()
@@ -280,8 +280,8 @@ func TestParser_ParseInclude_SourceLocation(t *testing.T) {
 	}
 
 	// Check directive location is in main file
-	if directive.Location.File != "main.build" {
-		t.Errorf("directive location file = %q, want %q", directive.Location.File, "main.build")
+	if directive.Location.File != "main.need" {
+		t.Errorf("directive location file = %q, want %q", directive.Location.File, "main.need")
 	}
 	if directive.Location.Line != 1 {
 		t.Errorf("directive location line = %d, want %d", directive.Location.Line, 1)
@@ -293,7 +293,7 @@ func TestParser_ParseInclude_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create empty included file
-	includedPath := filepath.Join(tmpDir, "empty.build")
+	includedPath := filepath.Join(tmpDir, "empty.need")
 	if err := os.WriteFile(includedPath, []byte(""), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
@@ -301,7 +301,7 @@ func TestParser_ParseInclude_EmptyFile(t *testing.T) {
 	mainContent := `.include: ` + includedPath + `
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	directive, statements, err := p.ParseInclude()
@@ -325,7 +325,7 @@ func TestParser_ParseInclude_EmptyFile(t *testing.T) {
 func TestParser_ParseInclude_Interpolation(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	includedPath := filepath.Join(tmpDir, "sub", "extra.build")
+	includedPath := filepath.Join(tmpDir, "sub", "extra.need")
 	if err := os.MkdirAll(filepath.Dir(includedPath), 0755); err != nil {
 		t.Fatalf("failed to create sub dir: %v", err)
 	}
@@ -333,15 +333,15 @@ func TestParser_ParseInclude_Interpolation(t *testing.T) {
 		t.Fatalf("failed to create included file: %v", err)
 	}
 
-	mainPath := filepath.Join(tmpDir, "main.build")
+	mainPath := filepath.Join(tmpDir, "main.need")
 	mainContent := "config_dir = sub\n" +
-		"config_file = {config_dir}/extra.build\n" +
+		"config_file = {config_dir}/extra.need\n" +
 		".include: {config_file}\n"
 
 	l := lexer.New(mainPath, mainContent)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 	if errs.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", errs.Errors)
 	}
@@ -361,12 +361,12 @@ func TestParser_ParseInclude_Interpolation(t *testing.T) {
 // undefined variable in a .include: path is a parse error naming the
 // directive and the variable.
 func TestParser_ParseInclude_InterpolationUndefined(t *testing.T) {
-	mainContent := ".include: {nope}/x.build\n"
+	mainContent := ".include: {nope}/x.need\n"
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 	if !errs.HasErrors() {
 		t.Fatal("expected a parse error for undefined variable in .include: path")
 	}
@@ -380,12 +380,12 @@ func TestParser_ParseInclude_InterpolationUndefined(t *testing.T) {
 // cannot be used in a .include: path (it isn't resolved at parse time).
 func TestParser_ParseInclude_InterpolationLazy(t *testing.T) {
 	mainContent := "lazy config_dir = shell(echo sub)\n" +
-		".include: {config_dir}/x.build\n"
+		".include: {config_dir}/x.need\n"
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 	if !errs.HasErrors() {
 		t.Fatal("expected a parse error for lazy variable in .include: path")
 	}
@@ -398,12 +398,12 @@ func TestParser_ParseInclude_InterpolationLazy(t *testing.T) {
 // TestParser_ParseInclude_InterpolationAutomatic covers C1: automatic
 // variables are never resolvable in a .include: path.
 func TestParser_ParseInclude_InterpolationAutomatic(t *testing.T) {
-	mainContent := ".include: {target}/x.build\n"
+	mainContent := ".include: {target}/x.need\n"
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 	if !errs.HasErrors() {
 		t.Fatal("expected a parse error for automatic variable in .include: path")
 	}
@@ -422,7 +422,7 @@ func TestParser_ParseInclude_WithComments(t *testing.T) {
 comment_var = value
 # Another comment
 `
-	includedPath := filepath.Join(tmpDir, "comments.build")
+	includedPath := filepath.Join(tmpDir, "comments.need")
 	if err := os.WriteFile(includedPath, []byte(includedContent), 0644); err != nil {
 		t.Fatalf("failed to create included file: %v", err)
 	}
@@ -430,7 +430,7 @@ comment_var = value
 	mainContent := `.include: ` + includedPath + `
 `
 
-	l := lexer.New("main.build", mainContent)
+	l := lexer.New("main.need", mainContent)
 	p := New(l)
 
 	_, statements, err := p.ParseInclude()

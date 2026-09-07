@@ -3,8 +3,8 @@ package executor
 import (
 	"sync"
 
-	"github.com/vinayprograms/build/internal/eval"
-	"github.com/vinayprograms/build/internal/planner"
+	"github.com/vinayprograms/need/internal/eval"
+	"github.com/vinayprograms/need/internal/planner"
 )
 
 // TaskResult represents the result of executing a single build task.
@@ -45,7 +45,7 @@ func NewScheduler(executor *Executor, numWorkers int) *Scheduler {
 //
 // Parameters:
 //   - cliJobs: value from -j flag (default is 1)
-//   - parallelDirective: value from .parallel: directive in Buildfile (0 if not set)
+//   - parallelDirective: value from .parallel: directive in Needfile (0 if not set)
 //
 // Returns the number of workers to use, minimum 1.
 func ResolveWorkerCount(cliJobs, parallelDirective int) int {

@@ -3,7 +3,7 @@ package errors
 import (
 	"fmt"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Evaluation Error Codes (E300-E399)

@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestParser_ParseVariable_Simple(t *testing.T) {
@@ -60,7 +60,7 @@ func TestParser_ParseVariable_Simple(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -122,7 +122,7 @@ func TestParser_ParseVariable_WithInterpolation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -206,7 +206,7 @@ func TestParser_ParseVariable_WithFunctionCall(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -240,7 +240,7 @@ func TestParser_ParseVariable_WithFunctionCall(t *testing.T) {
 
 func TestParser_ParseVariable_WithInterpolationInFunction(t *testing.T) {
 	input := "sources = shell(find {src_dir} -name *.c)"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	v, err := p.ParseVariable()
@@ -298,7 +298,7 @@ func TestParser_ParseVariable_EscapedBraces(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -329,7 +329,7 @@ func TestParser_ParseVariable_EscapedBraces(t *testing.T) {
 
 func TestParser_ParseVariable_SourceLocation(t *testing.T) {
 	input := "cc = gcc"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	v, err := p.ParseVariable()
@@ -337,8 +337,8 @@ func TestParser_ParseVariable_SourceLocation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if v.Location.File != "test.build" {
-		t.Errorf("Location.File = %q, want %q", v.Location.File, "test.build")
+	if v.Location.File != "test.need" {
+		t.Errorf("Location.File = %q, want %q", v.Location.File, "test.need")
 	}
 	if v.Location.Line != 1 {
 		t.Errorf("Location.Line = %d, want %d", v.Location.Line, 1)
@@ -350,7 +350,7 @@ func TestParser_ParseVariable_SourceLocation(t *testing.T) {
 
 func TestParser_ParseVariable_Error_MissingEquals(t *testing.T) {
 	input := "cc gcc"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	_, err := p.ParseVariable()
@@ -362,7 +362,7 @@ func TestParser_ParseVariable_Error_MissingEquals(t *testing.T) {
 func TestParser_ParseVariable_Error_MissingIdentifier(t *testing.T) {
 	// Start with equals - should error on missing identifier
 	input := "= gcc"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	_, err := p.ParseVariable()
@@ -374,7 +374,7 @@ func TestParser_ParseVariable_Error_MissingIdentifier(t *testing.T) {
 func TestParser_ParseValue_Empty(t *testing.T) {
 	// Test parsing empty value (just newline)
 	input := "\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	v := p.ParseValue()
@@ -386,7 +386,7 @@ func TestParser_ParseValue_Empty(t *testing.T) {
 func TestParser_ParseValue_WithComment(t *testing.T) {
 	// Value parsing should stop at comment
 	input := "gcc # this is a comment"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	v := p.ParseValue()
@@ -435,7 +435,7 @@ func TestParser_ParseInterpolation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Wrap in assignment to get proper value parsing context
 			input := "x = " + tt.input
-			l := lexer.New("test.build", input)
+			l := lexer.New("test.need", input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -505,7 +505,7 @@ func TestParser_ParseFunctionCall(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Wrap in assignment
 			input := "x = " + tt.input
-			l := lexer.New("test.build", input)
+			l := lexer.New("test.need", input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -567,7 +567,7 @@ func TestParser_ParseFunctionCall_NestedParentheses(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := "x = " + tt.input
-			l := lexer.New("test.build", input)
+			l := lexer.New("test.need", input)
 			p := New(l)
 
 			v, err := p.ParseVariable()
@@ -610,7 +610,7 @@ func TestParser_ParseFunctionCall_NestedParentheses(t *testing.T) {
 
 func TestParser_ParseFunctionCall_ReplaceWithMultipleArgs(t *testing.T) {
 	input := "objs = replace({sources}, .c, .o)"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	v, err := p.ParseVariable()
@@ -690,10 +690,10 @@ func contains(s, substr string) bool {
 // lexer's diagnostic message, not be silently absorbed as literal text.
 func TestParser_ParseValue_UnclosedInterpolation(t *testing.T) {
 	input := "msg = hello {world\n"
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 	if !errs.HasErrors() {
 		t.Fatal("expected a parse error for unclosed interpolation, got none")
 	}

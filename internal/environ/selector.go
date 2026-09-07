@@ -1,7 +1,7 @@
 package environ
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // EnvironmentSelector handles selection of the appropriate build environment.
@@ -14,7 +14,7 @@ func NewEnvironmentSelector() *EnvironmentSelector {
 
 // Select selects an environment based on the following priority:
 // 1. --env flag (envFlagValue)
-// 2. BUILD_ENV environment variable (buildEnvValue)
+// 2. NEED_ENV environment variable (buildEnvValue)
 // 3. Unnamed (default) environment
 //
 // Returns nil if there are no environments defined (bare environment).
@@ -47,7 +47,7 @@ func (s *EnvironmentSelector) Select(envs []*ast.Environment, envFlagValue, buil
 		return nil, &EnvironmentNotFoundError{Name: envFlagValue}
 	}
 
-	// Priority 2: BUILD_ENV environment variable
+	// Priority 2: NEED_ENV environment variable
 	if buildEnvValue != "" {
 		if env, ok := byName[buildEnvValue]; ok {
 			return env, nil

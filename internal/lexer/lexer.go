@@ -16,7 +16,7 @@ const (
 	ModeCommand
 )
 
-// Lexer performs lexical analysis on Buildfile source code.
+// Lexer performs lexical analysis on Needfile source code.
 type Lexer struct {
 	file   string // Source file name
 	input  string // Input source

@@ -1,0 +1,11 @@
+# Test: Include directive - with variable
+# Expected: Should include the file using the interpolated path
+# Category: Directives
+# Description: Tests variable in .include path
+
+config_dir = .
+.include: {config_dir}/015a_common.need
+
+@test:
+    echo "Shared: {shared_var}"
+    echo "CC: {shared_cc}"

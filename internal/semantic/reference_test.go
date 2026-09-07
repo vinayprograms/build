@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file contains tests for Pass 3: Reference Validation.
 package semantic
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ----------------------------------------------------------------------------
@@ -20,7 +20,7 @@ func TestValidateReferences_DefinedVariable(t *testing.T) {
 	_ = st.AddVariable(&ast.Variable{
 		Name:     "cc",
 		Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "gcc"}}},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	})
 
 	// Variable value that references cc
@@ -31,12 +31,12 @@ func TestValidateReferences_DefinedVariable(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "cc",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 10},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 10},
 					},
 					&ast.LiteralValue{Text: " -Wall"},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 	}
 
@@ -57,11 +57,11 @@ func TestValidateReferences_UndefinedVariable(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "undefined_var",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 10},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 10},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -95,16 +95,16 @@ func TestValidateReferences_BuiltinVariable(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "os",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 12},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 12},
 					},
 					&ast.LiteralValue{Text: "-"},
 					&ast.Interpolation{
 						Name:     "arch",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 20},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 20},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -121,7 +121,7 @@ func TestValidateReferences_ConditionalVariable(t *testing.T) {
 		Variable: &ast.Variable{
 			Name:     "cc",
 			Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "gcc"}}},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 		BranchType:  "if",
 		BranchIndex: -1,
@@ -134,11 +134,11 @@ func TestValidateReferences_ConditionalVariable(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "cc",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10},
+						Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 10},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 1},
 		},
 	}
 
@@ -163,11 +163,11 @@ func TestValidateReferences_AutomaticInVariableValue(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "target",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 10},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 10},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -206,20 +206,20 @@ func TestValidateReferences_AutomaticInRecipe(t *testing.T) {
 						&ast.LiteralCommand{Text: "gcc -o "},
 						&ast.CommandInterpolation{
 							Name:     "target",
-							Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 12},
+							Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 12},
 						},
 						&ast.LiteralCommand{Text: " "},
 						&ast.CommandInterpolation{
 							Name:     "deps",
-							Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 22},
+							Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 22},
 						},
 					},
-					Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 5},
+					Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 5},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	_ = st.AddTarget(target)
@@ -252,15 +252,15 @@ func TestValidateReferences_AllAutomaticVariables(t *testing.T) {
 								&ast.LiteralCommand{Text: "echo "},
 								&ast.CommandInterpolation{
 									Name:     varName,
-									Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 10},
+									Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 10},
 								},
 							},
-							Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+							Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 						},
 					},
-					Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+					Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 				},
-				Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+				Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 			}
 
 			_ = st.AddTarget(target)
@@ -289,11 +289,11 @@ func TestValidateReferences_AutomaticOutsideRecipe_AllVars(t *testing.T) {
 						Parts: []ast.ValuePart{
 							&ast.Interpolation{
 								Name:     varName,
-								Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 10},
+								Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 10},
 							},
 						},
 					},
-					Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+					Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 				},
 			}
 
@@ -326,14 +326,14 @@ func TestValidateReferences_CaptureInRecipe(t *testing.T) {
 		Pattern: ast.TargetPattern{
 			Segments: []ast.PatternSegment{
 				&ast.LiteralSegment{Text: "build/"},
-				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 7}},
+				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 7}},
 				&ast.LiteralSegment{Text: ".o"},
 			},
 		},
 		Dependencies: []ast.Dependency{
 			{Segments: []ast.PatternSegment{
 				&ast.LiteralSegment{Text: "src/"},
-				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 20}},
+				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 20}},
 				&ast.LiteralSegment{Text: ".c"},
 			}},
 		},
@@ -344,21 +344,21 @@ func TestValidateReferences_CaptureInRecipe(t *testing.T) {
 						&ast.LiteralCommand{Text: "gcc -c "},
 						&ast.CommandInterpolation{
 							Name:     "in",
-							Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 12},
+							Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 12},
 						},
 						&ast.LiteralCommand{Text: " -o build/"},
 						&ast.CommandInterpolation{
 							Name:     "name",
-							Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 28},
+							Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 28},
 						},
 						&ast.LiteralCommand{Text: ".o"},
 					},
-					Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 5},
+					Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 5},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	_ = st.AddTarget(target)
@@ -385,11 +385,11 @@ func TestValidateReferences_CaptureOutsideRecipe(t *testing.T) {
 		Pattern: ast.TargetPattern{
 			Segments: []ast.PatternSegment{
 				&ast.LiteralSegment{Text: "build/"},
-				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 7}},
+				&ast.BraceExpr{Identifier: "name", Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 7}},
 				&ast.LiteralSegment{Text: ".o"},
 			},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 	_ = st.AddTarget(target)
 
@@ -402,11 +402,11 @@ func TestValidateReferences_CaptureOutsideRecipe(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "name", // "name" is a capture, not a variable
-						Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 10},
+						Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 10},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 1},
 		},
 	}
 
@@ -436,7 +436,7 @@ func TestValidateReferences_DirectiveValue(t *testing.T) {
 	_ = st.AddVariable(&ast.Variable{
 		Name:     "default_target",
 		Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "all"}}},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	})
 
 	stmts := []ast.Statement{
@@ -446,11 +446,11 @@ func TestValidateReferences_DirectiveValue(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "default_target",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 12},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 12},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 	}
 
@@ -470,11 +470,11 @@ func TestValidateReferences_DirectiveUndefinedVariable(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "undefined",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 12},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 12},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -493,7 +493,7 @@ func TestValidateReferences_FunctionArgument(t *testing.T) {
 	_ = st.AddVariable(&ast.Variable{
 		Name:     "src_dir",
 		Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "src"}}},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	})
 
 	stmts := []ast.Statement{
@@ -508,17 +508,17 @@ func TestValidateReferences_FunctionArgument(t *testing.T) {
 								Parts: []ast.ValuePart{
 									&ast.Interpolation{
 										Name:     "src_dir",
-										Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 20},
+										Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 20},
 									},
 									&ast.LiteralValue{Text: "/*.c"},
 								},
 							},
 						},
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 12},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 12},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 	}
 
@@ -543,17 +543,17 @@ func TestValidateReferences_FunctionUndefinedArgument(t *testing.T) {
 								Parts: []ast.ValuePart{
 									&ast.Interpolation{
 										Name:     "undefined_dir",
-										Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 20},
+										Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 20},
 									},
 									&ast.LiteralValue{Text: "/*.c"},
 								},
 							},
 						},
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 12},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 12},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -588,7 +588,7 @@ func TestValidateReferences_ConditionalCondition(t *testing.T) {
 						Parts: []ast.ValuePart{
 							&ast.Interpolation{
 								Name:     "os",
-								Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5},
+								Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 5},
 							},
 						},
 					},
@@ -600,7 +600,7 @@ func TestValidateReferences_ConditionalCondition(t *testing.T) {
 				},
 				Body: []ast.Statement{},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -621,7 +621,7 @@ func TestValidateReferences_ConditionalUndefinedCondition(t *testing.T) {
 						Parts: []ast.ValuePart{
 							&ast.Interpolation{
 								Name:     "undefined_var",
-								Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5},
+								Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 5},
 							},
 						},
 					},
@@ -633,7 +633,7 @@ func TestValidateReferences_ConditionalUndefinedCondition(t *testing.T) {
 				},
 				Body: []ast.Statement{},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -655,7 +655,7 @@ func TestValidateReferences_ConditionalBody(t *testing.T) {
 						Parts: []ast.ValuePart{
 							&ast.Interpolation{
 								Name:     "os",
-								Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5},
+								Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 5},
 							},
 						},
 					},
@@ -672,15 +672,15 @@ func TestValidateReferences_ConditionalBody(t *testing.T) {
 							Parts: []ast.ValuePart{
 								&ast.Interpolation{
 									Name:     "undefined",
-									Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 12},
+									Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 12},
 								},
 							},
 						},
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -699,7 +699,7 @@ func TestValidateReferences_EnvironmentSource(t *testing.T) {
 	_ = st.AddVariable(&ast.Variable{
 		Name:     "docker_dir",
 		Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: ".docker"}}},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	})
 
 	envName := "ci"
@@ -712,12 +712,12 @@ func TestValidateReferences_EnvironmentSource(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "docker_dir",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 13},
+						Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 13},
 					},
 					&ast.LiteralValue{Text: "/Dockerfile"},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 	}
 
@@ -740,12 +740,12 @@ func TestValidateReferences_EnvironmentUndefinedSource(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "undefined_dir",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 13},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 13},
 					},
 					&ast.LiteralValue{Text: "/Dockerfile"},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 	}
 
@@ -764,7 +764,7 @@ func TestValidateReferences_RecipeShellDirective(t *testing.T) {
 	_ = st.AddVariable(&ast.Variable{
 		Name:     "shell_path",
 		Value:    &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: "/bin/bash"}}},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	})
 
 	target := &ast.Target{
@@ -780,15 +780,15 @@ func TestValidateReferences_RecipeShellDirective(t *testing.T) {
 					Parts: []ast.ValuePart{
 						&ast.Interpolation{
 							Name:     "shell_path",
-							Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 12},
+							Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 12},
 						},
 					},
 				},
 			},
 			Commands: []ast.Command{},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 	}
 
 	_ = st.AddTarget(target)
@@ -821,7 +821,7 @@ func TestValidateReferences_BlockCommand(t *testing.T) {
 							&ast.LiteralCommand{Text: "if [[ -f "},
 							&ast.CommandInterpolation{
 								Name:     "target",
-								Location: ast.SourceLocation{File: "Buildfile", Line: 4, Column: 15},
+								Location: ast.SourceLocation{File: "Needfile", Line: 4, Column: 15},
 							},
 							&ast.LiteralCommand{Text: " ]]; then"},
 						},
@@ -829,19 +829,19 @@ func TestValidateReferences_BlockCommand(t *testing.T) {
 							&ast.LiteralCommand{Text: "    rm "},
 							&ast.CommandInterpolation{
 								Name:     "target",
-								Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 12},
+								Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 12},
 							},
 						},
 						{
 							&ast.LiteralCommand{Text: "fi"},
 						},
 					},
-					Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 5},
+					Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 5},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 		},
-		Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+		Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 	}
 
 	_ = st.AddTarget(target)
@@ -867,11 +867,11 @@ func TestValidateReferences_MultipleErrors(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "undefined1",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 5},
+						Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 5},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 1, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 1, Column: 1},
 		},
 		&ast.Variable{
 			Name: "b",
@@ -879,11 +879,11 @@ func TestValidateReferences_MultipleErrors(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "undefined2",
-						Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 5},
+						Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 5},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 2, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 2, Column: 1},
 		},
 		&ast.Variable{
 			Name: "c",
@@ -891,11 +891,11 @@ func TestValidateReferences_MultipleErrors(t *testing.T) {
 				Parts: []ast.ValuePart{
 					&ast.Interpolation{
 						Name:     "target", // automatic outside recipe
-						Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 5},
+						Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 5},
 					},
 				},
 			},
-			Location: ast.SourceLocation{File: "Buildfile", Line: 3, Column: 1},
+			Location: ast.SourceLocation{File: "Needfile", Line: 3, Column: 1},
 		},
 	}
 
@@ -916,7 +916,7 @@ func TestValidateReferences_MultipleErrors(t *testing.T) {
 func TestUndefinedVariableError_Error(t *testing.T) {
 	err := &UndefinedVariableError{
 		Name:     "foo",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 10, Column: 5},
+		Location: ast.SourceLocation{File: "Needfile", Line: 10, Column: 5},
 	}
 
 	msg := err.Error()
@@ -926,7 +926,7 @@ func TestUndefinedVariableError_Error(t *testing.T) {
 	if !strings.Contains(msg, "'foo'") {
 		t.Errorf("expected variable name in message, got: %s", msg)
 	}
-	if !strings.Contains(msg, "Buildfile:10:5") {
+	if !strings.Contains(msg, "Needfile:10:5") {
 		t.Errorf("expected location in message, got: %s", msg)
 	}
 }
@@ -934,7 +934,7 @@ func TestUndefinedVariableError_Error(t *testing.T) {
 func TestAutomaticOutsideRecipeError_Error(t *testing.T) {
 	err := &AutomaticOutsideRecipeError{
 		Name:     "target",
-		Location: ast.SourceLocation{File: "Buildfile", Line: 5, Column: 10},
+		Location: ast.SourceLocation{File: "Needfile", Line: 5, Column: 10},
 	}
 
 	msg := err.Error()

@@ -1,12 +1,12 @@
-# Migrating from Make to Buildfile
+# Migrating from Make to Needfile
 
-This guide helps you convert existing Makefiles to Buildfile format. Buildfile preserves Make's powerful dependency-driven build model while providing cleaner, more readable syntax.
+This guide helps you convert existing Makefiles to Needfile format. Needfile preserves Make's powerful dependency-driven build model while providing cleaner, more readable syntax.
 
 ---
 
 ## Quick Reference
 
-| Make | Buildfile | Notes |
+| Make | Needfile | Notes |
 |------|-----------|-------|
 | `CC = gcc` | `cc = gcc` | Lowercase convention |
 | `$(CC)` | `{cc}` | Braces instead of parens |
@@ -19,7 +19,7 @@ This guide helps you convert existing Makefiles to Buildfile format. Buildfile p
 | `.PHONY: clean` | `@clean:` | `@` prefix for phony |
 | `%.o: %.c` | `{name}.o: {name}.c` | Named captures |
 | Tab indentation | Any consistent indent | Spaces recommended |
-| `include file.mk` | `.include: file.build` | Directive syntax |
+| `include file.mk` | `.include: file.need` | Directive syntax |
 | `ifeq ($(OS),Linux)` | `if {os} == linux` | Simpler conditionals |
 | `$(shell cmd)` | `shell(cmd)` | Function syntax |
 | `$(wildcard *.c)` | `glob(*.c)` | File patterns |
@@ -37,7 +37,7 @@ CFLAGS = -Wall -O2
 SRC_DIR = src
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 cc = gcc
 cflags = -Wall -O2
@@ -58,7 +58,7 @@ build/app: $(OBJECTS)
 	$(CC) $(CFLAGS) -o $@ $^
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 objects = replace({sources}, .c, .o)
 build/app: {objects}
@@ -81,7 +81,7 @@ FLAGS = $(EXTRA_FLAGS) -Wall
 FLAGS := $(EXTRA_FLAGS) -Wall
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 # Immediate (default)
 flags = {extra_flags} -Wall
@@ -90,7 +90,7 @@ flags = {extra_flags} -Wall
 lazy flags = {extra_flags} -Wall
 ```
 
-**Key difference:** Buildfile defaults to immediate evaluation. Use `lazy` keyword when you need deferred evaluation.
+**Key difference:** Needfile defaults to immediate evaluation. Use `lazy` keyword when you need deferred evaluation.
 
 ---
 
@@ -104,7 +104,7 @@ build/app: build/main.o build/utils.o
 	gcc -o $@ $^
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 build/app: build/main.o build/utils.o
     gcc -o {target} {deps}
@@ -121,7 +121,7 @@ build/%.o: src/%.c
 	$(CC) -c $< -o $@
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 {name}.o: {name}.c
     {cc} -c {in} -o {out}
@@ -150,7 +150,7 @@ test: build/app
 	./build/app --test
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 @all: build/app
 
@@ -174,7 +174,7 @@ build/app: build/main.o | build
 	gcc -o $@ $<
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 build/:
     mkdir -p {target}
@@ -192,7 +192,7 @@ build/app: build/main.o
 
 ## Automatic Variables
 
-| Make | Buildfile | Description |
+| Make | Needfile | Description |
 |------|-----------|-------------|
 | `$@` | `{target}` | Target being built |
 | `$@` | `{out}` | Alias for target |
@@ -210,7 +210,7 @@ build/%.o: src/%.c
 	@echo "Stem: $*"
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 build/{name}.o: src/{name}.c
     echo "Compiling {in} to {out}"
@@ -231,14 +231,14 @@ clean:
 	@echo "Cleaned"
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 @clean:
     rm -rf build/
     echo "Cleaned"
 ```
 
-**Key difference:** No `@` prefix needed to suppress echo — Buildfile doesn't echo commands by default. Use `--verbose` flag to see commands.
+**Key difference:** No `@` prefix needed to suppress echo — Needfile doesn't echo commands by default. Use `--verbose` flag to see commands.
 
 ### Multi-line Scripts
 
@@ -251,7 +251,7 @@ deploy:
 	./deploy.sh
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 @deploy:
     block:
@@ -273,7 +273,7 @@ target:
 	[[ -f file ]] && echo "exists"
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 .shell: bash
 
@@ -301,7 +301,7 @@ GIT_COMMIT := $(shell git rev-parse HEAD)
 SOURCES := $(shell find src -name "*.c")
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 git_commit = shell(git rev-parse HEAD)
 sources = shell(find src -name "*.c")
@@ -315,7 +315,7 @@ SOURCES := $(wildcard src/*.c)
 HEADERS := $(wildcard include/*.h)
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 sources = glob(src/*.c)
 headers = glob(include/*.h)
@@ -329,7 +329,7 @@ BASENAME := $(basename src/main.c)
 DIRNAME := $(dir src/main.c)
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 base = filename(src/main.c)
 dir = dirname(src/main.c)
@@ -343,7 +343,7 @@ OBJECTS := $(SOURCES:.c=.o)
 OBJECTS := $(patsubst %.c,%.o,$(SOURCES))
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 objects = replace({sources}, .c, .o)
 ```
@@ -375,7 +375,7 @@ else
 endif
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 if {os} == linux
     ldflags = -lpthread
@@ -408,7 +408,7 @@ ifndef CC
 endif
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 ifdef DEBUG
     cflags = -g -O0
@@ -432,10 +432,10 @@ include rules.mk
 -include optional.mk
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
-.include: config.build
-.include: rules.build
+.include: config.need
+.include: rules.need
 ```
 
 **Key differences:**
@@ -478,7 +478,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 cc = gcc
 cflags = -Wall -O2
@@ -522,7 +522,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 -include $(OBJECTS:.o=.d)
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 {build_dir}/{name}.o: {src_dir}/{name}.c
     .autodeps: {build_dir}/{name}.d
@@ -544,7 +544,7 @@ else
 endif
 ```
 
-**Buildfile:**
+**Needfile:**
 ```
 ifdef DEBUG
     cflags = -g -O0 -DDEBUG
@@ -571,7 +571,7 @@ And set variables based on environment selection in your build logic.
 
 ## What's Different
 
-### Things Buildfile Does Differently
+### Things Needfile Does Differently
 
 1. **No tab requirement** — Use any consistent indentation
 2. **Readable automatic variables** — `{target}` not `$@`
@@ -581,7 +581,7 @@ And set variables based on environment selection in your build logic.
 6. **Block mode for multi-line scripts** — `block:` keyword
 7. **Environment management** — Docker, Podman, Nix, etc.
 
-### Things Make Has That Buildfile Doesn't
+### Things Make Has That Needfile Doesn't
 
 1. **Automatic inference rules** — Define patterns explicitly
 2. **VPATH** — Use explicit path patterns
@@ -619,5 +619,5 @@ And set variables based on environment selection in your build logic.
 ## Getting Help
 
 - Run `build --help` for command-line options
-- See `BUILDFILE_SPEC.md` for complete language specification
+- See `NEEDFILE_SPEC.md` for complete language specification
 - Check examples in the `test/integration/fixtures/` directory

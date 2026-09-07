@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file contains tests for Pass 1: Symbol Collection.
 package semantic
@@ -6,24 +6,24 @@ package semantic
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
-	"github.com/vinayprograms/build/internal/parser"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
+	"github.com/vinayprograms/need/internal/parser"
 )
 
-// Helper to parse a buildfile for testing.
-func parseBuildfile(t *testing.T, content string) []ast.Statement {
+// Helper to parse a needfile for testing.
+func parseNeedfile(t *testing.T, content string) []ast.Statement {
 	t.Helper()
-	l := lexer.New("test.build", content)
+	l := lexer.New("test.need", content)
 	p := parser.New(l)
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 	if errs.HasErrors() {
 		t.Fatalf("Parse error: %s", errs.Error())
 	}
 	return stmts
 }
 
-// TestCollector_Basic tests basic symbol collection from a buildfile.
+// TestCollector_Basic tests basic symbol collection from a needfile.
 func TestCollector_Basic(t *testing.T) {
 	content := `cc = gcc
 cflags = -Wall
@@ -34,7 +34,7 @@ cflags = -Wall
 .environment: ci
     .using: docker
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -73,7 +73,7 @@ func TestCollector_DuplicateVariable(t *testing.T) {
 cflags = -Wall
 cc = clang
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	errs := result.Errors
@@ -102,7 +102,7 @@ func TestCollector_DuplicateTarget(t *testing.T) {
 @build:
     echo building again
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	errs := result.Errors
@@ -128,7 +128,7 @@ func TestCollector_DuplicateEnvironment(t *testing.T) {
 .environment: ci
     .using: podman
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	errs := result.Errors
@@ -157,7 +157,7 @@ func TestCollector_DuplicateDefaultEnvironment(t *testing.T) {
 .environment:
     .using: podman
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	errs := result.Errors
@@ -188,7 +188,7 @@ else
 cc = cc
 end
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -236,7 +236,7 @@ func TestCollector_NestedConditionals(t *testing.T) {
     cc = gcc
 end
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -264,7 +264,7 @@ func TestCollector_MultipleTargets(t *testing.T) {
 @clean:
     rm -rf build/
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -285,7 +285,7 @@ func TestCollector_PatternTargets(t *testing.T) {
 build/{name}.a: build/{name}.o
     ar rcs {out} {in}
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -309,7 +309,7 @@ cc = clang
 @build:
     echo again
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	errs := result.Errors
@@ -323,7 +323,7 @@ func TestCollector_LazyVariables(t *testing.T) {
 	content := `lazy sources = shell(find src -name *.c)
 objects = {sources}
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -342,10 +342,10 @@ objects = {sources}
 	}
 }
 
-// TestCollector_EmptyBuildfile tests handling of empty buildfile.
-func TestCollector_EmptyBuildfile(t *testing.T) {
+// TestCollector_EmptyNeedfile tests handling of empty needfile.
+func TestCollector_EmptyNeedfile(t *testing.T) {
 	content := ``
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -373,7 +373,7 @@ cc = gcc
 cflags = -Wall
 
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -396,7 +396,7 @@ cc = gcc
 @build:
     echo building
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -424,7 +424,7 @@ func TestCollector_PreservesOrder(t *testing.T) {
 @third:
     echo third
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -453,7 +453,7 @@ func TestCollector_FileTargets(t *testing.T) {
 build/main.o: src/main.c
     gcc -c {in} -o {out}
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -471,7 +471,7 @@ func TestCollector_DirectoryTargets(t *testing.T) {
 	content := `build/:
     mkdir -p {target}
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors
@@ -499,7 +499,7 @@ func TestCollector_MixedEnvironments(t *testing.T) {
 .environment: dev
     .using: nix
 `
-	stmts := parseBuildfile(t, content)
+	stmts := parseNeedfile(t, content)
 
 	result := Collect(stmts)
 	st, errs := result.SymbolTable, result.Errors

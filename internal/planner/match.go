@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // TargetNotFoundError is returned when a target path cannot be matched

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // ParseError represents an error encountered during parsing.

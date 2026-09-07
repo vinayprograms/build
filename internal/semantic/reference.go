@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // This file implements Pass 3: Reference Validation.
 // It validates that all variable references point to defined symbols:
@@ -9,7 +9,7 @@
 package semantic
 
 import (
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // ReferenceResult holds the result of reference validation (Pass 3).

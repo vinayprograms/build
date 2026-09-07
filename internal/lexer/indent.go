@@ -40,7 +40,7 @@ func (e *IndentError) Error() string {
 	return fmt.Sprintf("indentation error at line %d, column %d: %s", e.Line, e.Column, e.Message)
 }
 
-// IndentTracker tracks indentation state across lines in a Buildfile.
+// IndentTracker tracks indentation state across lines in a Needfile.
 //
 // Per DESIGN.md Section 2.3.3:
 //   - First indented line establishes the indent unit (e.g., 4 spaces)

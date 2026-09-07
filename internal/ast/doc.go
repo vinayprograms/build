@@ -1,4 +1,4 @@
-// Package ast defines the Abstract Syntax Tree node types for Buildfile parsing.
+// Package ast defines the Abstract Syntax Tree node types for Needfile parsing.
 //
 // The AST captures syntactic structure without interpretation—no evaluation
 // happens during parsing. Each node carries a SourceLocation for precise error

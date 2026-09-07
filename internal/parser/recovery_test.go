@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 // TestErrorRecovery_SkipToLevel0 tests that the parser skips to level 0 on error.
@@ -105,10 +105,10 @@ cc = gcc
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			l := lexer.New("test.build", tt.input)
+			l := lexer.New("test.need", tt.input)
 			p := New(l)
 
-			stmts, errs := p.ParseBuildfile()
+			stmts, errs := p.ParseNeedfile()
 
 			// Check error count
 			if len(errs.Errors) != tt.wantErrCount {
@@ -165,7 +165,7 @@ func TestErrorRecovery_ActionableMessages(t *testing.T) {
 		{
 			name:         "directive scope error has hint",
 			input:        `.after: dep`,
-			wantFile:     "test.build",
+			wantFile:     "test.need",
 			wantLine:     1,
 			wantMsgPart:  ".after",
 			wantHintPart: "RECIPE",
@@ -173,7 +173,7 @@ func TestErrorRecovery_ActionableMessages(t *testing.T) {
 		{
 			name:         "missing colon shows location",
 			input:        `build/app deps`,
-			wantFile:     "test.build",
+			wantFile:     "test.need",
 			wantLine:     1,
 			wantMsgPart:  "':'",
 			wantHintPart: "",
@@ -183,7 +183,7 @@ func TestErrorRecovery_ActionableMessages(t *testing.T) {
 			input: `.environment:
     .parallel: 4
 `,
-			wantFile:     "test.build",
+			wantFile:     "test.need",
 			wantLine:     2,
 			wantMsgPart:  ".parallel",
 			wantHintPart: "GLOBAL",
@@ -195,7 +195,7 @@ func TestErrorRecovery_ActionableMessages(t *testing.T) {
 			l := lexer.New(tt.wantFile, tt.input)
 			p := New(l)
 
-			_, errs := p.ParseBuildfile()
+			_, errs := p.ParseNeedfile()
 
 			if len(errs.Errors) == 0 {
 				t.Fatal("expected at least one error")
@@ -242,10 +242,10 @@ func TestErrorRecovery_MaxErrors(t *testing.T) {
 .after: 11
 cc = gcc
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	_, errs := p.ParseBuildfile()
+	_, errs := p.ParseNeedfile()
 
 	// Should have collected up to max errors (10)
 	if len(errs.Errors) > 10 {
@@ -269,10 +269,10 @@ cflags = -Wall
 .using: invalid_at_global
 src_dir = src
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	// Should have errors
 	if len(errs.Errors) < 2 {
@@ -337,10 +337,10 @@ if {os} == linux
 end
 suffix = .o
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	// Should have at least 1 error for malformed target
 	if len(errs.Errors) < 1 {
@@ -378,10 +378,10 @@ func TestErrorRecovery_MultipleErrorsInSameBlock(t *testing.T) {
     .source: Dockerfile
 cc = gcc
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
-	stmts, errs := p.ParseBuildfile()
+	stmts, errs := p.ParseNeedfile()
 
 	// Should have errors for both .after and .autodeps in environment
 	if len(errs.Errors) < 1 {

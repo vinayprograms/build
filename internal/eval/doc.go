@@ -1,4 +1,4 @@
-// Package eval provides variable evaluation for Buildfiles.
+// Package eval provides variable evaluation for Needfiles.
 //
 // The evaluation phase occurs after semantic analysis and before build planning.
 // It evaluates immediate variables, handles conditionals, and prepares the context

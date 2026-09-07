@@ -1,4 +1,4 @@
-// Package semantic provides semantic analysis for Buildfiles.
+// Package semantic provides semantic analysis for Needfiles.
 //
 // Semantic analysis validates the AST produced by the parser and resolves
 // context-sensitive constructs like captures vs interpolations in target patterns.
@@ -13,10 +13,10 @@ package semantic
 import (
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
-// SymbolTable holds all defined symbols in a Buildfile.
+// SymbolTable holds all defined symbols in a Needfile.
 // It tracks user-defined variables, targets, and environments,
 // as well as automatic and built-in variables.
 type SymbolTable struct {

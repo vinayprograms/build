@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 func TestSelectEnvironment_EnvFlagPrecedence(t *testing.T) {
@@ -38,9 +38,9 @@ func TestSelectEnvironment_BuildEnvFallback(t *testing.T) {
 
 	envs := []*ast.Environment{envCI, envProd}
 
-	// Set BUILD_ENV to select an environment
-	os.Setenv("BUILD_ENV", "production")
-	defer os.Unsetenv("BUILD_ENV")
+	// Set NEED_ENV to select an environment
+	os.Setenv("NEED_ENV", "production")
+	defer os.Unsetenv("NEED_ENV")
 
 	selector := NewEnvironmentSelector()
 	result, err := selector.Select(envs, "", "production")
@@ -49,7 +49,7 @@ func TestSelectEnvironment_BuildEnvFallback(t *testing.T) {
 		t.Fatalf("Select() error = %v", err)
 	}
 	if result != envProd {
-		t.Error("expected BUILD_ENV to select 'production' environment")
+		t.Error("expected NEED_ENV to select 'production' environment")
 	}
 }
 
@@ -61,7 +61,7 @@ func TestSelectEnvironment_DefaultEnv(t *testing.T) {
 
 	envs := []*ast.Environment{defaultEnv, envCI}
 
-	// No --env flag and no BUILD_ENV, should use default
+	// No --env flag and no NEED_ENV, should use default
 	selector := NewEnvironmentSelector()
 	result, err := selector.Select(envs, "", "")
 
@@ -82,7 +82,7 @@ func TestSelectEnvironment_ErrorWhenOnlyNamedAndNoSelection(t *testing.T) {
 
 	envs := []*ast.Environment{envCI, envProd}
 
-	// No --env flag and no BUILD_ENV, should error
+	// No --env flag and no NEED_ENV, should error
 	selector := NewEnvironmentSelector()
 	_, err := selector.Select(envs, "", "")
 
@@ -130,7 +130,7 @@ func TestSelectEnvironment_EnvFlagOverridesBuildEnv(t *testing.T) {
 
 	envs := []*ast.Environment{envCI, envProd}
 
-	// --env flag should override BUILD_ENV
+	// --env flag should override NEED_ENV
 	selector := NewEnvironmentSelector()
 	result, err := selector.Select(envs, "ci", "production")
 
@@ -138,7 +138,7 @@ func TestSelectEnvironment_EnvFlagOverridesBuildEnv(t *testing.T) {
 		t.Fatalf("Select() error = %v", err)
 	}
 	if result != envCI {
-		t.Error("expected --env flag to override BUILD_ENV")
+		t.Error("expected --env flag to override NEED_ENV")
 	}
 }
 

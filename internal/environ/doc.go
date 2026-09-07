@@ -10,7 +10,7 @@
 //
 // # Bare Environments
 //
-// The package supports version specifications as defined in the BUILDFILE_SPEC.md:
+// The package supports version specifications as defined in the NEEDFILE_SPEC.md:
 //   - name       → any version (alias for @latest)
 //   - name@latest → latest available
 //   - name@11    → major version 11.x.x

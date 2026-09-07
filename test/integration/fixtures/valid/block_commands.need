@@ -1,0 +1,16 @@
+# Block commands example
+.shell: bash
+
+@generate:
+	block:
+		for i in 1 2 3; do
+			echo "Item $i"
+		done
+
+@with_if:
+	block:
+		if [ -f Needfile ]; then
+			echo "Needfile exists"
+		else
+			echo "No Needfile"
+		fi

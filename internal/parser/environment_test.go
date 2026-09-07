@@ -3,8 +3,8 @@ package parser
 import (
 	"testing"
 
-	"github.com/vinayprograms/build/internal/ast"
-	"github.com/vinayprograms/build/internal/lexer"
+	"github.com/vinayprograms/need/internal/ast"
+	"github.com/vinayprograms/need/internal/lexer"
 )
 
 func TestParseEnvironmentBlock_DefaultEnvironment(t *testing.T) {
@@ -364,7 +364,7 @@ func TestParseEnvironmentBlock_SourceLocation(t *testing.T) {
 	input := `.environment: test
     .using: bare
 `
-	l := lexer.New("test.build", input)
+	l := lexer.New("test.need", input)
 	p := New(l)
 
 	env, err := p.ParseEnvironment()
@@ -372,8 +372,8 @@ func TestParseEnvironmentBlock_SourceLocation(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if env.Location.File != "test.build" {
-		t.Errorf("location.File = %q, want %q", env.Location.File, "test.build")
+	if env.Location.File != "test.need" {
+		t.Errorf("location.File = %q, want %q", env.Location.File, "test.need")
 	}
 	if env.Location.Line != 1 {
 		t.Errorf("location.Line = %d, want %d", env.Location.Line, 1)

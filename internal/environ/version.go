@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/need/internal/ast"
 )
 
 // Version represents a parsed semantic version.

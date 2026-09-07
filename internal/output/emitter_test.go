@@ -237,7 +237,7 @@ func TestEmitter_EmitError(t *testing.T) {
 	collector := &eventCollector{}
 	emitter := NewEmitter(collector)
 
-	emitter.Error("parse", "E100", "unexpected token", "Buildfile:10:5", "  foo = bar", "check syntax")
+	emitter.Error("parse", "E100", "unexpected token", "Needfile:10:5", "  foo = bar", "check syntax")
 
 	if len(collector.events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(collector.events))
@@ -256,8 +256,8 @@ func TestEmitter_EmitError(t *testing.T) {
 	if err.Message != "unexpected token" {
 		t.Errorf("expected message 'unexpected token', got '%s'", err.Message)
 	}
-	if err.Location != "Buildfile:10:5" {
-		t.Errorf("expected location 'Buildfile:10:5', got '%s'", err.Location)
+	if err.Location != "Needfile:10:5" {
+		t.Errorf("expected location 'Needfile:10:5', got '%s'", err.Location)
 	}
 	if err.Context != "  foo = bar" {
 		t.Errorf("expected context '  foo = bar', got '%s'", err.Context)
