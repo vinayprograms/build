@@ -1,5 +1,11 @@
 # Test: Edge case - Brace not at boundary
-# Expected: Should not interpolate when not at boundary
+# Expected: Should not interpolate when not at boundary. Recipe lines
+# below interpolate inside double quotes (context-aware quoting, D1), so
+# values are escaped rather than single-quote-wrapped:
+#   JSON: {"key": "value"}
+#   Shell style: ${PATH}
+#   Attached: prefix{msg}
+#   Proper interp: hello
 # Category: Edge Cases
 # Description: Tests that ${var} and x{var} are not interpolated
 

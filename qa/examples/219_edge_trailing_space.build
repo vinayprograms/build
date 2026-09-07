@@ -1,5 +1,11 @@
 # Test: Edge case - Trailing whitespace
-# Expected: Should handle trailing spaces correctly
+# Expected: Trailing whitespace is trimmed from variable values; prints
+# "Trailing: 'value'" and "Normal: 'value'". The single quotes around
+# {value_with_trailing}/{value_normal} in the recipe sit inside the
+# enclosing double quotes, so they are literal characters, not shell
+# quoting (context-aware quoting, D1) - the interpolated value itself is
+# double-quoted-context formatted (bare here, since "value" needs no
+# escaping).
 # Category: Edge Cases
 # Description: Tests values with trailing whitespace
 

@@ -1,5 +1,5 @@
 # Test: Conditionals with targets inside
-# Expected: Should define targets conditionally
+# Expected: Should report error: targets cannot be defined inside conditionals
 # Category: Conditionals
 # Description: Tests targets defined within conditionals
 

@@ -1,5 +1,5 @@
 # Test: Include directive - with variable
-# Expected: Should throw an error since interpolation is not yet supported in directives.
+# Expected: Should include the file using the interpolated path
 # Category: Directives
 # Description: Tests variable in .include path
 

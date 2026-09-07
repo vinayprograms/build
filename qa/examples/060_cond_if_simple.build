@@ -3,6 +3,7 @@
 # Category: Conditionals
 # Description: Tests simple if-end conditional
 
+platform = other
 if {os} == darwin
     platform = macOS
 end
