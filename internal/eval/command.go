@@ -15,6 +15,7 @@ type CommandContext struct {
 	evaluator *Evaluator
 	automatic map[string]string
 	captures  map[string]string
+	deps      []string // raw dependency list (for context-aware {deps} quoting)
 }
 
 // NewCommandContext creates a command context with automatic variables set.
@@ -30,9 +31,11 @@ func NewCommandContext(parent *Context, target string, deps []string) *CommandCo
 	ctx.automatic["target"] = target
 	ctx.automatic["out"] = target
 
-	// deps is pre-quoted space-separated list (each item quoted individually)
-	// This allows {deps} to expand correctly as multiple shell arguments
-	ctx.automatic["deps"] = ShellQuoteList(deps)
+	// deps is the raw space-separated list; interpolation quotes each item
+	// individually in the bare (unquoted) shell position and escapes the
+	// joined list inside quotes (see interpolateParts).
+	ctx.automatic["deps"] = strings.Join(deps, " ")
+	ctx.deps = deps
 
 	// in is first dependency (not pre-quoted, will be quoted during interpolation)
 	if len(deps) > 0 {
@@ -141,15 +144,22 @@ func (c *CommandContext) Parent() *Context {
 
 // InterpolateCommand interpolates a line command and returns the resulting string.
 func InterpolateCommand(cmd *ast.LineCommand, ctx *CommandContext) (string, error) {
-	return interpolateParts(cmd.Parts, ctx)
+	return interpolateParts(cmd.Parts, ctx, newQuoteScanner())
 }
 
-// InterpolateBlockCommand interpolates a block command and returns the resulting string.
+// InterpolateBlockCommand interpolates a block command and returns the
+// resulting string. Shell quote state (open double/single quotes, an
+// in-progress heredoc body, ...) carries over from one line to the next,
+// since a block is executed as a single, continuous shell script.
 func InterpolateBlockCommand(block *ast.BlockCommand, ctx *CommandContext) (string, error) {
 	var lines []string
+	scanner := newQuoteScanner()
 
 	for _, lineParts := range block.Lines {
-		line, err := interpolateParts(lineParts, ctx)
+		scanner.activatePendingHeredoc()
+		scanner.checkHeredocTerminator(linePlainText(lineParts))
+
+		line, err := interpolateParts(lineParts, ctx, scanner)
 		if err != nil {
 			return "", err
 		}
@@ -159,20 +169,34 @@ func InterpolateBlockCommand(block *ast.BlockCommand, ctx *CommandContext) (stri
 	return strings.Join(lines, "\n"), nil
 }
 
-// preQuotedVars are automatic variables that are pre-quoted (each item quoted individually).
-// These should not be quoted again during interpolation.
-var preQuotedVars = map[string]bool{
-	"deps": true,
+// linePlainText concatenates a line's literal text (ignoring any
+// interpolations) and reports whether the line contains an interpolation
+// at all. It is used only to recognize a heredoc terminator line, which is
+// always bare text.
+func linePlainText(parts []ast.CommandPart) (text string, hasInterp bool) {
+	var b strings.Builder
+	for _, part := range parts {
+		switch p := part.(type) {
+		case *ast.LiteralCommand:
+			b.WriteString(p.Text)
+		case *ast.CommandInterpolation:
+			hasInterp = true
+		}
+	}
+	return b.String(), hasInterp
 }
 
-// interpolateParts interpolates a slice of command parts.
-func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, error) {
+// interpolateParts interpolates a slice of command parts, formatting each
+// interpolated value according to the shell quoting context tracked by
+// scanner (see quote.go for the rules).
+func interpolateParts(parts []ast.CommandPart, ctx *CommandContext, scanner *quoteScanner) (string, error) {
 	var result strings.Builder
 
 	for _, part := range parts {
 		switch p := part.(type) {
 		case *ast.LiteralCommand:
 			result.WriteString(p.Text)
+			scanner.scanLiteral(p.Text)
 
 		case *ast.CommandInterpolation:
 			val, ok := ctx.Get(p.Name)
@@ -183,12 +207,14 @@ func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, err
 				}
 			}
 
-			if p.Raw || preQuotedVars[p.Name] {
-				// Raw or pre-quoted: no additional quoting
+			switch {
+			case p.Raw:
 				result.WriteString(val)
-			} else {
-				// Default: shell-quoted
-				result.WriteString(ShellQuote(val))
+			case p.Name == "deps" && scanner.current() == ctxUnquoted:
+				// Bare {deps} must expand to one shell word per dependency.
+				result.WriteString(ShellQuoteList(ctx.deps))
+			default:
+				result.WriteString(formatForContext(scanner.current(), val))
 			}
 		}
 	}
@@ -200,33 +226,13 @@ func interpolateParts(parts []ast.CommandPart, ctx *CommandContext) (string, err
 // Shell Quoting
 // ----------------------------------------------------------------------------
 
-// shellSpecialChars are characters that require quoting in shell commands.
-// This includes spaces, quotes, glob chars, command substitution, and other metacharacters.
-const shellSpecialChars = " \t\n'\"\\`$!*?[]{}();&|<>#~"
-
-// needsQuoting returns true if the string contains shell special characters.
-func needsQuoting(s string) bool {
-	return strings.ContainsAny(s, shellSpecialChars)
-}
-
-// ShellQuote quotes a string for safe use in shell commands.
-// It uses single quotes and handles embedded single quotes.
-// Simple alphanumeric values are not quoted.
+// ShellQuote quotes a string for safe use in an unquoted (bare) shell
+// position. It emits the value bare if it contains only characters from
+// [A-Za-z0-9_./:@%+=,-]; otherwise it wraps it in single quotes, with an
+// embedded ' emitted as '\”. See quote.go for the full context-aware
+// interpolation rule this is one case of.
 func ShellQuote(s string) string {
-	// Only quote if the string contains special characters
-	if !needsQuoting(s) {
-		return s
-	}
-
-	// If string contains single quotes, we need special handling
-	if strings.Contains(s, "'") {
-		// Replace each ' with '"'"' (end quote, double-quoted quote, start quote)
-		escaped := strings.ReplaceAll(s, "'", `'"'"'`)
-		return "'" + escaped + "'"
-	}
-
-	// Simple case: wrap in single quotes
-	return "'" + s + "'"
+	return formatUnquoted(s)
 }
 
 // ShellQuoteList quotes each item in a space-separated list individually.

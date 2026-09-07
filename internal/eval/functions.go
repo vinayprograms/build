@@ -76,18 +76,23 @@ func (e *Evaluator) funcShell(call *ast.FunctionCall) (string, error) {
 }
 
 // evaluateShellCommand evaluates a value for use as a shell command.
-// Unlike EvaluateValue, this applies shell quoting to non-raw interpolations.
+// Unlike EvaluateValue, this applies context-aware shell quoting to non-raw
+// interpolations: bare/single/double-quoted state is tracked left to right
+// over the literal text, same as recipe command interpolation (see
+// command.go's InterpolateCommand and quote.go).
 func (e *Evaluator) evaluateShellCommand(val *ast.Value) (string, error) {
 	if val == nil {
 		return "", nil
 	}
 
 	var result strings.Builder
+	scanner := newQuoteScanner()
 
 	for _, part := range val.Parts {
 		switch p := part.(type) {
 		case *ast.LiteralValue:
 			result.WriteString(p.Text)
+			scanner.scanLiteral(p.Text)
 
 		case *ast.Interpolation:
 			resolved, err := e.resolveVariable(p.Name, p.Location)
@@ -98,8 +103,7 @@ func (e *Evaluator) evaluateShellCommand(val *ast.Value) (string, error) {
 				// Raw: no quoting, allows word splitting
 				result.WriteString(resolved)
 			} else {
-				// Default: shell-quoted for safety
-				result.WriteString(ShellQuote(resolved))
+				result.WriteString(formatForContext(scanner.current(), resolved))
 			}
 
 		case *ast.FunctionCall:
@@ -108,6 +112,7 @@ func (e *Evaluator) evaluateShellCommand(val *ast.Value) (string, error) {
 				return "", err
 			}
 			result.WriteString(evaluated)
+			scanner.scanLiteral(evaluated)
 
 		default:
 			// Unknown part type - skip

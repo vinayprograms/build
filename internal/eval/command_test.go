@@ -428,17 +428,17 @@ func TestShellQuote_SpecialCharacters(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"hello world", "'hello world'"},           // spaces - quoted as whole
-		{"file.c file.h", "'file.c file.h'"},       // multiple items - quoted as whole
-		{"$HOME", "'$HOME'"},                       // dollar sign (no expansion)
-		{"a*b", "'a*b'"},                           // glob
-		{"test(1)", "'test(1)'"},                   // parens
-		{"a>b", "'a>b'"},                           // redirect
-		{"a&b", "'a&b'"},                           // background
-		{"a|b", "'a|b'"},                           // pipe
-		{`hello"world`, `'hello"world'`},           // double quote in string
-		{"it's", `'it'"'"'s'`},                     // single quote requires escaping
-		{"it's a \"test\"", `'it'"'"'s a "test"'`}, // mixed quotes
+		{"hello world", "'hello world'"},          // spaces - quoted as whole
+		{"file.c file.h", "'file.c file.h'"},      // multiple items - quoted as whole
+		{"$HOME", "'$HOME'"},                      // dollar sign (no expansion)
+		{"a*b", "'a*b'"},                          // glob
+		{"test(1)", "'test(1)'"},                  // parens
+		{"a>b", "'a>b'"},                          // redirect
+		{"a&b", "'a&b'"},                          // background
+		{"a|b", "'a|b'"},                          // pipe
+		{`hello"world`, `'hello"world'`},          // double quote in string
+		{"it's", `'it'\''s'`},                     // single quote requires escaping
+		{"it's a \"test\"", `'it'\''s a "test"'`}, // mixed quotes
 	}
 
 	for _, tt := range tests {
