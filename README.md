@@ -1,6 +1,6 @@
-# build - a simpler build system
+# build - a simpler recipe runner
 
-`build` is a build system inspired by GNU Make's target and recipe specification philosophy minus the complexities and quirks of GNU Make.
+`build` is a recipe runner inspired by GNU Make's target and recipe specification philosophy minus the complexities and quirks of GNU Make. It runs any recipe that keeps files up to date — software builds are just the common case.
 
 ## Features
 
@@ -11,7 +11,7 @@
 - **Conditionals** - `if/elif/else/end` and `ifdef/ifndef` blocks
 - **Parallel execution** - Built-in parallel job support with `-j` flag
 - **Environment management** - Docker, Podman, devcontainer, Nix, and Lima support
-- **Include files** - Split large buildfiles with `.include:`
+- **Include files** - Split large Buildfiles with `.include:`
 
 ## Installation
 
@@ -49,12 +49,12 @@ build/{name}.o: src/{name}.c
     {cc} {cflags} -c {in} -o {out}
 ```
 
-Build your project:
+Run it:
 
 ```bash
 build app     # Build the app target
 build clean   # Run the clean target
-build         # Build the default target (first defined)
+build         # Run the default target (first defined)
 ```
 
 ## Usage
@@ -136,15 +136,26 @@ build/{name}.o: src/{name}.c
 
 ### Variable Interpolation
 
-Variables are **shell-quoted by default** to safely handle paths with spaces:
+Variables are **quoted by default**, according to the shell quoting context
+they land in — tracked left to right over the command line — so they
+safely handle paths with spaces both outside and inside quotes:
 
 ```bash
 src_dir = my project/src
 @build:
-    find {src_dir} -name "*.c"    # Executes: find 'my project/src' -name "*.c"
+    find {src_dir} -name "*.c"     # Executes: find 'my project/src' -name "*.c"
+    echo "In: {src_dir}"           # prints: In: my project/src
+    echo 'In: {src_dir}'           # prints: In: my project/src
 ```
 
-Use `:raw` modifier when you need word splitting (e.g., compiler flags):
+Outside quotes, a value that needs no quoting is emitted bare; otherwise
+it's wrapped in single quotes. Inside `"..."` it's emitted with `"`, `$`,
+`` ` `` and `\` escaped so it can't break out or trigger expansion. Inside
+`'...'` it's emitted raw (with `'` itself escaped). `$(...)`, `` `...` ``
+and heredoc bodies are treated as double-quoted context.
+
+Use `:raw` modifier when you need word splitting (e.g., compiler flags) —
+it's emitted completely untouched, in every context:
 
 ```bash
 cflags = -Wall -O2

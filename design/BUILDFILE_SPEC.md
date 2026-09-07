@@ -128,6 +128,21 @@ Environments define where and how builds run.
 | `.args:` | Additional arguments for runtime |
 | `.requires:` | Required binaries (bare environments) |
 
+`.source:` may reference any variable defined earlier in the file, including
+nested `{a}/{b}` chains — it is resolved with the same evaluator used for the
+rest of the Buildfile:
+
+```
+docker_dir = ./docker
+.environment: ci
+    .using: docker
+    .source: {docker_dir}/ci.Dockerfile
+```
+
+An automatic variable (`{target}`, `{deps}`, ...) or an undefined variable in
+`.source:` is an error. `--check-env` and `--list-env` resolve `.source:` the
+same way, so what they report matches what a real build uses.
+
 ### Runtime Types
 
 | Runtime | Config file | Description |
@@ -248,6 +263,21 @@ Evaluated at use:
 lazy all_flags = {cflags} {extra_flags}
 ```
 
+### Trailing Whitespace
+
+Trailing spaces and tabs at the end of a line are trimmed from variable
+values, directive values, and dependency lists:
+
+```
+greeting = hello   
+# greeting == "hello", not "hello   "
+```
+
+Internal spaces are always preserved (`greeting = hello   world` keeps the
+three spaces between the words). This trimming applies only to values — it
+does not affect recipe command lines or `block:` lines, where every space is
+significant.
+
 ### Variable Interpolation
 
 Variables are interpolated using braces:
@@ -261,11 +291,38 @@ build/app: build/main.o
 
 | Syntax | Behavior |
 |--------|----------|
-| `{var}` | Shell-quoted (default, safe) |
-| `{var:raw}` | Unquoted, allows word splitting |
+| `{var}` | Context-aware quoting (default, safe) — see below |
+| `{var:raw}` | Unquoted, allows word splitting; emitted completely untouched in every context |
 | `$var` | Passed to shell as-is |
 
-**Examples:**
+`{var}` (and automatic variables such as `{target}`, `{deps}`, `{in}`,
+`{out}`, `{stem}`, ...) are formatted according to the shell quoting
+context they land in. That context is tracked left to right over the
+literal text of the command/block line (respecting backslash escapes;
+`$(...)`, `` `...` `` and heredoc bodies count as double-quoted context):
+
+| Context | Behavior |
+|---------|----------|
+| Outside quotes | Emitted bare if it contains only characters from `[A-Za-z0-9_./:@%+=,-]`; otherwise wrapped in single quotes, with an embedded `'` emitted as `'\''` |
+| Inside `"..."` | Emitted with `"`, `$`, `` ` `` and `\` each escaped by a backslash. Never wrapped |
+| Inside `'...'` | Emitted raw, with `'` turned into `'\''` |
+
+`{deps}` follows the same rule. Outside quotes it expands to one shell word
+per dependency, each quoted only when needed; inside quotes it is the
+space-joined list, escaped for the surrounding quotes.
+
+**Examples** (`dir = my dir`, `flag = $HOME`, `name = build`, `json =
+{"key": "value"}`):
+
+```
+ls {dir}                    # → ls 'my dir'
+echo "Dir: {dir}"           # prints: Dir: my dir
+echo "Home: {flag}"         # prints: Home: $HOME
+echo 'Dir: {dir}'           # prints: Dir: my dir
+cp {name}.o out/            # → cp build.o out/
+echo "JSON: {json}"         # prints: JSON: {"key": "value"}
+echo "It's {dir}"           # prints: It's my dir
+```
 
 ```
 src_dir = my sources
@@ -461,7 +518,7 @@ build/{name}.o: src/{name}.c
     gcc -MMD -MF build/{name}.d -c {in} -o {out}
 ```
 
-The build tool:
+build:
 
 1. Runs the recipe
 2. Parses the generated `.d` file
@@ -504,6 +561,16 @@ end
 ```
 
 Variables are expanded in paths. Included files are processed as if inline.
+
+`.include:` is resolved at parse time, before evaluation, so only variables
+that are already fully known at that point in the parse can be used: an
+immediate (non-`lazy`) variable assigned earlier in the same file (or, for
+an included file, earlier in whichever file included it), with a value that
+is itself fully literal after resolving any variables it references. A
+`lazy` variable, a function call (`shell()`, `glob()`, ...), an automatic
+variable (`{target}`, `{deps}`, ...), or an undefined variable in an
+`.include:` path is a parse error: `.include: cannot resolve '<name>':
+<reason>`.
 
 ---
 
@@ -637,9 +704,9 @@ end
 
 | Command | Description |
 |---------|-------------|
-| `build` | Build default target with default environment |
+| `build` | Run default target with default environment |
 | `build target` | Build specific target |
-| `build @phony` | Build phony target |
+| `build @phony` | Run phony target |
 
 ### Options
 
