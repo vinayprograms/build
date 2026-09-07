@@ -161,6 +161,7 @@ type buildPlanner struct {
 	autodepsCache *cache.AutodepsCache // Cache for .d file parsing
 	visited       map[string]bool      // Targets already processed
 	inStack       map[string]bool      // Targets in current recursion stack (for cycle detection)
+	stack         []string             // Ordered recursion stack, mirrors inStack (for cycle path reporting)
 	tasks         []BuildTask          // Tasks in topological order
 	taskIndex     map[string]int       // Index of each target in tasks (for dedup)
 	verboseOutput io.Writer            // Optional output for verbose mode
@@ -191,7 +192,11 @@ func (p *buildPlanner) planTarget(targetPath string) error {
 
 	// Mark as in-progress for cycle detection
 	p.inStack[targetPath] = true
-	defer func() { delete(p.inStack, targetPath) }()
+	p.stack = append(p.stack, targetPath)
+	defer func() {
+		delete(p.inStack, targetPath)
+		p.stack = p.stack[:len(p.stack)-1]
+	}()
 
 	// Resolve dependencies
 	depPaths, err := ResolveDependencies(target.Dependencies, captures, p.ctx)
@@ -445,12 +450,22 @@ func (p *buildPlanner) needsRebuild(targetPath string, target *ast.Target, depPa
 }
 
 // buildCycleError constructs a CircularDependencyError from the current stack.
+// It reports the full cycle path, e.g. "@a -> @b -> @c -> @a", by finding
+// where targetPath first appears in the ordered recursion stack and taking
+// everything from there, plus targetPath again to close the loop.
 func (p *buildPlanner) buildCycleError(targetPath string) error {
-	// Reconstruct the cycle path
-	cycle := []string{targetPath}
+	start := -1
+	for i, t := range p.stack {
+		if t == targetPath {
+			start = i
+			break
+		}
+	}
 
-	// We need to find where in the stack the cycle starts
-	// For simplicity, just return the target that caused the cycle
+	var cycle []string
+	if start >= 0 {
+		cycle = append(cycle, p.stack[start:]...)
+	}
 	cycle = append(cycle, targetPath)
 
 	return &CircularDependencyError{Path: cycle}

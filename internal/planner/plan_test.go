@@ -357,8 +357,62 @@ func TestPlanBuild_CircularDependency(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for circular dependency")
 	}
-	if _, ok := err.(*CircularDependencyError); !ok {
-		t.Errorf("expected CircularDependencyError, got %T: %v", err, err)
+	cycleErr, ok := err.(*CircularDependencyError)
+	if !ok {
+		t.Fatalf("expected CircularDependencyError, got %T: %v", err, err)
+	}
+	// B7: the error must show the real cycle path, not a placeholder.
+	want := "a -> b -> a"
+	if got := strings.Join(cycleErr.Path, " -> "); got != want {
+		t.Errorf("cycle path = %q, want %q", got, want)
+	}
+}
+
+// TestPlanBuild_CircularDependency_ThreeWay covers B7 for a longer cycle:
+// a -> b -> c -> a must report the full path, not just "a -> a".
+func TestPlanBuild_CircularDependency_ThreeWay(t *testing.T) {
+	targets := []*ast.Target{
+		createTargetWithRecipe("a", false, false, []string{"b"}, &ast.Recipe{}),
+		createTargetWithRecipe("b", false, false, []string{"c"}, &ast.Recipe{}),
+		createTargetWithRecipe("c", false, false, []string{"a"}, &ast.Recipe{}),
+	}
+	ctx := eval.NewContext()
+	fs := &mockFileSystem{
+		missing: map[string]bool{"a": true, "b": true, "c": true},
+	}
+
+	_, err := PlanBuild("a", targets, ctx, fs)
+
+	cycleErr, ok := err.(*CircularDependencyError)
+	if !ok {
+		t.Fatalf("expected CircularDependencyError, got %T: %v", err, err)
+	}
+	want := "a -> b -> c -> a"
+	if got := strings.Join(cycleErr.Path, " -> "); got != want {
+		t.Errorf("cycle path = %q, want %q", got, want)
+	}
+}
+
+// TestPlanBuild_CircularDependency_SelfCycle covers B7's self-cycle case:
+// a target depending on itself must report "a -> a", not a longer path.
+func TestPlanBuild_CircularDependency_SelfCycle(t *testing.T) {
+	targets := []*ast.Target{
+		createTargetWithRecipe("a", false, false, []string{"a"}, &ast.Recipe{}),
+	}
+	ctx := eval.NewContext()
+	fs := &mockFileSystem{
+		missing: map[string]bool{"a": true},
+	}
+
+	_, err := PlanBuild("a", targets, ctx, fs)
+
+	cycleErr, ok := err.(*CircularDependencyError)
+	if !ok {
+		t.Fatalf("expected CircularDependencyError, got %T: %v", err, err)
+	}
+	want := "a -> a"
+	if got := strings.Join(cycleErr.Path, " -> "); got != want {
+		t.Errorf("cycle path = %q, want %q", got, want)
 	}
 }
 
