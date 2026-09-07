@@ -92,7 +92,11 @@ func TestIsInterpBoundary(t *testing.T) {
 		{"digit", '0', false, false},
 		{"dollar", '$', false, false},
 		{"underscore", '_', false, false},
-		{"dot", '.', false, false},
+		{"dot", '.', false, true},
+		{"open bracket", '[', false, true},
+		{"pipe", '|', false, true},
+		{"underscore", '_', false, false},
+		{"dollar", '$', false, false},
 	}
 
 	for _, tt := range tests {

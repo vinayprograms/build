@@ -1082,6 +1082,29 @@ func TestLexerPeekMethods(t *testing.T) {
 			wantIsDotKeyword: false,
 			wantIsBlock:      false,
 		},
+		{
+			// B2b: "./x" must not be treated as a dot keyword - it's a
+			// relative-path command, and needs command mode to preserve spaces.
+			name:             "relative path command",
+			input:            "./{build_dir}/app --test",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+		{
+			// B2b: "../x" is likewise a path, not a directive.
+			name:             "parent relative path command",
+			input:            "../script.sh",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
+		{
+			// B2b: a bare "." (not followed by an identifier-start char) is
+			// not a directive either.
+			name:             "bare dot",
+			input:            ". foo",
+			wantIsDotKeyword: false,
+			wantIsBlock:      false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1157,6 +1180,83 @@ func TestLexerCommandModeInterpolationRestoresMode(t *testing.T) {
 	if tok.Type != STRING || tok.Literal != " rest" {
 		t.Errorf("got %v(%q), want STRING(\" rest\")", tok.Type, tok.Literal)
 	}
+}
+
+// TestLexerValueModeTrailingWhitespace covers C3: trailing spaces/tabs at
+// the end of a value (variable value, directive value, or dependency list)
+// are trimmed, while internal spaces, spaces before an interpolation, and
+// command-mode content are all left untouched.
+func TestLexerValueModeTrailingWhitespace(t *testing.T) {
+	t.Run("trailing spaces before newline", func(t *testing.T) {
+		l := New("test.build", "x = value   \ny = other\n")
+		l.NextToken() // IDENTIFIER x
+		l.NextToken() // EQUALS
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "value" {
+			t.Errorf("got %v(%q), want STRING(\"value\")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("trailing spaces at EOF", func(t *testing.T) {
+		l := New("test.build", "x = value   ")
+		l.NextToken() // IDENTIFIER x
+		l.NextToken() // EQUALS
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "value" {
+			t.Errorf("got %v(%q), want STRING(\"value\")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("trailing tabs before newline", func(t *testing.T) {
+		l := New("test.build", "x = value\t\t\n")
+		l.NextToken() // IDENTIFIER x
+		l.NextToken() // EQUALS
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "value" {
+			t.Errorf("got %v(%q), want STRING(\"value\")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("internal spaces preserved", func(t *testing.T) {
+		l := New("test.build", "x = a  b\n")
+		l.NextToken() // IDENTIFIER x
+		l.NextToken() // EQUALS
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "a  b" {
+			t.Errorf("got %v(%q), want STRING(\"a  b\")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("spaces before interpolation are not trailing", func(t *testing.T) {
+		// The segment before {y} isn't the end of the value, so it must not
+		// be trimmed even though it ends in whitespace.
+		l := New("test.build", "x = value   {y}\n")
+		l.NextToken() // IDENTIFIER x
+		l.NextToken() // EQUALS
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "value   " {
+			t.Errorf("got %v(%q), want STRING(\"value   \")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("dependency list trailing spaces trimmed", func(t *testing.T) {
+		l := New("test.build", "app: dep   \n")
+		l.NextToken() // IDENTIFIER app
+		l.NextToken() // COLON
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "dep" {
+			t.Errorf("got %v(%q), want STRING(\"dep\")", tok.Type, tok.Literal)
+		}
+	})
+
+	t.Run("command mode trailing spaces preserved", func(t *testing.T) {
+		l := New("test.build", "echo hi   \n")
+		l.SetCommandMode()
+		tok := l.NextToken()
+		if tok.Type != STRING || tok.Literal != "echo hi   " {
+			t.Errorf("got %v(%q), want STRING(\"echo hi   \")", tok.Type, tok.Literal)
+		}
+	})
 }
 
 func TestLexerSetModes(t *testing.T) {

@@ -66,16 +66,20 @@ func IsValidIdentifierChar(c byte) bool {
 //   - `>`, `<` (shell redirections)
 //   - `-` (hyphen, for patterns like app-{version})
 //   - `}` (closing brace, for consecutive interpolations like {a}{b})
+//   - any other non-identifier character (`[`, `.`, `|`, `;`, `*`, ...)
+//
+// Not a boundary: identifier characters (prefix{msg} stays literal) and `$` (${VAR}).
 func IsInterpBoundary(prev byte, atSOL bool) bool {
 	if atSOL {
 		return true
 	}
-	switch prev {
-	case ' ', '\t', ':', '=', '/', '"', '\'', '(', ')', ',', '>', '<', '-', '}':
-		return true
-	default:
+	// A '{' attached to a word (prefix{msg}) or to '$' (shell ${VAR}) is
+	// literal; any other preceding character (whitespace, punctuation, path
+	// separators, quotes, brackets, operators) is a boundary.
+	if prev == '$' {
 		return false
 	}
+	return !isIdentChar(prev)
 }
 
 // ScanInterpolation attempts to scan an interpolation starting at pos.

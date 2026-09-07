@@ -72,19 +72,28 @@ func (l *Lexer) SetCommandMode() {
 
 const blockKeyword = "block"
 
-// PeekNextIsDotKeyword returns true if the next non-whitespace character starts
+// PeekNextIsDotKeyword returns true if the next non-whitespace content starts
 // a dot keyword (like .shell, .after). This is used by the parser to decide
 // whether to use command mode or normal mode for recipe lines.
+//
+// A dot keyword requires an identifier-start character (letter or underscore)
+// immediately after the '.'. This distinguishes directives like ".shell:" from
+// command lines that begin with "./", "../", or a bare "." (e.g. "./{build_dir}/app"),
+// which must be lexed in command mode so internal spaces are preserved.
 func (l *Lexer) PeekNextIsDotKeyword() bool {
 	// Skip any whitespace to find the next non-space character
 	pos := l.pos
 	for pos < len(l.input) && l.input[pos] == ' ' {
 		pos++
 	}
+	if pos >= len(l.input) || l.input[pos] != '.' {
+		return false
+	}
+	pos++
 	if pos >= len(l.input) {
 		return false
 	}
-	return l.input[pos] == '.'
+	return isIdentStart(l.input[pos])
 }
 
 // PeekNextIsBlock returns true if the next non-whitespace content is the block keyword.
@@ -214,7 +223,7 @@ func (l *Lexer) NextToken() Token {
 
 	case '(':
 		l.advance()
-		l.skipSpaces() // Skip leading spaces in function argument
+		l.skipSpaces()     // Skip leading spaces in function argument
 		l.mode = ModeValue // Inside parens, lex as value
 		return l.makeToken(LPAREN, "(")
 

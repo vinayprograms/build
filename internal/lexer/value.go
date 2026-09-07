@@ -166,9 +166,20 @@ func (l *Lexer) lexContentString(isValueMode bool) Token {
 
 	literal := l.input[start:l.pos]
 
-	// Trim trailing whitespace when stopping at a comment
-	// This ensures "value  # comment" produces "value" not "value  "
+	// Trim trailing whitespace when stopping at a comment.
+	// This ensures "value  # comment" produces "value" not "value  ".
+	// This applies in both value and command mode.
 	if l.pos < len(l.input) && l.input[l.pos] == '#' {
+		literal = trimTrailingWhitespace(literal)
+	} else if isValueMode && (l.pos >= len(l.input) || l.input[l.pos] == '\n') {
+		// C3: in value mode (variable values, directive values, and
+		// dependency lists), trailing whitespace at the actual end of the
+		// value - end of line or end of file - is trimmed too, e.g.
+		// "name = value   " lexes to "value", not "value   ". Internal
+		// spaces, and segments that stop because more of the value follows
+		// (an interpolation, or a function call's parenthesis/comma), are
+		// untouched. Command mode (plain recipe command lines and block
+		// lines) is unaffected, since SetCommandMode passes isValueMode=false.
 		literal = trimTrailingWhitespace(literal)
 	}
 
