@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // TestDockerfileDetection tests locating Dockerfile from .source: directive
@@ -26,7 +27,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		result, err := detector.DetectDockerfile(env, tmpDir)
+		result, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
@@ -45,7 +46,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		result, err := detector.DetectDockerfile(env, tmpDir)
+		result, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err == nil {
 			t.Error("expected error for missing Dockerfile")
 		}
@@ -70,7 +71,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		result, err := detector.DetectDockerfile(env, tmpDir)
+		result, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
@@ -91,7 +92,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		result, err := detector.DetectDockerfile(env, tmpDir)
+		result, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err != nil {
 			t.Fatalf("expected no error, got: %v", err)
 		}
@@ -107,7 +108,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		_, err := detector.DetectDockerfile(env, tmpDir)
+		_, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err == nil {
 			t.Error("expected error for nil source")
 		}
@@ -123,7 +124,7 @@ func TestDockerfileDetection(t *testing.T) {
 		}
 
 		detector := NewContainerDetector()
-		_, err := detector.DetectDockerfile(env, tmpDir)
+		_, err := detector.DetectDockerfile(env, tmpDir, eval.NewContext())
 		if err == nil {
 			t.Error("expected error for bare runtime")
 		}
@@ -557,7 +558,7 @@ func TestContainerEnvironment(t *testing.T) {
 			Source:  &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: dockerfilePath}}},
 		}
 
-		_, err := NewContainerEnvironment(env, tmpDir, "test-project")
+		_, err := NewContainerEnvironment(env, tmpDir, "test-project", eval.NewContext())
 		if err == nil {
 			t.Error("expected error for bare runtime")
 		}
@@ -569,7 +570,7 @@ func TestContainerEnvironment(t *testing.T) {
 			Source:  &ast.Value{Parts: []ast.ValuePart{&ast.LiteralValue{Text: dockerfilePath}}},
 		}
 
-		_, err := NewContainerEnvironment(env, tmpDir, "test-project")
+		_, err := NewContainerEnvironment(env, tmpDir, "test-project", eval.NewContext())
 		if err == nil {
 			t.Error("expected error for nil runtime")
 		}

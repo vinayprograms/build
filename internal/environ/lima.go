@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // LimaDetector detects and validates Lima VM configurations.
@@ -25,12 +26,15 @@ type LimaConfigResult struct {
 // DetectConfig searches for a Lima configuration in the given directory.
 // If source is provided, it uses that path directly.
 // Otherwise, it looks for lima.yaml in the project directory.
-func (d *LimaDetector) DetectConfig(baseDir string, source *ast.Value) (LimaConfigResult, error) {
+func (d *LimaDetector) DetectConfig(baseDir string, source *ast.Value, ctx *eval.Context) (LimaConfigResult, error) {
 	result := LimaConfigResult{}
 
 	// If source is provided, use that path directly
 	if source != nil {
-		sourcePath := extractLiteralPath(source)
+		sourcePath, err := ResolveSourcePath(".source:", source, ctx)
+		if err != nil {
+			return result, err
+		}
 		if sourcePath != "" {
 			if !filepath.IsAbs(sourcePath) {
 				sourcePath = filepath.Join(baseDir, sourcePath)

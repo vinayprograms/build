@@ -18,20 +18,91 @@ import (
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+
+	"github.com/vinayprograms/build/internal/ast"
 )
 
 // DockerClient wraps the Docker SDK client for container operations.
 type DockerClient struct {
-	cli *client.Client
+	cli     *client.Client
+	runtime ast.Runtime
 }
 
-// NewDockerClient creates a new Docker client using environment settings.
+// NewDockerClient creates a new Docker client using environment settings
+// (i.e. the "docker" runtime: $DOCKER_HOST / client.FromEnv defaults).
 func NewDockerClient() (*DockerClient, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
 	}
-	return &DockerClient{cli: cli}, nil
+	return &DockerClient{cli: cli, runtime: ast.RuntimeDocker}, nil
+}
+
+// NewDockerClientForRuntime creates a Docker SDK client configured for the
+// given container runtime. The Docker SDK talks to the Docker daemon socket
+// by default, which does not work for Podman - Podman exposes a different
+// API socket that must be located and passed explicitly via client.WithHost.
+// For runtimes other than "podman", this behaves exactly like NewDockerClient.
+func NewDockerClientForRuntime(runtime ast.Runtime) (*DockerClient, error) {
+	if runtime != ast.RuntimePodman {
+		return NewDockerClient()
+	}
+
+	opts := []client.Opt{client.WithAPIVersionNegotiation()}
+	if host := newPodmanSocketResolver().resolveHost(); host != "" {
+		opts = append(opts, client.WithHost(host))
+	} else {
+		// Last resort: $DOCKER_HOST / docker's usual defaults.
+		opts = append(opts, client.FromEnv)
+	}
+
+	cli, err := client.NewClientWithOpts(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create podman client: %w", err)
+	}
+	return &DockerClient{cli: cli, runtime: runtime}, nil
+}
+
+// dockerDesktopSharingMarkers are substrings that appear in the daemon error
+// text when Docker Desktop (macOS/Windows) refuses to bind-mount a directory
+// that isn't listed under Settings > Resources > File sharing. Podman (and
+// Docker on Linux, which has no such allowlist) never produce these.
+var dockerDesktopSharingMarkers = []string{
+	"bind source path does not exist",
+	"mounts denied",
+}
+
+// wrapContainerCreateError wraps a ContainerCreate failure as
+// "failed to create container: %w", adding a Docker Desktop file-sharing
+// hint when the runtime is Docker and the daemon's error text matches one of
+// the known file-sharing rejection markers (C7). hostDir is the host-side
+// bind mount source (the project/workspace directory) being mounted.
+func wrapContainerCreateError(err error, runtime ast.Runtime, hostDir string) error {
+	if err == nil {
+		return nil
+	}
+	if runtime == ast.RuntimeDocker && isDockerDesktopSharingError(err) {
+		abs, absErr := filepath.Abs(hostDir)
+		if absErr != nil {
+			abs = hostDir
+		}
+		return fmt.Errorf("failed to create container: %w (the project directory %s is not shared with Docker Desktop; add it under Settings > Resources > File sharing)", err, abs)
+	}
+	return fmt.Errorf("failed to create container: %w", err)
+}
+
+// isDockerDesktopSharingError reports whether err's text matches one of the
+// known Docker Desktop file-sharing rejection markers. The match is
+// case-insensitive: real Docker Desktop error text capitalizes "Mounts
+// denied", while the spec for this behavior gives the marker in lowercase.
+func isDockerDesktopSharingError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	for _, marker := range dockerDesktopSharingMarkers {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 // Close closes the Docker client connection.
@@ -220,7 +291,7 @@ func (d *DockerClient) RunCommand(ctx context.Context, imageTag string, command 
 
 	resp, err := d.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container: %w", err)
+		return nil, wrapContainerCreateError(err, d.runtime, workspaceDir)
 	}
 	containerID := resp.ID
 
@@ -288,7 +359,7 @@ func (d *DockerClient) RunCommandStreaming(ctx context.Context, imageTag string,
 
 	resp, err := d.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return -1, fmt.Errorf("failed to create container: %w", err)
+		return -1, wrapContainerCreateError(err, d.runtime, workspaceDir)
 	}
 	containerID := resp.ID
 
@@ -495,7 +566,7 @@ func (d *DockerClient) RunCommandWithWorkdir(ctx context.Context, imageTag strin
 
 	resp, err := d.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create container: %w", err)
+		return nil, wrapContainerCreateError(err, d.runtime, hostDir)
 	}
 	containerID := resp.ID
 
@@ -558,7 +629,7 @@ func (d *DockerClient) RunCommandStreamingWithWorkdir(ctx context.Context, image
 
 	resp, err := d.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
-		return -1, fmt.Errorf("failed to create container: %w", err)
+		return -1, wrapContainerCreateError(err, d.runtime, hostDir)
 	}
 	containerID := resp.ID
 

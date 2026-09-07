@@ -9,6 +9,7 @@ import (
 
 	"github.com/loft-sh/devpod/pkg/devcontainer/config"
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // DevcontainerEnvironment represents a devcontainer-based build environment.
@@ -25,7 +26,7 @@ type DevcontainerEnvironment struct {
 }
 
 // NewDevcontainerEnvironment creates a new DevcontainerEnvironment.
-func NewDevcontainerEnvironment(env *ast.Environment, projectDir, projectName string) (*DevcontainerEnvironment, error) {
+func NewDevcontainerEnvironment(env *ast.Environment, projectDir, projectName string, ctx *eval.Context) (*DevcontainerEnvironment, error) {
 	if env.Runtime == nil || *env.Runtime != ast.RuntimeDevcontainer {
 		return nil, &InvalidRuntimeError{Message: "not a devcontainer runtime"}
 	}
@@ -33,7 +34,10 @@ func NewDevcontainerEnvironment(env *ast.Environment, projectDir, projectName st
 	// Determine config path from .source directive or detect automatically
 	var relativePath string
 	if env.Source != nil {
-		sourcePath := extractLiteralPath(env.Source)
+		sourcePath, err := ResolveSourcePath(".source:", env.Source, ctx)
+		if err != nil {
+			return nil, err
+		}
 		if sourcePath != "" {
 			// Check if source is a directory - if so, append devcontainer.json
 			fullPath := filepath.Join(projectDir, sourcePath)

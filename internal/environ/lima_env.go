@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // LimaEnvironment represents a Lima VM-based build environment.
@@ -23,8 +24,9 @@ type LimaEnvironment struct {
 	runCommand func(name string, args ...string) *exec.Cmd
 }
 
-// NewLimaEnvironment creates a new LimaEnvironment.
-func NewLimaEnvironment(env *ast.Environment, projectDir, projectName string) (*LimaEnvironment, error) {
+// NewLimaEnvironment creates a new LimaEnvironment. ctx resolves any
+// interpolation in the .source: path.
+func NewLimaEnvironment(env *ast.Environment, projectDir, projectName string, ctx *eval.Context) (*LimaEnvironment, error) {
 	if env.Runtime == nil || *env.Runtime != ast.RuntimeLima {
 		return nil, &InvalidRuntimeError{Message: "not a lima runtime"}
 	}
@@ -32,7 +34,7 @@ func NewLimaEnvironment(env *ast.Environment, projectDir, projectName string) (*
 	detector := NewLimaDetector()
 
 	// Detect lima configuration
-	result, err := detector.DetectConfig(projectDir, env.Source)
+	result, err := detector.DetectConfig(projectDir, env.Source, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func (l *LimaEnvironment) EnsureReady(ctx context.Context, output io.Writer) err
 	// Check if VM exists and get its status
 	cmd := l.runCommand("limactl", "list", "--format", "{{.Name}}:{{.Status}}")
 	cmdOutput, err := cmd.Output()
-	
+
 	vmExists := false
 	vmRunning := false
 	if err == nil {

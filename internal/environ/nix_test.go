@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 func TestNixDetector_DetectConfig_ShellNix(t *testing.T) {
@@ -29,7 +30,7 @@ pkgs.mkShell {
 
 	// Test detection
 	detector := NewNixDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -67,7 +68,7 @@ func TestNixDetector_DetectConfig_FlakeNix(t *testing.T) {
 
 	// Test detection
 	detector := NewNixDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -107,7 +108,7 @@ func TestNixDetector_DetectConfig_FromSource(t *testing.T) {
 
 	// Test detection
 	detector := NewNixDetector()
-	result, err := detector.DetectConfig(tmpDir, source)
+	result, err := detector.DetectConfig(tmpDir, source, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -130,7 +131,7 @@ func TestNixDetector_DetectConfig_NotFound(t *testing.T) {
 
 	// Test detection
 	detector := NewNixDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -161,7 +162,7 @@ func TestNixDetector_DetectConfig_ShellNixPriority(t *testing.T) {
 
 	// Test detection - shell.nix should take priority
 	detector := NewNixDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)

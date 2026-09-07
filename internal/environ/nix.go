@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // NixType represents the type of Nix configuration.
@@ -48,12 +49,15 @@ type NixConfigResult struct {
 // Otherwise, it looks for:
 // 1. shell.nix (preferred)
 // 2. flake.nix
-func (d *NixDetector) DetectConfig(baseDir string, source *ast.Value) (NixConfigResult, error) {
+func (d *NixDetector) DetectConfig(baseDir string, source *ast.Value, ctx *eval.Context) (NixConfigResult, error) {
 	result := NixConfigResult{}
 
 	// If source is provided, use that path directly
 	if source != nil {
-		sourcePath := extractLiteralPath(source)
+		sourcePath, err := ResolveSourcePath(".source:", source, ctx)
+		if err != nil {
+			return result, err
+		}
 		if sourcePath != "" {
 			if !filepath.IsAbs(sourcePath) {
 				sourcePath = filepath.Join(baseDir, sourcePath)

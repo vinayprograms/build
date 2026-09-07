@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 func TestLimaDetector_DetectConfig_LimaYaml(t *testing.T) {
@@ -33,7 +34,7 @@ mounts:
 
 	// Test detection
 	detector := NewLimaDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -70,7 +71,7 @@ func TestLimaDetector_DetectConfig_FromSource(t *testing.T) {
 
 	// Test detection
 	detector := NewLimaDetector()
-	result, err := detector.DetectConfig(tmpDir, source)
+	result, err := detector.DetectConfig(tmpDir, source, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)
@@ -93,7 +94,7 @@ func TestLimaDetector_DetectConfig_NotFound(t *testing.T) {
 
 	// Test detection
 	detector := NewLimaDetector()
-	result, err := detector.DetectConfig(tmpDir, nil)
+	result, err := detector.DetectConfig(tmpDir, nil, eval.NewContext())
 
 	if err != nil {
 		t.Fatalf("DetectConfig() error = %v", err)

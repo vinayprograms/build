@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // ContainerEnvironment represents a container-based build environment.
@@ -21,8 +22,9 @@ type ContainerEnvironment struct {
 	dockerfilePath string
 }
 
-// NewContainerEnvironment creates a new ContainerEnvironment.
-func NewContainerEnvironment(env *ast.Environment, projectDir, projectName string) (*ContainerEnvironment, error) {
+// NewContainerEnvironment creates a new ContainerEnvironment. ctx resolves
+// any interpolation in the .source: path.
+func NewContainerEnvironment(env *ast.Environment, projectDir, projectName string, ctx *eval.Context) (*ContainerEnvironment, error) {
 	if env.Runtime == nil {
 		return nil, &InvalidRuntimeError{Message: "runtime not specified"}
 	}
@@ -39,16 +41,19 @@ func NewContainerEnvironment(env *ast.Environment, projectDir, projectName strin
 		return nil, err
 	}
 
-	// Connect to container daemon (Docker SDK works with both docker and podman)
-	dockerClient, err := NewDockerClient()
+	// Connect to container daemon. The Docker SDK client works for both
+	// docker and podman, but podman requires locating its own API socket
+	// rather than using the Docker daemon socket - see NewDockerClientForRuntime.
+	rtName := runtimeName(*env.Runtime)
+	dockerClient, err := NewDockerClientForRuntime(*env.Runtime)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to container daemon: %w", err)
+		return nil, fmt.Errorf("failed to connect to %s daemon: %w", rtName, err)
 	}
 
 	// Ping to ensure daemon is responsive
 	if err := dockerClient.Ping(context.Background()); err != nil {
 		dockerClient.Close()
-		return nil, fmt.Errorf("container daemon not responding: %w", err)
+		return nil, fmt.Errorf("%s daemon not responding: %w", rtName, err)
 	}
 
 	// Parse extra args from .args: directive
@@ -64,7 +69,7 @@ func NewContainerEnvironment(env *ast.Environment, projectDir, projectName strin
 	imageTag := GenerateImageTag(projectName, envName)
 
 	// Detect Dockerfile path
-	result, err := detector.DetectDockerfile(env, projectDir)
+	result, err := detector.DetectDockerfile(env, projectDir, ctx)
 	if err != nil {
 		dockerClient.Close()
 		return nil, err

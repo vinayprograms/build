@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // NixEnvironment represents a Nix-based build environment.
@@ -23,8 +24,9 @@ type NixEnvironment struct {
 	runCommand func(name string, args ...string) *exec.Cmd
 }
 
-// NewNixEnvironment creates a new NixEnvironment.
-func NewNixEnvironment(env *ast.Environment, projectDir string) (*NixEnvironment, error) {
+// NewNixEnvironment creates a new NixEnvironment. ctx resolves any
+// interpolation in the .source: path.
+func NewNixEnvironment(env *ast.Environment, projectDir string, ctx *eval.Context) (*NixEnvironment, error) {
 	if env.Runtime == nil || *env.Runtime != ast.RuntimeNix {
 		return nil, &InvalidRuntimeError{Message: "not a nix runtime"}
 	}
@@ -32,7 +34,7 @@ func NewNixEnvironment(env *ast.Environment, projectDir string) (*NixEnvironment
 	detector := NewNixDetector()
 
 	// Detect nix configuration
-	result, err := detector.DetectConfig(projectDir, env.Source)
+	result, err := detector.DetectConfig(projectDir, env.Source, ctx)
 	if err != nil {
 		return nil, err
 	}

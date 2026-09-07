@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/vinayprograms/build/internal/ast"
+	"github.com/vinayprograms/build/internal/eval"
 )
 
 // ContainerDetector detects and validates container environments.
@@ -29,7 +30,8 @@ type DockerfileResult struct {
 }
 
 // DetectDockerfile locates the Dockerfile specified in an environment's .source: directive.
-func (c *ContainerDetector) DetectDockerfile(env *ast.Environment, baseDir string) (DockerfileResult, error) {
+// ctx resolves any interpolation in the .source: path (see ResolveSourcePath).
+func (c *ContainerDetector) DetectDockerfile(env *ast.Environment, baseDir string, ctx *eval.Context) (DockerfileResult, error) {
 	result := DockerfileResult{}
 
 	// Validate runtime is a container runtime
@@ -45,8 +47,10 @@ func (c *ContainerDetector) DetectDockerfile(env *ast.Environment, baseDir strin
 		return result, &NoSourceError{Runtime: runtimeName(*env.Runtime)}
 	}
 
-	// Extract the source path (only literal paths supported for now)
-	sourcePath := extractLiteralPath(env.Source)
+	sourcePath, err := ResolveSourcePath(".source:", env.Source, ctx)
+	if err != nil {
+		return result, err
+	}
 	if sourcePath == "" {
 		return result, &NoSourceError{Runtime: runtimeName(*env.Runtime)}
 	}
@@ -147,23 +151,4 @@ func runtimeName(r ast.Runtime) string {
 	default:
 		return "unknown"
 	}
-}
-
-// extractLiteralPath extracts a literal path from a Value.
-// Returns empty string if the value contains interpolations.
-func extractLiteralPath(v *ast.Value) string {
-	if v == nil || len(v.Parts) == 0 {
-		return ""
-	}
-	var path strings.Builder
-	for _, part := range v.Parts {
-		if lit, ok := part.(*ast.LiteralValue); ok {
-			path.WriteString(lit.Text)
-		} else {
-			// Contains non-literal parts (interpolation, function call)
-			// For now, we don't support these in .source: paths
-			return ""
-		}
-	}
-	return path.String()
 }
