@@ -5,7 +5,7 @@
 
 .environment:
     .using: bare
-    .requires: gcc python3@latest cmake@3.20 nodejs@18.12 go@1.21.0
+    .requires: gcc python3@latest go
 
 @test:
     echo "version test"

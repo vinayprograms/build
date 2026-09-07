@@ -5,10 +5,9 @@
 
 docker_dir = ./docker
 
-.environment: ci
+.environment:
     .using: docker
     .source: {docker_dir}/ci.Dockerfile
-    .args: --platform linux/amd64
 
 @test:
     echo "interpolation test"
