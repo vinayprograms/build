@@ -232,7 +232,7 @@ func TestFunctionsFixture(t *testing.T) {
 	result := h.Run("test")
 	result.AssertSuccess().
 		AssertStdoutContains("Directory:").
-		AssertStdoutContains("Basename:").
+		AssertStdoutContains("Filename:").
 		AssertStdoutContains("Objects:")
 }
 

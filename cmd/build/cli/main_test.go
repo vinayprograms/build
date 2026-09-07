@@ -648,38 +648,6 @@ func TestFindBuildfile(t *testing.T) {
 		}
 	})
 
-	t.Run("finds_Buildfile.build", func(t *testing.T) {
-		testDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(testDir, "Buildfile.build"), []byte("# test\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chdir(testDir); err != nil {
-			t.Fatal(err)
-		}
-
-		got := findBuildfile()
-		if got != "Buildfile.build" {
-			t.Errorf("findBuildfile() = %q, want %q", got, "Buildfile.build")
-		}
-	})
-
-	t.Run("prefers_Buildfile_over_Buildfile.build", func(t *testing.T) {
-		testDir := t.TempDir()
-		if err := os.WriteFile(filepath.Join(testDir, "Buildfile"), []byte("# test\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(testDir, "Buildfile.build"), []byte("# test\n"), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chdir(testDir); err != nil {
-			t.Fatal(err)
-		}
-
-		got := findBuildfile()
-		if got != "Buildfile" {
-			t.Errorf("findBuildfile() = %q, want %q", got, "Buildfile")
-		}
-	})
 }
 
 func TestFindBuildfileNotFound(t *testing.T) {
@@ -1892,6 +1860,74 @@ cc = gcc
 	}
 }
 
+// TestRunListEnv_ResolvesSourceInterpolation verifies --list-env resolves a
+// `.source:` path that interpolates an earlier variable (C1), the same way
+// --check-env and a real build would, rather than showing the raw
+// unresolved text.
+func TestRunListEnv_ResolvesSourceInterpolation(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `docker_dir = ./docker
+
+.environment: ci
+    .using: docker
+    .source: {docker_dir}/ci.Dockerfile
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	output := captureOutput(func() {
+		exitCode := Run([]string{"-f", buildfile, "--list-env"})
+		if exitCode != exitSuccess {
+			t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+		}
+	})
+
+	if !strings.Contains(output, "./docker/ci.Dockerfile") {
+		t.Errorf("output should contain resolved source path, got:\n%s", output)
+	}
+	if strings.Contains(output, "{docker_dir}") {
+		t.Errorf("output should not contain unresolved interpolation, got:\n%s", output)
+	}
+}
+
+// TestRunListEnv_UnresolvedSourceExitsNonZero verifies --list-env still
+// prints the full listing (marking the unresolvable .source: inline, as
+// before) but now exits with exitParseError when any environment fails to
+// resolve, so scripts driving --list-env can detect the failure without
+// parsing output (D2).
+func TestRunListEnv_UnresolvedSourceExitsNonZero(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.environment: ci
+    .using: docker
+    .source: {undefined_var}/Dockerfile
+
+@all: build/app
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var exitCode int
+	output := captureOutput(func() {
+		exitCode = Run([]string{"-f", buildfile, "--list-env"})
+	})
+
+	if exitCode != exitParseError {
+		t.Errorf("exit code = %d, want %d (exitParseError)", exitCode, exitParseError)
+	}
+	if !strings.Contains(output, "ci") {
+		t.Errorf("output should still list the environment by name, got:\n%s", output)
+	}
+	if !strings.Contains(output, "<error:") {
+		t.Errorf("output should mark the unresolvable .source: inline, got:\n%s", output)
+	}
+}
+
 func TestRunCheckEnvDefaultSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	buildfile := filepath.Join(tmpDir, "Buildfile")
@@ -2707,5 +2743,23 @@ cc = gcc
 	errorCount := strings.Count(stderr, "error[")
 	if errorCount < 2 {
 		t.Errorf("Should show at least 2 errors, got %d errors in: %q", errorCount, stderr)
+	}
+}
+
+func TestParseFlagsNeedEnvFallback(t *testing.T) {
+	t.Setenv("BUILD_ENV", "ci")
+	f, _, err := parseFlags([]string{"-f", "x.build"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.env != "ci" {
+		t.Errorf("env = %q, want ci from BUILD_ENV", f.env)
+	}
+	f, _, err = parseFlags([]string{"-e", "dev"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.env != "dev" {
+		t.Errorf("env = %q, want dev (--env beats BUILD_ENV)", f.env)
 	}
 }

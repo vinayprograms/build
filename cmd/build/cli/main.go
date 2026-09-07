@@ -1,4 +1,4 @@
-// Command build is a Make-inspired build tool with readable syntax.
+// Command build is a Make-inspired recipe runner with readable syntax.
 package cli
 
 import (
@@ -169,31 +169,15 @@ func Run(args []string) int {
 		return exitParseError
 	}
 
-	// Handle --check-env flag
-	if f.checkEnv {
-		buildfileDir := filepath.Dir(buildfile)
-		return checkEnvironment(result, f.env, buildfileDir, f.verbose, f.showInstall)
-	}
-
-	// Handle --list-env flag
+	// Handle --list-env flag. This resolves .source: through the same
+	// evaluator used for a real build (see checkEnvironment below) so a
+	// variable used in .source: (e.g. `.source: {docker_dir}/ci.Dockerfile`)
+	// is displayed the same way it will be used - a Buildfile that only
+	// defines variables used by environments still needs no semantic
+	// analysis to list them, so this runs before that phase.
 	if f.listEnv {
-		return listEnvironments(result)
-	}
-
-	// Show what was parsed (verbose mode) - basic info before semantic analysis
-	if f.verbose {
-		fmt.Printf("Buildfile: %s\n", buildfile)
-		fmt.Printf("Parsed %d statements\n", len(result.Statements()))
-
-		// Count statement types
-		counts := make(map[string]int)
-		for _, stmt := range result.Statements() {
-			counts[stmt.StatementType()]++
-		}
-
-		for stmtType, count := range counts {
-			fmt.Printf("  %s: %d\n", stmtType, count)
-		}
+		listEnvCtx := EvaluateVariables(result, filepath.Dir(buildfile))
+		return listEnvironments(result, listEnvCtx.Context())
 	}
 
 	// Run semantic analysis
@@ -255,6 +239,30 @@ func Run(args []string) int {
 			fmt.Fprint(os.Stderr, formatted.Format())
 		}
 		return exitParseError
+	}
+
+	// Handle --check-env flag. This runs after evaluation (rather than
+	// immediately after parsing) so that an interpolated .source: path can
+	// be resolved through the same evaluation context used for a real
+	// build.
+	if f.checkEnv {
+		return checkEnvironment(result, f.env, buildfileDir, f.verbose, f.showInstall, evalResult.Context())
+	}
+
+	// Show what was parsed (verbose mode) - basic info before planning
+	if f.verbose {
+		fmt.Printf("Buildfile: %s\n", buildfile)
+		fmt.Printf("Parsed %d statements\n", len(result.Statements()))
+
+		// Count statement types
+		counts := make(map[string]int)
+		for _, stmt := range result.Statements() {
+			counts[stmt.StatementType()]++
+		}
+
+		for stmtType, count := range counts {
+			fmt.Printf("  %s: %d\n", stmtType, count)
+		}
 	}
 
 	// Extract targets for planning
@@ -321,7 +329,7 @@ func Run(args []string) int {
 		return exitParseError
 	}
 	projectName := filepath.Base(absBuildfileDir)
-	runtimeEnv, err := getRuntimeEnvironment(result, f.env, absBuildfileDir, projectName)
+	runtimeEnv, err := getRuntimeEnvironment(result, f.env, absBuildfileDir, projectName, ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return exitEnvError
@@ -381,10 +389,11 @@ func Run(args []string) int {
 					continue
 				}
 
-				// Report command output
-				for _, er := range r.Results {
-					reporter.CommandOutput(er.Command(), er.Stdout(), er.Stderr())
-				}
+				// Note: command output is already printed by the executor
+				// (via its emitter) as each command runs. Do not re-report
+				// it here - reporter and the executor's emitter both write
+				// to the same output, so doing so would print every
+				// command's output twice (B6).
 
 				if r.Error != nil {
 					reporter.BuildCompleted(r.Target, false, r.Error.Error())
@@ -553,13 +562,18 @@ func parseFlags(args []string) (*flags, []string, error) {
 		return nil, nil, err
 	}
 
+	// BUILD_ENV selects an environment when --env is not given (lower precedence).
+	if f.env == "" {
+		f.env = os.Getenv("BUILD_ENV")
+	}
+
 	return f, fs.Args(), nil
 }
 
 func printUsage() {
 	fmt.Print(`Usage: build [options] [targets...]
 
-A Make-inspired build tool with readable syntax.
+A Make-inspired recipe runner: keep files up to date with readable recipes.
 
 Options:
   -f, --file PATH      Use alternate Buildfile
@@ -593,18 +607,18 @@ Debug Options:
   --debug-plan         Dump build planning / target matching (for development)
 
 Examples:
-  build                    Build default target
-  build @test              Build phony target
-  build -n                 Dry run (show what would execute)
-  build -v                 Verbose output (show staleness checks)
-  build -f other.build     Use alternate file
-  build -j4                Build with 4 parallel jobs
-  build @clean @build      Build multiple targets in order
+  build                     Run the default target
+  build @test               Run phony target
+  build -n                  Dry run (show what would execute)
+  build -v                  Verbose output (show staleness checks)
+  build -f other.build       Use alternate file
+  build -j4                 Run with 4 parallel jobs
+  build @clean @build       Run multiple targets in order
 
 Environment Commands:
-  build --list-env         List all defined environments
-  build --check-env        Check if requirements are satisfied
-  build --check-env -e ci  Check named environment "ci"
+  build --list-env          List all defined environments
+  build --check-env         Check if requirements are satisfied
+  build --check-env -e ci   Check named environment "ci"
   build --check-env --show-install
                            Show install commands for missing tools
 
@@ -652,7 +666,7 @@ func (r *realFileSystem) ModTime(path string) (time.Time, error) {
 }
 
 func findBuildfile() string {
-	candidates := []string{"Buildfile", "buildfile", "Buildfile.build"}
+	candidates := []string{"Buildfile", "buildfile"}
 
 	// Start from current directory
 	dir, err := os.Getwd()

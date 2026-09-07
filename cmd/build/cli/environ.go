@@ -8,7 +8,23 @@ import (
 
 	"github.com/vinayprograms/build/internal/ast"
 	"github.com/vinayprograms/build/internal/environ"
+	"github.com/vinayprograms/build/internal/eval"
 )
+
+// evalContextOrEmpty returns the concrete *eval.Context backing ctx, or a
+// fresh empty one if ctx is nil or not the expected concrete adapter type.
+// environ constructors need the concrete type to run the evaluator directly;
+// an empty context still resolves plain-literal source paths correctly, so
+// this degrades gracefully rather than panicking.
+func evalContextOrEmpty(ctx EvalContext) *eval.Context {
+	if ctx == nil {
+		return eval.NewContext()
+	}
+	if eca, ok := ctx.(*evalContextAdapter); ok {
+		return eca.ctx
+	}
+	return eval.NewContext()
+}
 
 // validateEnvironmentRequirements checks that the selected environment's requirements are met.
 // Returns nil if no environment is selected, no requirements exist, or all requirements are satisfied.
@@ -71,7 +87,8 @@ func validateEnvironmentRequirements(result BuildfileResult, envName string) err
 // getRuntimeEnvironment creates a RuntimeEnvironment for the selected environment.
 // Returns nil if the environment is bare (no special runtime needed).
 // Returns an error if the environment doesn't exist or setup fails.
-func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectName string) (environ.RuntimeEnvironment, error) {
+// ctx resolves any interpolation in the environment's .source: path.
+func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectName string, ctx EvalContext) (environ.RuntimeEnvironment, error) {
 	envs := GetEnvironments(result)
 	if len(envs) == 0 {
 		return nil, nil // No environments defined
@@ -110,6 +127,7 @@ func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectN
 	}
 
 	runtime := *selectedEnv.Runtime
+	evalCtx := evalContextOrEmpty(ctx)
 
 	var runtimeEnv environ.RuntimeEnvironment
 	var err error
@@ -119,25 +137,25 @@ func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectN
 		return nil, nil // Bare runtime - no special environment
 
 	case ast.RuntimeDocker, ast.RuntimePodman:
-		runtimeEnv, err = environ.NewContainerEnvironment(selectedEnv, projectDir, projectName)
+		runtimeEnv, err = environ.NewContainerEnvironment(selectedEnv, projectDir, projectName, evalCtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create container environment: %w", err)
 		}
 
 	case ast.RuntimeDevcontainer:
-		runtimeEnv, err = environ.NewDevcontainerEnvironment(selectedEnv, projectDir, projectName)
+		runtimeEnv, err = environ.NewDevcontainerEnvironment(selectedEnv, projectDir, projectName, evalCtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create devcontainer environment: %w", err)
 		}
 
 	case ast.RuntimeNix:
-		runtimeEnv, err = environ.NewNixEnvironment(selectedEnv, projectDir)
+		runtimeEnv, err = environ.NewNixEnvironment(selectedEnv, projectDir, evalCtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create nix environment: %w", err)
 		}
 
 	case ast.RuntimeLima:
-		runtimeEnv, err = environ.NewLimaEnvironment(selectedEnv, projectDir, projectName)
+		runtimeEnv, err = environ.NewLimaEnvironment(selectedEnv, projectDir, projectName, evalCtx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create lima environment: %w", err)
 		}
@@ -159,8 +177,9 @@ func getRuntimeEnvironment(result BuildfileResult, envName, projectDir, projectN
 // If envName is empty, checks the default environment.
 // If showInstall is true, shows install suggestions for missing binaries.
 // buildfileDir is the directory containing the Buildfile (for resolving relative paths).
+// ctx resolves any interpolation in the environment's .source: path.
 // Returns exit code.
-func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verbose, showInstall bool) int {
+func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verbose, showInstall bool, ctx EvalContext) int {
 	envs := GetEnvironments(result)
 
 	// Find the selected environment
@@ -232,26 +251,31 @@ func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verb
 	if !isBare {
 		// Container environments - validate Dockerfile and runtime
 		if *selectedEnv.Runtime == ast.RuntimeDocker || *selectedEnv.Runtime == ast.RuntimePodman {
-			return checkContainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+			return checkContainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall, ctx)
 		}
 
 		// Devcontainer environment
 		if *selectedEnv.Runtime == ast.RuntimeDevcontainer {
-			return checkDevcontainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+			return checkDevcontainerEnvironment(selectedEnv, buildfileDir, verbose, showInstall, ctx)
 		}
 
 		// Nix environment
 		if *selectedEnv.Runtime == ast.RuntimeNix {
-			return checkNixEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+			return checkNixEnvironment(selectedEnv, buildfileDir, verbose, showInstall, ctx)
 		}
 
 		// Lima environment
 		if *selectedEnv.Runtime == ast.RuntimeLima {
-			return checkLimaEnvironment(selectedEnv, buildfileDir, verbose, showInstall)
+			return checkLimaEnvironment(selectedEnv, buildfileDir, verbose, showInstall, ctx)
 		}
 
 		// Other non-bare environments - just report status for now
-		fmt.Printf("Source: %s\n", valueToTextSimple(selectedEnv.Source))
+		sourceText, err := environ.ResolveSourcePath(".source:", selectedEnv.Source, evalContextOrEmpty(ctx))
+		if err != nil {
+			fmt.Printf("✗ Source: %v\n", err)
+			return exitEnvError
+		}
+		fmt.Printf("Source: %s\n", sourceText)
 		if selectedEnv.Args != nil {
 			fmt.Printf("Args: %s\n", valueToTextSimple(selectedEnv.Args))
 		}
@@ -313,14 +337,24 @@ func checkEnvironment(result BuildfileResult, envName, buildfileDir string, verb
 	return exitSuccess
 }
 
-// listEnvironments lists all defined environments.
-func listEnvironments(result BuildfileResult) int {
+// listEnvironments lists all defined environments. ctx resolves any
+// interpolation in each environment's .source: path (e.g.
+// `.source: {docker_dir}/ci.Dockerfile`) the same way a real build or
+// --check-env would; if resolution fails for a given environment, its
+// source is shown as an error rather than aborting the whole listing. The
+// full listing is always printed, but the exit code reflects whether any
+// environment failed to resolve (exitParseError) so scripts driving
+// --list-env can detect the failure without parsing the output.
+func listEnvironments(result BuildfileResult, ctx EvalContext) int {
 	envs := GetEnvironments(result)
 
 	if len(envs) == 0 {
 		fmt.Println("No environments defined")
 		return exitSuccess
 	}
+
+	evalCtx := evalContextOrEmpty(ctx)
+	hadUnresolved := false
 
 	fmt.Printf("Available environments (%d):\n", len(envs))
 
@@ -335,14 +369,35 @@ func listEnvironments(result BuildfileResult) int {
 			runtime = env.Runtime.String()
 		}
 
-		reqCount := len(env.Requires)
-		if reqCount == 0 {
-			fmt.Printf("  %-20s  %-15s\n", name, runtime)
-		} else if reqCount == 1 {
-			fmt.Printf("  %-20s  %-15s  (1 requirement)\n", name, runtime)
+		detail := ""
+		if env.Source != nil {
+			if sourceText, err := environ.ResolveSourcePath(".source:", env.Source, evalCtx); err != nil {
+				detail = fmt.Sprintf("source: <error: %v>", err)
+				hadUnresolved = true
+			} else {
+				detail = "source: " + sourceText
+			}
 		} else {
-			fmt.Printf("  %-20s  %-15s  (%d requirements)\n", name, runtime, reqCount)
+			reqCount := len(env.Requires)
+			switch reqCount {
+			case 0:
+				// no detail
+			case 1:
+				detail = "1 requirement"
+			default:
+				detail = fmt.Sprintf("%d requirements", reqCount)
+			}
 		}
+
+		if detail == "" {
+			fmt.Printf("  %-20s  %-15s\n", name, runtime)
+		} else {
+			fmt.Printf("  %-20s  %-15s  (%s)\n", name, runtime, detail)
+		}
+	}
+
+	if hadUnresolved {
+		return exitParseError
 	}
 
 	return exitSuccess
@@ -372,7 +427,7 @@ func valueToTextSimple(v *ast.Value) string {
 }
 
 // checkContainerEnvironment checks a Docker/Podman container environment.
-func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool, ctx EvalContext) int {
 	detector := environ.NewContainerDetector()
 
 	// Check if runtime binary exists
@@ -395,7 +450,7 @@ func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbos
 	}
 
 	// Check if Dockerfile exists
-	result, err := detector.DetectDockerfile(env, buildfileDir)
+	result, err := detector.DetectDockerfile(env, buildfileDir, evalContextOrEmpty(ctx))
 	if err != nil {
 		fmt.Printf("✗ Source: %s\n", err)
 		return exitEnvError
@@ -437,7 +492,7 @@ func checkContainerEnvironment(env *ast.Environment, buildfileDir string, verbos
 }
 
 // checkDevcontainerEnvironment checks a devcontainer environment.
-func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool, ctx EvalContext) int {
 	detector := environ.NewDevcontainerDetector()
 	runner := environ.NewDevcontainerRunner(buildfileDir)
 
@@ -457,7 +512,11 @@ func checkDevcontainerEnvironment(env *ast.Environment, buildfileDir string, ver
 	var configPath string
 	if env.Source != nil {
 		// Use the specified source path
-		sourcePath := valueToTextSimple(env.Source)
+		sourcePath, err := environ.ResolveSourcePath(".source:", env.Source, evalContextOrEmpty(ctx))
+		if err != nil {
+			fmt.Printf("✗ Source: %v\n", err)
+			return exitEnvError
+		}
 		configPath = filepath.Join(buildfileDir, sourcePath)
 
 		// Check if the specified file exists
@@ -530,7 +589,7 @@ func printDevcontainerConfig(cfg *environ.DevcontainerConfig, verbose bool) {
 }
 
 // checkNixEnvironment checks a Nix environment.
-func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool, ctx EvalContext) int {
 	detector := environ.NewNixDetector()
 	runner := environ.NewNixRunner(buildfileDir)
 
@@ -547,7 +606,7 @@ func checkNixEnvironment(env *ast.Environment, buildfileDir string, verbose, sho
 	}
 
 	// Detect Nix configuration
-	result, err := detector.DetectConfig(buildfileDir, env.Source)
+	result, err := detector.DetectConfig(buildfileDir, env.Source, evalContextOrEmpty(ctx))
 	if err != nil {
 		fmt.Printf("✗ Configuration: error detecting config: %v\n", err)
 		return exitEnvError
@@ -588,7 +647,7 @@ func parseArgs(argsStr string) []string {
 }
 
 // checkLimaEnvironment checks a Lima VM environment (macOS).
-func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool) int {
+func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, showInstall bool, ctx EvalContext) int {
 	detector := environ.NewLimaDetector()
 
 	// Determine VM name from environment name or default
@@ -611,7 +670,7 @@ func checkLimaEnvironment(env *ast.Environment, buildfileDir string, verbose, sh
 	}
 
 	// Detect Lima configuration
-	result, err := detector.DetectConfig(buildfileDir, env.Source)
+	result, err := detector.DetectConfig(buildfileDir, env.Source, evalContextOrEmpty(ctx))
 	if err != nil {
 		fmt.Printf("✗ Configuration: error detecting config: %v\n", err)
 		return exitEnvError

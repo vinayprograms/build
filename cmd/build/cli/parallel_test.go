@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -370,4 +371,82 @@ func TestRunWithoutParallel_ExecutesSequentially(t *testing.T) {
 	if exitCode != exitSuccess {
 		t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
 	}
+}
+
+// ===========================================================================
+// B6: Output printed exactly once (parallel and sequential)
+// ===========================================================================
+
+// TestRunWithParallel_OutputPrintedOnce covers B6: with parallel workers,
+// each command's output must be printed exactly once, not duplicated by a
+// re-report in the results-collection loop.
+func TestRunWithParallel_OutputPrintedOnce(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `.parallel: 2
+
+@all: @clean
+
+@clean:
+    echo "Cleaning build artifacts"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	output := captureOutput(func() {
+		exitCode := Run([]string{"-f", buildfile, "@all"})
+		if exitCode != exitSuccess {
+			t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+		}
+	})
+
+	count := countExactLines(output, "Cleaning build artifacts")
+	if count != 1 {
+		t.Errorf("output contained %d occurrences of command output, want 1:\n%s", count, output)
+	}
+}
+
+// TestRunSequential_OutputPrintedOnce covers B6's sequential-path check: -v
+// (verbose) mode must not duplicate output either.
+func TestRunSequential_OutputPrintedOnce(t *testing.T) {
+	tmpDir := t.TempDir()
+	buildfile := filepath.Join(tmpDir, "Buildfile")
+	content := `@clean:
+    echo "Cleaning build artifacts"
+`
+	if err := os.WriteFile(buildfile, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	output := captureOutput(func() {
+		exitCode := Run([]string{"-v", "-f", buildfile, "@clean"})
+		if exitCode != exitSuccess {
+			t.Errorf("exit code = %d, want %d", exitCode, exitSuccess)
+		}
+	})
+
+	count := countExactLines(output, "Cleaning build artifacts")
+	if count != 1 {
+		t.Errorf("verbose output contained %d occurrences of command output, want 1:\n%s", count, output)
+	}
+}
+
+// countExactLines counts lines in output whose trimmed content exactly
+// equals want. Unlike strings.Count, this doesn't also match want when it
+// appears as a substring of a different line - e.g. the echoed command line
+// `echo "Cleaning build artifacts"` contains the substring "Cleaning build
+// artifacts" but isn't the same line as the command's actual stdout output.
+// CLIWriter (the default writer for both TTY and plain non-TTY output as of
+// C5) always echoes the command before running it, so a plain substring
+// count would over-count by one for any command whose text contains its own
+// output.
+func countExactLines(output, want string) int {
+	count := 0
+	for _, line := range strings.Split(output, "\n") {
+		if strings.TrimSpace(line) == want {
+			count++
+		}
+	}
+	return count
 }
